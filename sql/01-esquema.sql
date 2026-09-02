@@ -578,6 +578,9 @@ begin
     execute format('alter table farmacia.%I enable row level security', t);
     execute format('revoke all on farmacia.%I from anon', t);
     execute format('grant select, insert, update on farmacia.%I to authenticated', t);
+    -- service_role salta RLS, pero igual necesita el permiso de tabla.
+    -- Solo se usa desde el servidor (migraciones): nunca viaja al navegador.
+    execute format('grant select, insert, update, delete on farmacia.%I to service_role', t);
   end loop;
 end $$;
 

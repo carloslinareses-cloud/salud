@@ -1,2 +1,5 @@
 # archivos de trabajo, no van al repositorio
 sql/*.json
+__pycache__/
+*.pyc
+.env

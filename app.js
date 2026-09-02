@@ -17,14 +17,16 @@
       d: '1.496 pacientes, 414 medicamentos y 645 entregas, sacados de los Excel de la Dirección de Salud' },
     { e: 'hecho', t: 'Base de datos, permisos y bitácora',
       d: '10 tablas, 26 permisos y 14 candados. Probado: no deja despachar vencidos, ni dejar existencia en negativo, ni borrar la bitácora' },
-    { e: 'curso', t: 'Pantalla de entrega de medicamentos',
-      d: 'Buscar al paciente, proponer el lote que vence primero y descontar del inventario' },
-    { e: 'falta', t: 'Pantalla de entrada de mercancía',
+    { e: 'hecho', t: 'Pantalla de entrega de medicamentos',
+      d: 'Busca a la persona o al centro, propone el lote que vence primero y descuenta del inventario' },
+    { e: 'hecho', t: 'Datos actuales cargados',
+      d: '455 medicamentos, 472 lotes y 1.496 pacientes. 78 quedaron marcados para revisar: ninguno se perdió' },
+    { e: 'curso', t: 'Pantalla de entrada de mercancía',
       d: 'Registrar lo que llega, con su lote y su fecha de vencimiento' },
     { e: 'falta', t: 'Panel del administrador',
       d: 'Crear usuarios, ver la actividad de todos y la bitácora completa' },
-    { e: 'falta', t: 'Carga de los datos actuales',
-      d: 'Pasar pacientes y catálogo, marcando lo que haga falta revisar a mano' }
+    { e: 'falta', t: 'Traspaso del historial de entregas',
+      d: 'Las 3.448 entregas del registro diario, para poder consultarlas' }
   ];
 
   var MARCA = { hecho: '✓', curso: '•', falta: '' };
@@ -130,7 +132,14 @@
     $('chipUsuario').textContent = (perfil.nombre || usuario.email) + ' · ' + perfil.rol;
     $('chipUsuario').hidden = false;
     $('btnSalir').hidden = false;
-    $('contenidoPanel').innerHTML =
+    var zona = $('contenidoPanel');
+    zona.innerHTML = '';
+
+    if ((perfil.rol === 'despacho' || perfil.rol === 'admin') && window.PANTALLA_DESPACHO) {
+      window.PANTALLA_DESPACHO(sb, zona);
+      return;
+    }
+    zona.innerHTML =
       '<div class="tarjeta"><h2>En construcción</h2>' +
       '<p class="sub">Esta pantalla se habilita en la siguiente etapa.</p></div>';
   }
