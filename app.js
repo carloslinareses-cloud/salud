@@ -15,9 +15,9 @@
       d: 'salud.alcaldiadecharallave.com, con su repositorio y publicación automática' },
     { e: 'hecho', t: 'Datos actuales leídos y revisados',
       d: '1.496 pacientes, 414 medicamentos y 645 entregas, sacados de los Excel de la Dirección de Salud' },
-    { e: 'curso', t: 'Base de datos y permisos',
-      d: 'Productos, lotes con vencimiento, movimientos, pacientes y los tres perfiles de usuario' },
-    { e: 'falta', t: 'Pantalla de entrega de medicamentos',
+    { e: 'hecho', t: 'Base de datos, permisos y bitácora',
+      d: '10 tablas, 26 permisos y 14 candados. Probado: no deja despachar vencidos, ni dejar existencia en negativo, ni borrar la bitácora' },
+    { e: 'curso', t: 'Pantalla de entrega de medicamentos',
       d: 'Buscar al paciente, proponer el lote que vence primero y descontar del inventario' },
     { e: 'falta', t: 'Pantalla de entrada de mercancía',
       d: 'Registrar lo que llega, con su lote y su fecha de vencimiento' },
@@ -48,7 +48,8 @@
   function iniciarSupabase() {
     if (!window.CONFIG || !window.CONFIG.listo()) return false;
     if (!window.supabase) return false;
-    sb = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY);
+    sb = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY,
+      { db: { schema: window.CONFIG.ESQUEMA || 'farmacia' } });
     return true;
   }
 
