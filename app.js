@@ -129,16 +129,57 @@
     return sb.auth.getUser().then(function (r) {
       var u = r && r.data ? r.data.user : null;
       if (!u) return;
-      return sb.from('perfiles').select('nombre, rol, activo').eq('id', u.id).single()
+      return sb.from('perfiles').select('nombre, rol, activo, debe_cambiar_clave').eq('id', u.id).single()
         .then(function (p) {
           var perfil = p && p.data ? p.data : null;
           if (!perfil || perfil.activo === false) {
             mostrarError('Tu usuario está desactivado. Habla con el administrador.');
             return sb.auth.signOut();
           }
+          if (perfil.debe_cambiar_clave) { pedirCambioClave(u, perfil); return; }
           abrirPanel(u, perfil);
         });
     });
+  }
+
+  /* ---------------------------------------------------------------
+     Cambio de contraseña obligatorio la primera vez.
+     Mientras no la cambie, no ve ninguna pantalla del sistema.
+  --------------------------------------------------------------- */
+  function pedirCambioClave(usuario, perfil) {
+    $('vistaAcceso').hidden = true;
+    $('vistaPanel').hidden = true;
+    $('vistaClave').hidden = false;
+    $('chipUsuario').textContent = perfil.nombre || usuario.email;
+    $('chipUsuario').hidden = false;
+    $('btnSalir').hidden = false;
+
+    var btn = $('btnGuardarClave'), err = $('errorClave');
+    btn.onclick = function () {
+      err.hidden = true;
+      var c1 = $('clave1').value, c2 = $('clave2').value;
+      var problema = window.FARM ? window.FARM.revisaClave(c1) : (c1.length < 8 ? 'Muy corta.' : null);
+      if (problema) { err.textContent = problema; err.hidden = false; return; }
+      if (c1 !== c2) { err.textContent = 'Las dos no coinciden. Escríbelas de nuevo.'; err.hidden = false; return; }
+
+      btn.disabled = true; btn.textContent = 'Guardando…';
+      sb.auth.updateUser({ password: c1 }).then(function (r) {
+        if (r.error) throw r.error;
+        return sb.from('perfiles')
+          .update({ debe_cambiar_clave: false, clave_cambiada_en: new Date().toISOString() })
+          .eq('id', usuario.id);
+      }).then(function (r) {
+        if (r && r.error) throw r.error;
+        $('vistaClave').hidden = true;
+        perfil.debe_cambiar_clave = false;
+        abrirPanel(usuario, perfil);
+      }).catch(function (e) {
+        // Nunca decimos que se guardó si el servidor no confirmó.
+        err.textContent = window.FARM ? window.FARM.traduceError(e) : (e.message || String(e));
+        err.hidden = false;
+        btn.disabled = false; btn.textContent = 'Guardar y entrar';
+      });
+    };
   }
 
   function abrirPanel(usuario, perfil) {

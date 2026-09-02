@@ -290,6 +290,26 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
       </div>
     </section>
 
+    <!-- ======== CAMBIO DE CONTRASEÑA OBLIGATORIO ======== -->
+    <section id="vistaClave" class="acceso" hidden>
+      <div class="tarjeta">
+        <div class="escudo" aria-hidden="true">🔑</div>
+        <h1>Cambia tu contraseña</h1>
+        <p class="sub">La que tienes ahora la puso otra persona, así que no es solo tuya.
+          Elige una nueva para poder entrar.</p>
+
+        <label for="clave1">Contraseña nueva</label>
+        <input id="clave1" type="password" autocomplete="new-password" placeholder="Al menos 8 caracteres">
+        <label for="clave2">Escríbela otra vez</label>
+        <input id="clave2" type="password" autocomplete="new-password">
+        <button class="principal" id="btnGuardarClave" type="button">Guardar y entrar</button>
+        <div id="errorClave" class="aviso bad" hidden></div>
+        <p class="sub chico" style="margin-top:14px;text-align:left">
+          Que lleve letras y números, y que no sea fácil de adivinar.
+          Si la olvidas, el administrador te la puede restablecer.</p>
+      </div>
+    </section>
+
     <!-- ======== PANEL (se arma según el perfil) ======== -->
     <section id="vistaPanel" hidden>
       <div class="tarjeta">
@@ -310,6 +330,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 </footer>
 
 <script src="config.js"></script>
+<script src="comunes.js"></script>
 <script src="despacho.js"></script>
 <script src="inventario.js"></script>
 <script src="admin.js"></script>

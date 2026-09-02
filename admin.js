@@ -225,7 +225,10 @@
 
       z.querySelectorAll('[data-u]').forEach(function (b) {
         b.addEventListener('click', function () {
-          sb.from('perfiles').update({ activo: b.dataset.a !== '1', actualizado_en: new Date().toISOString() })
+          var activando = b.dataset.a !== '1';
+          sb.from('perfiles').update({ activo: activando,
+                                       debe_cambiar_clave: activando ? true : undefined,
+                                       actualizado_en: new Date().toISOString() })
             .eq('id', b.dataset.u).then(function (r) {
               if (r.error) { aviso('bad', r.error.message); return; }
               aviso('ok', 'Listo. Queda registrado en la bitácora.'); verUsuarios();
@@ -239,6 +242,7 @@
         var rol = document.getElementById('uRol').value;
         if (!correo || nombre.length < 4) { aviso('warn', 'Faltan el correo y el nombre completo.'); return; }
         sb.from('perfiles').update({ nombre: nombre, rol: rol, activo: true,
+                                     debe_cambiar_clave: true,
                                      actualizado_en: new Date().toISOString() })
           .eq('correo', correo).select().then(function (r) {
             if (r.error) { aviso('bad', r.error.message); return; }
