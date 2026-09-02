@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Farmacia · Alcaldía de Charallave</title>
+<meta name="description" content="Control de inventario y entrega de medicamentos de la farmacia municipal.">
+<meta name="theme-color" content="#0a2351">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
+<style>
+:root{
+  --navy:#0a2351; --navy-2:#123571; --gold:#f4c20d;
+  --paper:#f5f7fb; --card:#ffffff; --rail:#eef2f9;
+  --ink:#101c33; --ink-soft:#4a5670; --ink-faint:#7b869c;
+  --line:#dfe5f0;
+  --ok-bg:#eef8f2; --ok-line:#a5cdb6; --ok-ink:#16653c;
+  --warn-bg:#fff6e8; --warn-line:#e6c489; --warn-ink:#8a5a06;
+  --bad-bg:#fdf1ef; --bad-line:#e2ab9c; --bad-ink:#96331e;
+  --r:12px; --pad:18px;
+  --shadow:0 1px 2px rgba(16,28,51,.05), 0 8px 24px -14px rgba(16,28,51,.28);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0b1220; --card:#141d2f; --rail:#101827;
+    --ink:#e6ecf7; --ink-soft:#a7b2c8; --ink-faint:#7a8599; --line:#25314a;
+    --ok-bg:#122419; --ok-line:#356041; --ok-ink:#8dd3a6;
+    --warn-bg:#2a2113; --warn-line:#6d5626; --warn-ink:#e8c073;
+    --bad-bg:#2b1917; --bad-line:#7a453a; --bad-ink:#f0a898;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.85);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0b1220; --card:#141d2f; --rail:#101827;
+  --ink:#e6ecf7; --ink-soft:#a7b2c8; --ink-faint:#7a8599; --line:#25314a;
+  --ok-bg:#122419; --ok-line:#356041; --ok-ink:#8dd3a6;
+  --warn-bg:#2a2113; --warn-line:#6d5626; --warn-ink:#e8c073;
+  --bad-bg:#2b1917; --bad-line:#7a453a; --bad-ink:#f0a898;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.85);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--paper); color:var(--ink); min-height:100dvh;
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:940px; margin:0 auto; padding:0 16px}
+[hidden]{display:none!important}
+
+/* ---------- cintillo ---------- */
+.tricolor{height:4px; display:flex}
+.tricolor i{flex:1}
+.tricolor i:nth-child(1){background:#f4c20d}
+.tricolor i:nth-child(2){background:#1a4f8a}
+.tricolor i:nth-child(3){background:#cf142b}
+
+/* ---------- barra superior ---------- */
+header.top{background:var(--navy); color:#fff; padding:12px 0}
+header.top .wrap{display:flex; align-items:center; gap:12px}
+.marca{display:flex; align-items:center; gap:11px; min-width:0}
+.pastilla{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.12);
+  display:grid;place-items:center;font-size:20px;flex:none}
+.marca b{display:block; font-size:15px; font-weight:800; letter-spacing:-.01em; line-height:1.15}
+.marca span{display:block; font-size:11.5px; color:#b8c6e2; font-weight:600}
+.top .der{margin-left:auto; display:flex; align-items:center; gap:8px}
+.chip-user{font-size:12.5px; color:#cdd8ee; background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.16); padding:5px 11px; border-radius:99px; white-space:nowrap}
+button.salir{font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:#fff;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+  padding:6px 13px;border-radius:99px}
+button.salir:hover{background:rgba(255,255,255,.22)}
+
+/* ---------- tarjetas ---------- */
+main{padding:26px 0 70px}
+.tarjeta{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  padding:var(--pad); box-shadow:var(--shadow)}
+.tarjeta + .tarjeta{margin-top:16px}
+h1{font-size:clamp(1.3rem,4.5vw,1.7rem); margin:0 0 4px; letter-spacing:-.015em}
+h2{font-size:1.12rem; margin:0 0 10px; letter-spacing:-.01em}
+p{margin:0} p + p{margin-top:10px}
+.sub{color:var(--ink-soft); font-size:.95rem}
+
+/* ---------- acceso ---------- */
+.acceso{max-width:400px; margin:6vh auto 0}
+.acceso .escudo{width:64px;height:64px;border-radius:18px;background:var(--navy);color:#fff;
+  display:grid;place-items:center;font-size:32px;margin:0 auto 16px}
+.acceso h1{text-align:center}
+.acceso .sub{text-align:center; margin-bottom:20px}
+label{display:block; font-size:12.5px; font-weight:750; letter-spacing:.03em;
+  text-transform:uppercase; color:var(--ink-soft); margin:14px 0 5px}
+input[type=email],input[type=password],input[type=text],input[type=number],select{
+  width:100%; font:inherit; font-size:16px; padding:12px 13px; min-height:46px;
+  border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink)}
+input:focus,select:focus{outline:2px solid var(--navy-2); outline-offset:1px; border-color:transparent}
+button.principal{width:100%; margin-top:20px; font:inherit; font-size:15px; font-weight:800;
+  min-height:48px; cursor:pointer; color:#fff; background:var(--navy); border:0;
+  border-radius:10px; box-shadow:0 1px 2px rgba(10,35,81,.3)}
+button.principal:hover{background:var(--navy-2)}
+button.principal:disabled{opacity:.55; cursor:not-allowed}
+
+/* ---------- avisos ---------- */
+.aviso{border:1px solid; border-radius:10px; padding:13px 15px; font-size:.94rem; margin-top:14px}
+.aviso b{display:block; margin-bottom:3px}
+.aviso.ok{background:var(--ok-bg); border-color:var(--ok-line); color:var(--ok-ink)}
+.aviso.warn{background:var(--warn-bg); border-color:var(--warn-line); color:var(--warn-ink)}
+.aviso.bad{background:var(--bad-bg); border-color:var(--bad-line); color:var(--bad-ink)}
+
+/* ---------- estado de obra ---------- */
+.pasos{list-style:none; margin:14px 0 0; padding:0}
+.pasos li{display:flex; gap:11px; align-items:flex-start; padding:9px 0;
+  border-top:1px solid var(--line); font-size:.95rem}
+.pasos li:first-child{border-top:0}
+.pasos .mark{flex:none; width:22px; height:22px; border-radius:50%; display:grid;
+  place-items:center; font-size:12px; font-weight:800; margin-top:1px}
+.pasos .hecho .mark{background:var(--ok-bg); color:var(--ok-ink); border:1px solid var(--ok-line)}
+.pasos .curso .mark{background:var(--warn-bg); color:var(--warn-ink); border:1px solid var(--warn-line)}
+.pasos .falta .mark{background:var(--rail); color:var(--ink-faint); border:1px solid var(--line)}
+.pasos .t{font-weight:700}
+.pasos .d{color:var(--ink-soft); font-size:.9rem; display:block; margin-top:1px}
+
+/* ---------- cifras ---------- */
+.cifras{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-top:14px}
+.cifra{background:var(--rail); border:1px solid var(--line); border-radius:10px; padding:13px}
+.cifra b{display:block; font-size:1.5rem; font-weight:850; letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums; line-height:1.1}
+.cifra span{display:block; font-size:12px; color:var(--ink-soft); font-weight:650; margin-top:3px}
+.cifra.alerta{background:var(--bad-bg); border-color:var(--bad-line)}
+.cifra.alerta b{color:var(--bad-ink)}
+
+footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-faint); font-size:13px}
+@media (max-width:560px){
+  .wrap{padding:0 14px}
+  .marca span{display:none}
+  main{padding:18px 0 50px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="tricolor"><i></i><i></i><i></i></div>
+
+<header class="top">
+  <div class="wrap">
+    <div class="marca">
+      <span class="pastilla" aria-hidden="true">💊</span>
+      <span>
+        <b>Farmacia Municipal</b>
+        <span>Alcaldía de Cristóbal Rojas · Charallave</span>
+      </span>
+    </div>
+    <div class="der">
+      <span class="chip-user" id="chipUsuario" hidden></span>
+      <button class="salir" id="btnSalir" type="button" hidden>Salir</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <!-- ======== ACCESO ======== -->
+    <section id="vistaAcceso" class="acceso">
+      <div class="tarjeta">
+        <div class="escudo" aria-hidden="true">💊</div>
+        <h1>Entrar al sistema</h1>
+        <p class="sub">Control de inventario y entrega de medicamentos</p>
+
+        <form id="formAcceso" autocomplete="on">
+          <label for="correo">Correo</label>
+          <input id="correo" type="email" required autocomplete="username"
+                 placeholder="nombre@alcaldiadecharallave.com" inputmode="email">
+          <label for="clave">Contraseña</label>
+          <input id="clave" type="password" required autocomplete="current-password" placeholder="••••••••">
+          <button class="principal" id="btnEntrar" type="submit">Entrar</button>
+        </form>
+
+        <div id="errorAcceso" class="aviso bad" hidden></div>
+
+        <div id="avisoPreparacion" class="aviso warn" hidden>
+          <b>El sistema está en preparación</b>
+          Todavía no se ha creado la base de datos, así que el acceso aún no funciona.
+          Más abajo puedes ver en qué va la obra.
+        </div>
+      </div>
+
+      <!-- ======== ESTADO DE LA OBRA ======== -->
+      <div class="tarjeta">
+        <h2>En qué va la obra</h2>
+        <p class="sub">Esta página se actualiza sola cada vez que se publica un avance.</p>
+        <ul class="pasos" id="listaPasos"></ul>
+      </div>
+
+      <div class="tarjeta">
+        <h2>Lo que ya se revisó de los datos actuales</h2>
+        <p class="sub">Salió de los dos archivos de Excel de la Dirección de Salud.</p>
+        <div class="cifras">
+          <div class="cifra"><b>1.496</b><span>Pacientes registrados</span></div>
+          <div class="cifra"><b>414</b><span>Medicamentos en catálogo</span></div>
+          <div class="cifra"><b>645</b><span>Entregas ya registradas</span></div>
+          <div class="cifra alerta"><b>128</b><span>Lotes vencidos aún en existencia</span></div>
+          <div class="cifra alerta"><b>9.274</b><span>Unidades vencidas</span></div>
+          <div class="cifra alerta"><b>705</b><span>Unidades que vencen en 30 días</span></div>
+        </div>
+        <div class="aviso bad">
+          <b>Lo más urgente</b>
+          Hay 128 lotes vencidos que el Excel todavía cuenta como disponibles. El sistema nuevo
+          impedirá despachar de un lote vencido, con un candado en la base de datos y no solo
+          un aviso en pantalla.
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PANEL (se arma según el perfil) ======== -->
+    <section id="vistaPanel" hidden>
+      <div class="tarjeta">
+        <h1 id="tituloPanel">Panel</h1>
+        <p class="sub" id="subPanel"></p>
+      </div>
+      <div id="contenidoPanel"></div>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    Alcaldía del Municipio Bolivariano Cristóbal Rojas · Dirección de Salud Pública<br>
+    Farmacia Municipal · <span id="pie"></span>
+  </div>
+</footer>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
