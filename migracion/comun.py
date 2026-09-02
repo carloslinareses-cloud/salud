@@ -73,3 +73,26 @@ def limpia(t):
 def carga(nombre):
     import io
     return json.load(io.open(DATOS + nombre, encoding='utf-8'))
+
+
+def trae_todo(tabla, campos, filtro='', pagina=1000):
+    """Trae TODAS las filas paginando.
+
+    La API de Supabase devuelve como maximo 1000 filas por consulta
+    (max_rows). Pedir mas sin paginar da una lista incompleta en silencio,
+    que es peor que un error: parece que funciono.
+    """
+    filas, desde = [], 0
+    while True:
+        cab = cab_rest()
+        cab['Range-Unit'] = 'items'
+        cab['Range'] = '%d-%d' % (desde, desde + pagina - 1)
+        url = '%s/rest/v1/%s?select=%s%s' % (URL, tabla, campos, filtro)
+        est, r = _pide(url, cab=cab)
+        if not isinstance(r, list) or not r:
+            break
+        filas.extend(r)
+        if len(r) < pagina:
+            break
+        desde += pagina
+    return filas

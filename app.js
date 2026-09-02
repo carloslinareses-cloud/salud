@@ -25,8 +25,8 @@
       d: 'Registrar lo que llega con su lote y vencimiento, alertas, bajas y corrección por conteo' },
     { e: 'hecho', t: 'Panel del administrador',
       d: 'Cifras del día, actividad en vivo, bitácora consultable, usuarios y pacientes por revisar' },
-    { e: 'falta', t: 'Traspaso del historial de entregas',
-      d: 'Las 3.448 entregas del registro diario, para poder consultarlas' }
+    { e: 'hecho', t: 'Historial de entregas traspasado',
+      d: '4.999 entregas de los Excel, consultables por cédula o por nombre. No descuentan inventario: el 87% no anotaba la cantidad' }
   ];
 
   var MARCA = { hecho: '✓', curso: '•', falta: '' };

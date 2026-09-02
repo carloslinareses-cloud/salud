@@ -32,6 +32,7 @@
           '<button type="button" data-p="tablero">Tablero</button>' +
           '<button type="button" data-p="bitacora">Bitácora</button>' +
           '<button type="button" data-p="usuarios">Usuarios</button>' +
+          '<button type="button" data-p="historial">Historial</button>' +
           '<button type="button" data-p="revisar">Por revisar</button>' +
         '</div>' +
         '<div id="zonaAdm"></div>' +
@@ -41,7 +42,7 @@
       b.addEventListener('click', function () { pestana = b.dataset.p; pintar(); });
       b.classList.toggle('on', b.dataset.p === pestana);
     });
-    ({ tablero: verTablero, bitacora: verBitacora,
+    ({ tablero: verTablero, bitacora: verBitacora, historial: verHistorial,
        usuarios: verUsuarios, revisar: verRevisar })[pestana]();
   }
 
@@ -250,6 +251,50 @@
             verUsuarios();
           });
       });
+    });
+  }
+
+  /* --------------------------------------------------------------- historial */
+  function verHistorial() {
+    var z = document.getElementById('zonaAdm');
+    z.innerHTML =
+      '<h3 class="sub-t">Historial de entregas</h3>' +
+      '<p class="sub">Las 4.999 entregas que venían de los Excel, más las que se ' +
+      'registran ahora. Las del Excel <b>no descuentan del inventario</b>: el 87% ' +
+      'no anotaba la cantidad, así que descontarlas sería inventar números.</p>' +
+      '<div class="filtros">' +
+        '<input id="hBusca" type="search" placeholder="Cédula o nombre del paciente…">' +
+      '</div>' +
+      '<div id="resHist"><div class="cargando">Cargando…</div></div>';
+    document.getElementById('hBusca').addEventListener('input', function () {
+      clearTimeout(window._th); window._th = setTimeout(cargarHist, 320);
+    });
+    cargarHist();
+  }
+
+  function cargarHist() {
+    var z = document.getElementById('resHist');
+    var q = document.getElementById('hBusca').value.trim().replace(/[%,()]/g, '');
+    var c = sb.from('v_historial_entregas')
+      .select('fecha,fecha_original,paciente,nacionalidad,cedula,entregado_por,lo_entregado,origen')
+      .order('fecha', { ascending: false, nullsFirst: false }).limit(100);
+    if (q) c = c.or('cedula.ilike.*' + q + '*,paciente.ilike.*' + q + '*');
+
+    c.then(function (r) {
+      if (r.error) { z.innerHTML = '<div class="aviso bad">' + esc(r.error.message) + '</div>'; return; }
+      var f = r.data || [];
+      if (!f.length) { z.innerHTML = '<p class="sub">No hay entregas con esa búsqueda.</p>'; return; }
+      z.innerHTML = '<div class="renglones">' + f.map(function (x) {
+        var cuando = x.fecha
+          ? x.fecha.slice(8, 10) + '/' + x.fecha.slice(5, 7) + '/' + x.fecha.slice(0, 4)
+          : '<em class="ojo">fecha ilegible: ' + esc(x.fecha_original || '') + '</em>';
+        return '<div class="renglon"><div class="que">' +
+          '<b>' + esc(x.paciente || 'Sin paciente') + '</b>' +
+          '<span>' + (x.cedula ? esc((x.nacionalidad || 'V') + '-' + x.cedula) : 'sin cédula') +
+          ' · ' + cuando + ' · ' + esc(x.entregado_por) + '</span>' +
+          '<span class="meds">' + esc(x.lo_entregado || '') + '</span></div></div>';
+      }).join('') + '</div>' +
+      (f.length >= 100 ? '<p class="sub">Se muestran las 100 más recientes. Busca por cédula o nombre para afinar.</p>' : '');
     });
   }
 
