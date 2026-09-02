@@ -91,16 +91,43 @@
      Cédulas
   --------------------------------------------------------------- */
 
-  /* Acepta de 6 a 9 dígitos. Las de 6 SON válidas: corresponden a
-     personas nacidas entre 1930 y 1949. Exigir 7 dejaría fuera a 16
-     abuelos que hoy están en el padrón.
-     Devuelve {nacionalidad, numero} o null. Nunca adivina nada. */
+  /* Lee una cédula o un RIF de persona natural.
+
+     El RIF venezolano es la cédula MAS un dígito verificador al final:
+       V-17685436-2   =   cédula 17685436  +  dígito 2
+     Viene escrito de muchas formas: con guion, con puntos (17.114.309.2)
+     o todo pegado (176854362). Los tres son lo mismo.
+
+     Se aceptan de 6 a 8 dígitos de cédula. Las de SEIS son válidas:
+     corresponden a personas nacidas entre 1930 y 1949. Exigir siete
+     dejaría fuera a 16 abuelos que hoy están en el padrón.
+
+     Devuelve {nacionalidad, numero, digitoRif} o null. Nunca adivina. */
   F.leeCedula = function (v) {
     if (v == null) return null;
-    var t = String(v).replace(/[\s.\-]/g, '');
-    var m = /^([VvEe])?(\d{6,9})$/.exec(t);
-    if (!m) return null;
-    return { nacionalidad: (m[1] || 'V').toUpperCase(), numero: m[2] };
+    var t = String(v).trim();
+    var nac = 'V', m;
+
+    m = /^([VvEe])[\s.\-]*(.+)$/.exec(t);
+    if (m) { nac = m[1].toUpperCase(); t = m[2]; }
+
+    // Con separador antes del último dígito: es un RIF.
+    m = /^(\d{6,8})[.\-](\d)$/.exec(t.replace(/\s/g, ''));
+    if (m) return { nacionalidad: nac, numero: m[1].replace(/\D/g, ''), digitoRif: m[2] };
+
+    var d = t.replace(/[\s.\-]/g, '');
+    if (!/^\d+$/.test(d)) return null;
+
+    // Nueve dígitos seguidos: cédula de ocho + dígito del RIF.
+    if (d.length === 9) return { nacionalidad: nac, numero: d.slice(0, 8), digitoRif: d.slice(8) };
+    if (d.length >= 6 && d.length <= 8) return { nacionalidad: nac, numero: d, digitoRif: null };
+    return null;
+  };
+
+  /* Arma el RIF completo si se tiene el dígito verificador. */
+  F.muestraRif = function (nac, num, dig) {
+    if (!num || !dig) return null;
+    return (nac || 'V') + '-' + num + '-' + dig;
   };
 
   F.muestraCedula = function (nac, num, cruda) {

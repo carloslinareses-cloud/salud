@@ -51,14 +51,14 @@ prueba('mostrar sin fecha',     F.muestraFecha(null),         'sin fecha');
    1949. Si el sistema exige 7, deja fuera a 16 abuelos del padrón.
 ================================================================ */
 grupo('Cédulas');
-prueba('8 dígitos',        F.leeCedula('12402507'),  { nacionalidad: 'V', numero: '12402507' });
-prueba('7 dígitos',        F.leeCedula('4976612'),   { nacionalidad: 'V', numero: '4976612' });
-prueba('SEIS dígitos',     F.leeCedula('338301'),    { nacionalidad: 'V', numero: '338301' });
-prueba('extranjero E',     F.leeCedula('E83242558'), { nacionalidad: 'E', numero: '83242558' });
-prueba('E con guion',      F.leeCedula('E-84585577'), { nacionalidad: 'E', numero: '84585577' });
-prueba('E con espacios',   F.leeCedula('E - 81342714'), { nacionalidad: 'E', numero: '81342714' });
-prueba('con puntos',       F.leeCedula('12.402.507'), { nacionalidad: 'V', numero: '12402507' });
-prueba('minúscula v',      F.leeCedula('v12402507'), { nacionalidad: 'V', numero: '12402507' });
+prueba('8 dígitos',        F.leeCedula('12402507'),  { nacionalidad: 'V', numero: '12402507', digitoRif: null });
+prueba('7 dígitos',        F.leeCedula('4976612'),   { nacionalidad: 'V', numero: '4976612', digitoRif: null });
+prueba('SEIS dígitos',     F.leeCedula('338301'),    { nacionalidad: 'V', numero: '338301', digitoRif: null });
+prueba('extranjero E',     F.leeCedula('E83242558'), { nacionalidad: 'E', numero: '83242558', digitoRif: null });
+prueba('E con guion',      F.leeCedula('E-84585577'), { nacionalidad: 'E', numero: '84585577', digitoRif: null });
+prueba('E con espacios',   F.leeCedula('E - 81342714'), { nacionalidad: 'E', numero: '81342714', digitoRif: null });
+prueba('con puntos',       F.leeCedula('12.402.507'), { nacionalidad: 'V', numero: '12402507', digitoRif: null });
+prueba('minúscula v',      F.leeCedula('v12402507'), { nacionalidad: 'V', numero: '12402507', digitoRif: null });
 
 // Lo que venía en la columna de cédula y NO es una cédula
 prueba('un nombre',        F.leeCedula('DIXONORTIZ'), null);
@@ -66,8 +66,23 @@ prueba('nombre con espacio', F.leeCedula('NATHALI ORTIZ'), null);
 prueba('la letra F',       F.leeCedula('F'),          null);
 prueba('un medicamento',   F.leeCedula('ENALAPRIL 20 MG'), null);
 prueba('5 dígitos',        F.leeCedula('46844'),      null);
-prueba('10 dígitos',       F.leeCedula('4190419011'), null);
-prueba('con barra',        F.leeCedula('17685436-2'), { nacionalidad: 'V', numero: '176854362' });
+prueba('10 dígitos siguen sin valer', F.leeCedula('4190419011'), null);
+
+// El RIF de una persona natural es la cedula + un digito verificador.
+// Aparece escrito de tres formas distintas en los Excel, y las tres
+// significan lo mismo. Antes se guardaban pegadas y se corrompia la cedula.
+prueba('RIF con guion',    F.leeCedula('17685436-2'),
+  { nacionalidad: 'V', numero: '17685436', digitoRif: '2' });
+prueba('RIF con puntos',   F.leeCedula('17.114.309.2'),
+  { nacionalidad: 'V', numero: '17114309', digitoRif: '2' });
+prueba('RIF todo pegado',  F.leeCedula('199322086'),
+  { nacionalidad: 'V', numero: '19932208', digitoRif: '6' });
+prueba('RIF con la V',     F.leeCedula('V-17685436-2'),
+  { nacionalidad: 'V', numero: '17685436', digitoRif: '2' });
+prueba('cedula sola no inventa digito',
+  F.leeCedula('12402507').digitoRif, null);
+prueba('armar el RIF',     F.muestraRif('V', '17685436', '2'), 'V-17685436-2');
+prueba('sin digito no hay RIF', F.muestraRif('V', '12402507', null), null);
 prueba('vacío',            F.leeCedula(''),           null);
 
 prueba('mostrar cédula',   F.muestraCedula('V', '12402507'), 'V-12402507');
