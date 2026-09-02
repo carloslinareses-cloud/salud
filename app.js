@@ -21,10 +21,10 @@
       d: 'Busca a la persona o al centro, propone el lote que vence primero y descuenta del inventario' },
     { e: 'hecho', t: 'Datos actuales cargados',
       d: '455 medicamentos, 472 lotes y 1.496 pacientes. 78 quedaron marcados para revisar: ninguno se perdió' },
-    { e: 'curso', t: 'Pantalla de entrada de mercancía',
-      d: 'Registrar lo que llega, con su lote y su fecha de vencimiento' },
-    { e: 'falta', t: 'Panel del administrador',
-      d: 'Crear usuarios, ver la actividad de todos y la bitácora completa' },
+    { e: 'hecho', t: 'Pantalla de entrada de mercancía',
+      d: 'Registrar lo que llega con su lote y vencimiento, alertas, bajas y corrección por conteo' },
+    { e: 'hecho', t: 'Panel del administrador',
+      d: 'Cifras del día, actividad en vivo, bitácora consultable, usuarios y pacientes por revisar' },
     { e: 'falta', t: 'Traspaso del historial de entregas',
       d: 'Las 3.448 entregas del registro diario, para poder consultarlas' }
   ];
@@ -92,6 +92,24 @@
       .then(function () { btn.disabled = false; btn.textContent = 'Entrar'; });
   }
 
+  function registrarse() {
+    $('errorAcceso').hidden = true;
+    var correo = $('correo').value.trim(), clave = $('clave').value;
+    if (!correo || clave.length < 8) {
+      mostrarError('Escribe tu correo y una contraseña de al menos 8 caracteres, y vuelve a pulsar Regístrate.');
+      return;
+    }
+    if (!sb) { mostrarError('Todavía no hay conexión con el servidor.'); return; }
+    sb.auth.signUp({ email: correo, password: clave }).then(function (r) {
+      if (r.error) throw r.error;
+      var e = $('errorAcceso');
+      e.className = 'aviso ok';
+      e.textContent = 'Cuenta creada. Avísale al administrador para que te dé permisos: ' +
+                      'hasta entonces no vas a poder entrar.';
+      e.hidden = false;
+    }).catch(function (err) { mostrarError(traducirError(err)); });
+  }
+
   function salir() {
     if (!sb) return;
     sb.auth.signOut().then(function () { location.reload(); });
@@ -135,7 +153,15 @@
     var zona = $('contenidoPanel');
     zona.innerHTML = '';
 
-    if ((perfil.rol === 'despacho' || perfil.rol === 'admin') && window.PANTALLA_DESPACHO) {
+    if (perfil.rol === 'admin' && window.PANTALLA_ADMIN) {
+      window.PANTALLA_ADMIN(sb, zona, usuario);
+      return;
+    }
+    if (perfil.rol === 'inventario' && window.PANTALLA_INVENTARIO) {
+      window.PANTALLA_INVENTARIO(sb, zona);
+      return;
+    }
+    if (perfil.rol === 'despacho' && window.PANTALLA_DESPACHO) {
       window.PANTALLA_DESPACHO(sb, zona);
       return;
     }
@@ -153,6 +179,7 @@
       new Date().toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
     $('formAcceso').addEventListener('submit', entrar);
+    $('btnRegistro').addEventListener('click', registrarse);
     $('btnSalir').addEventListener('click', salir);
 
     if (!window.CONFIG || !window.CONFIG.listo()) {

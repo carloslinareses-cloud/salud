@@ -87,6 +87,8 @@ p{margin:0} p + p{margin-top:10px}
   display:grid;place-items:center;font-size:32px;margin:0 auto 16px}
 .acceso h1{text-align:center}
 .acceso .sub{text-align:center; margin-bottom:20px}
+.registrarse{margin-top:16px;font-size:.93rem}
+.chico{display:inline-block;margin-top:5px;font-size:12px;color:var(--ink-faint);line-height:1.4}
 label{display:block; font-size:12.5px; font-weight:750; letter-spacing:.03em;
   text-transform:uppercase; color:var(--ink-soft); margin:14px 0 5px}
 input[type=email],input[type=password],input[type=text],input[type=number],select{
@@ -180,6 +182,24 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   .botonera{flex-direction:column}
 }
 
+
+/* ---------- inventario y panel de admin ---------- */
+.sub-t{font-size:1rem;font-weight:800;margin:22px 0 8px;letter-spacing:-.01em}
+.pill{flex:none;font-size:13px;font-weight:800;padding:5px 12px;border-radius:99px;
+  background:var(--navy);color:#fff;font-variant-numeric:tabular-nums}
+.feed{margin-top:10px;display:flex;flex-direction:column}
+.ev{display:flex;gap:12px;align-items:baseline;padding:10px 0;border-top:1px solid var(--line);font-size:.94rem}
+.ev:first-child{border-top:0}
+.ev .txt{flex:1;min-width:0;line-height:1.45}
+.ev .cuando{flex:none;font-size:11.5px;color:var(--ink-faint);white-space:nowrap}
+.filtros{display:flex;gap:8px;margin:12px 0 4px;flex-wrap:wrap}
+.filtros select,.filtros input{flex:1;min-width:150px;margin:0}
+.cedfix{width:120px;flex:none;margin:0;min-height:44px;text-align:center}
+.renglon.rev{flex-wrap:wrap}
+.renglon.rev .que{flex:1 1 100%;margin-bottom:8px}
+.lista .item.nuevo{border-style:dashed;color:var(--navy-2)}
+.lista .item.nuevo b{color:var(--navy-2)}
+
 footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-faint); font-size:13px}
 @media (max-width:560px){
   .wrap{padding:0 14px}
@@ -226,6 +246,11 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
           <input id="clave" type="password" required autocomplete="current-password" placeholder="••••••••">
           <button class="principal" id="btnEntrar" type="submit">Entrar</button>
         </form>
+
+        <p class="sub registrarse">¿Primera vez?
+          <button type="button" class="enlace" id="btnRegistro">Regístrate aquí</button><br>
+          <span class="chico">Tu cuenta queda sin permisos hasta que el administrador te active.</span>
+        </p>
 
         <div id="errorAcceso" class="aviso bad" hidden></div>
 
@@ -284,6 +309,8 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 
 <script src="config.js"></script>
 <script src="despacho.js"></script>
+<script src="inventario.js"></script>
+<script src="admin.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
