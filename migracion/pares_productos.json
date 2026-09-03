@@ -1,0 +1,296 @@
+[
+ {
+  "a": {
+   "id": "4459acad-c03e-4401-bb13-a62d8e8a8026",
+   "nombre": "BIPERIDENO CHLORHIDRATO 2mg",
+   "lotes": 1,
+   "u": 0
+  },
+  "b": {
+   "id": "60d719ca-695d-4918-9621-d242200144e8",
+   "nombre": "BIPERIDENO CLORHIDRATO 2mg",
+   "lotes": 1,
+   "u": 0
+  }
+ },
+ {
+  "a": {
+   "id": "8f795fb0-8f21-405d-b71d-5ee8d8b205e6",
+   "nombre": "CLARITOMICINA 250mg / 5ml",
+   "lotes": 1,
+   "u": 1
+  },
+  "b": {
+   "id": "8ada6682-c5d2-4c9e-896b-2e8e70d73222",
+   "nombre": "CLARITROMICINA 250mg / 5ml",
+   "lotes": 1,
+   "u": 8
+  }
+ },
+ {
+  "a": {
+   "id": "228b07ed-4204-4662-8cb2-ab4c17bac57a",
+   "nombre": "TRIMETROPRIM SULFATO",
+   "lotes": 1,
+   "u": 100
+  },
+  "b": {
+   "id": "22ab2793-a501-442e-8b59-23d53bd68c2a",
+   "nombre": "TRIMETROPRIMN SULFATO",
+   "lotes": 1,
+   "u": 90
+  }
+ },
+ {
+  "a": {
+   "id": "eb0fc918-555d-4530-8d13-d9b074a0af03",
+   "nombre": "SECNIDAZOL 500MG",
+   "lotes": 1,
+   "u": 100
+  },
+  "b": {
+   "id": "820ed035-eaee-4c34-82b6-ad21e8c638de",
+   "nombre": "SENIDAZOL 500mg",
+   "lotes": 1,
+   "u": 225
+  }
+ },
+ {
+  "a": {
+   "id": "a69afd62-bc9b-469e-97e2-60070b4c0eea",
+   "nombre": "VERAPAMILLO 40mg",
+   "lotes": 1,
+   "u": 45
+  },
+  "b": {
+   "id": "2618e810-261b-4d9d-9dd3-48c63c180d1c",
+   "nombre": "VERAPAMILO 40mg",
+   "lotes": 1,
+   "u": 0
+  }
+ },
+ {
+  "a": {
+   "id": "4b0bedc6-588b-478f-9966-ec5f34ab2d22",
+   "nombre": "VERAPAMILLO 80mg",
+   "lotes": 1,
+   "u": 30
+  },
+  "b": {
+   "id": "94fc38fd-93e4-416c-bd61-3ad5cbfa59d1",
+   "nombre": "VERAPAMILO 80mg",
+   "lotes": 1,
+   "u": 0
+  }
+ },
+ {
+  "a": {
+   "id": "38dfc92a-ffe3-4859-8286-eaf8aeaf51da",
+   "nombre": "GLICAZIDA 80mg",
+   "lotes": 1,
+   "u": 1
+  },
+  "b": {
+   "id": "e84e57a1-606e-4cf9-ab39-98e62b86a12b",
+   "nombre": "GLINCAZIDA 80MG",
+   "lotes": 1,
+   "u": 370
+  }
+ },
+ {
+  "a": {
+   "id": "92b44ef9-c07a-46ff-a04b-04f412ed82d4",
+   "nombre": "CEFALEXIA SUSPENSIÓN",
+   "lotes": 1,
+   "u": 0
+  },
+  "b": {
+   "id": "45246fb6-458d-4c1d-be09-b2df8c68a159",
+   "nombre": "CEFALEXIN SUSPENSIÓN",
+   "lotes": 1,
+   "u": 74
+  }
+ },
+ {
+  "a": {
+   "id": "42f7c09c-61d3-4585-8d0a-1e22bf140f0e",
+   "nombre": "LERCANIDIPINA 10mg",
+   "lotes": 1,
+   "u": 0
+  },
+  "b": {
+   "id": "380b8404-aea3-45e0-9e68-f7121866f626",
+   "nombre": "LERCANIDIPINO 10mg",
+   "lotes": 1,
+   "u": 4
+  }
+ },
+ {
+  "a": {
+   "id": "d2a6f8d8-13e5-4b1c-b283-6a95a6aa553d",
+   "nombre": "ÁCIDO FÓLICO 10mg",
+   "lotes": 1,
+   "u": 74
+  },
+  "b": {
+   "id": "045d9d11-ff1f-43f0-b833-4d15a5c2c397",
+   "nombre": "ÁCIDO FÓLICO 10ml",
+   "lotes": 1,
+   "u": 2
+  }
+ },
+ {
+  "a": {
+   "id": "4a698cbb-ad53-402c-93d0-45404bbd4f28",
+   "nombre": "SIMVASTATINA 20mg",
+   "lotes": 1,
+   "u": 0
+  },
+  "b": {
+   "id": "75cb0370-825b-4a5e-a03c-80dddb7ec925",
+   "nombre": "SINVASTATINA 20mg",
+   "lotes": 1,
+   "u": 48
+  }
+ },
+ {
+  "a": {
+   "id": "eb675070-e1e0-429f-bcb4-f87bbd0995aa",
+   "nombre": "ACICLOVIR 250mg",
+   "lotes": 1,
+   "u": 0
+  },
+  "b": {
+   "id": "ebc0d555-d9cc-4746-a028-dec592603e80",
+   "nombre": "GANCICLOVIR 250mg",
+   "lotes": 1,
+   "u": 0
+  }
+ },
+ {
+  "a": {
+   "id": "4840bfda-565f-4c2b-a425-f072ff982c12",
+   "nombre": "ALENDRONATO 70MG",
+   "lotes": 2,
+   "u": 580
+  },
+  "b": {
+   "id": "c237696c-ca29-4820-bf6b-f2a056b88963",
+   "nombre": "ALENTRONATO 70mg",
+   "lotes": 1,
+   "u": 22
+  }
+ },
+ {
+  "a": {
+   "id": "3881de89-749e-42db-ae74-f96cc079ac95",
+   "nombre": "NIMESULIDA 100mg",
+   "lotes": 1,
+   "u": 0
+  },
+  "b": {
+   "id": "24aecade-8b8e-4508-a732-f6b168756c34",
+   "nombre": "NIMESULIDE 100mg",
+   "lotes": 1,
+   "u": 28
+  }
+ },
+ {
+  "a": {
+   "id": "de9c356c-12f4-44d8-8e36-6faf29d40270",
+   "nombre": "CILOSTAZOL 50mg",
+   "lotes": 1,
+   "u": 20
+  },
+  "b": {
+   "id": "391a0180-151c-49a9-a5dd-ae5211429e72",
+   "nombre": "CISLOTAZOL 50mg",
+   "lotes": 1,
+   "u": 4
+  }
+ },
+ {
+  "a": {
+   "id": "2a599336-d384-477a-ba58-2aee143aa6e8",
+   "nombre": "AZITROMICINA 250mg / 5ml",
+   "lotes": 1,
+   "u": 78
+  },
+  "b": {
+   "id": "8ada6682-c5d2-4c9e-896b-2e8e70d73222",
+   "nombre": "CLARITROMICINA 250mg / 5ml",
+   "lotes": 1,
+   "u": 8
+  }
+ },
+ {
+  "a": {
+   "id": "3e24c7ba-b9fd-4fd7-b984-55c4249f8e71",
+   "nombre": "CLOTRIMAZOL 240mg / 5ml",
+   "lotes": 1,
+   "u": 35
+  },
+  "b": {
+   "id": "35386a6d-29ed-4862-abff-3d53069261a1",
+   "nombre": "CO TRIMOXAZOL 240mg / 5ml",
+   "lotes": 1,
+   "u": 16
+  }
+ },
+ {
+  "a": {
+   "id": "c1ca1236-5ce9-40d0-a205-034704cb498a",
+   "nombre": "AMOXICILINA 500mg",
+   "lotes": 1,
+   "u": 12
+  },
+  "b": {
+   "id": "7c5355ef-915c-493b-8d20-4eaf95946b41",
+   "nombre": "AMPICILINA 500mg",
+   "lotes": 1,
+   "u": 3
+  }
+ },
+ {
+  "a": {
+   "id": "3b757c77-cf63-4e12-8923-d5cd4ced9905",
+   "nombre": "SOLUCIONES ELECTROLÍTICAS (RINGER LACTATO) 500ml",
+   "lotes": 1,
+   "u": 0
+  },
+  "b": {
+   "id": "4da3b514-429f-430a-8d94-50a54fd742b6",
+   "nombre": "SOLUCIONES ELECTROLÍTICAS (RINGER) 500ml",
+   "lotes": 1,
+   "u": 0
+  }
+ },
+ {
+  "a": {
+   "id": "567d0ffd-f01d-4baf-9f8b-cf0934f4fbc2",
+   "nombre": "DIGOXINA 0,25mg",
+   "lotes": 2,
+   "u": 1021
+  },
+  "b": {
+   "id": "de075a54-32d9-4bc5-9286-0e6b5f7bd5cd",
+   "nombre": "DIGOXINA 0.25 mg",
+   "lotes": 1,
+   "u": 0
+  }
+ },
+ {
+  "a": {
+   "id": "1405f6cd-5cc0-41bb-a682-978dd127c62d",
+   "nombre": "CEFIXIME 100mg / 5ml",
+   "lotes": 1,
+   "u": 38
+  },
+  "b": {
+   "id": "45c2b741-1935-464c-8ee7-34f8a7c16a21",
+   "nombre": "CEFIXINA 100mg / 5ml",
+   "lotes": 1,
+   "u": 13
+  }
+ }
+]

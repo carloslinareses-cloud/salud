@@ -48,14 +48,16 @@ update farmacia.pacientes p
           and q.nacionalidad = p.nacionalidad
           and q.cedula = left(p.cedula, length(p.cedula) - 1));
 
--- El que venía con guion explícito y quedó "por revisar".
-update farmacia.pacientes
-   set cedula          = '17685436',
-       rif_digito      = '2',
+-- Los que traían el guion explícito (cédula-dígito) y quedaron "por revisar".
+update farmacia.pacientes p
+   set cedula          = split_part(p.cedula_cruda, '-', 1),
+       rif_digito      = split_part(p.cedula_cruda, '-', 2),
        nacionalidad    = 'V',
        estado          = 'activo',
        motivo_revision = null
- where cedula_cruda = '17685436-2'
-   and cedula is null
+ where p.cedula is null
+   and p.cedula_cruda ~ '^[0-9]{6,8}-[0-9]$'
    and not exists (select 1 from farmacia.pacientes q
-                    where q.cedula = '17685436' and q.nacionalidad = 'V');
+                    where q.id <> p.id
+                      and q.nacionalidad = 'V'
+                      and q.cedula = split_part(p.cedula_cruda, '-', 1));

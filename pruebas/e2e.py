@@ -136,9 +136,11 @@ insert into farmacia.instituciones (nombre,tipo) values ('{cdi}','CDI');
 _, r = sql("select l.id, l.codigo from farmacia.lotes l join farmacia.productos p on p.id=l.producto_id "
            "where p.nombre='%s';" % MED)
 lotes = {x['codigo']: x['id'] for x in r}
-_, r = sql("select id from farmacia.pacientes where nombre='ZZZ-PRUEBA PACIENTE' limit 1;")
+# Ojo: hay que buscar los de ESTA corrida (con su marca). Buscarlos por el
+# nombre pelado hacia que todas las corridas se apilaran en la misma ficha.
+_, r = sql("select id from farmacia.pacientes where nombre='%s' limit 1;" % PAC)
 pac = r[0]['id']
-_, r = sql("select id from farmacia.instituciones where nombre='ZZZ-PRUEBA CDI' limit 1;")
+_, r = sql("select id from farmacia.instituciones where nombre='%s' limit 1;" % CDI)
 inst = r[0]['id']
 print('  datos listos')
 
@@ -295,15 +297,95 @@ prueba('no puede quitarle la marca a OTRO usuario', rr[0]['debe_cambiar_clave'] 
 
 # ------------------------------------------------------------------ limpieza
 grupo('Limpieza')
-sql("""
-update farmacia.perfiles set activo=false where correo like 'zzz.%@prueba.local';
-update farmacia.productos set activo=false where nombre like 'ZZZ-%';
-update farmacia.pacientes set estado='inactivo' where nombre like 'ZZZ-%';
-update farmacia.instituciones set activo=false where nombre like 'ZZZ-%';
-update farmacia.entregas set anulada=true, anulada_motivo='Entrega de prueba automatica'
- where clave_idempotencia like 'e2e-%';
+# Se BORRA todo lo de prueba, no se desactiva: si solo se desactiva, cada
+# corrida deja un medicamento, dos lotes, un paciente y un CDI fantasma
+# dentro de la base de verdad, y con el tiempo ensucian el panel del admin.
+#
+# Los movimientos y la bitacora son inmutables a proposito (ni el servidor
+# los puede borrar). Por eso la limpieza corre como administrador de la base
+# poniendo session_replication_role en 'replica', que apaga los disparadores
+# SOLO en esta conexion y solo mientras dura esta transaccion. La app nunca
+# puede hacer esto: no tiene ni la llave ni el permiso.
+est, _ = sql("""
+begin;
+set local session_replication_role = replica;
+
+-- registro_id es texto, no uuid: hay que comparar como texto.
+delete from farmacia.bitacora
+ where usuario_nombre like 'ZZZ-%'
+    or nota like 'ZZZ-%';
+
+delete from farmacia.bitacora b
+ where b.registro_id in (
+   select x::text from (
+   select id from farmacia.entregas
+    where clave_idempotencia like 'e2e-%'
+       or paciente_id    in (select id from farmacia.pacientes     where nombre like 'ZZZ-%')
+       or institucion_id in (select id from farmacia.instituciones where nombre like 'ZZZ-%')
+   union all select id from farmacia.movimientos m where m.lote_id in (
+     select l.id from farmacia.lotes l join farmacia.productos p on p.id=l.producto_id
+      where p.nombre like 'ZZZ-%')
+   union all select l.id from farmacia.lotes l join farmacia.productos p on p.id=l.producto_id
+      where p.nombre like 'ZZZ-%'
+   union all select id from farmacia.productos     where nombre like 'ZZZ-%'
+   union all select id from farmacia.pacientes     where nombre like 'ZZZ-%'
+   union all select id from farmacia.instituciones where nombre like 'ZZZ-%'
+   union all select id from farmacia.perfiles      where correo like 'zzz.%@prueba.local'
+   union all select d.id from farmacia.entrega_detalle d join farmacia.entregas e on e.id=d.entrega_id
+      where e.clave_idempotencia like 'e2e-%'
+         or e.paciente_id    in (select id from farmacia.pacientes     where nombre like 'ZZZ-%')
+         or e.institucion_id in (select id from farmacia.instituciones where nombre like 'ZZZ-%')
+ ) t(x));
+
+-- Se toma la entrega de prueba por su clave y TAMBIEN por su destinatario:
+-- corridas viejas guardaron entregas sin clave y dejarian huerfano al borrar.
+create temporary table zzz_entregas on commit drop as
+  select e.id from farmacia.entregas e
+   where e.clave_idempotencia like 'e2e-%'
+      or e.paciente_id    in (select id from farmacia.pacientes     where nombre like 'ZZZ-%')
+      or e.institucion_id in (select id from farmacia.instituciones where nombre like 'ZZZ-%');
+
+delete from farmacia.entrega_detalle d using zzz_entregas z where d.entrega_id = z.id;
+delete from farmacia.entregas e using zzz_entregas z where e.id = z.id;
+
+delete from farmacia.movimientos m using farmacia.lotes l, farmacia.productos p
+ where m.lote_id = l.id and l.producto_id = p.id and p.nombre like 'ZZZ-%';
+delete from farmacia.lotes l using farmacia.productos p
+ where l.producto_id = p.id and p.nombre like 'ZZZ-%';
+
+delete from farmacia.tratamientos_paciente t using farmacia.pacientes q
+ where t.paciente_id = q.id and q.nombre like 'ZZZ-%';
+
+delete from farmacia.productos     where nombre like 'ZZZ-%';
+delete from farmacia.pacientes     where nombre like 'ZZZ-%';
+delete from farmacia.instituciones where nombre like 'ZZZ-%';
+delete from farmacia.perfiles      where correo like 'zzz.%@prueba.local';
+
+set local session_replication_role = origin;
+commit;
 """)
-print('  usuarios, productos y entregas de prueba desactivados')
+
+# Los usuarios de acceso viven en auth, aparte: se borran uno por uno.
+_, lista = pide(URL + '/auth/v1/admin/users?page=1&per_page=500', cab=ADM)
+borrados = 0
+for u in (lista or {}).get('users', []):
+    if (u.get('email') or '').lower().endswith('@prueba.local'):
+        pide(URL + '/auth/v1/admin/users/' + u['id'], cab=ADM, metodo='DELETE')
+        borrados += 1
+
+# Se comprueba que de verdad no quedo nada.
+_, q = sql("""select
+   (select count(*) from farmacia.productos     where nombre like 'ZZZ-%') productos,
+   (select count(*) from farmacia.pacientes     where nombre like 'ZZZ-%') pacientes,
+   (select count(*) from farmacia.instituciones where nombre like 'ZZZ-%') centros,
+   (select count(*) from farmacia.entregas      where clave_idempotencia like 'e2e-%') entregas,
+   (select count(*) from farmacia.lotes l join farmacia.productos p on p.id=l.producto_id
+     where p.nombre like 'ZZZ-%') lotes,
+   (select count(*) from farmacia.bitacora where usuario_nombre like 'ZZZ-%') apuntes,
+   (select count(*) from farmacia.perfiles      where correo like 'zzz.%@prueba.local') perfiles;""")
+resto = sum(int(v) for v in q[0].values()) if q else -1
+prueba('la prueba no deja nada suyo en la base', resto == 0, 'quedaron: %s' % (q[0] if q else '?'))
+print('  se borraron tambien %d usuarios de acceso de prueba' % borrados)
 
 print('\n' + '=' * 62)
 if mal:
