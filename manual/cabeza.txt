@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual de la Farmacia Municipal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@page { size: Letter; margin: 16mm 15mm; }
+:root{
+  --navy:#0a2351; --navy2:#1a4f8a; --gold:#a8780c;
+  --ink:#16213a; --soft:#4b5670; --faint:#7d8699;
+  --line:#dfe3ec; --rail:#f4f6fa;
+  --ok-bg:#eff7f2; --ok-l:#a3c8b2; --ok-i:#1b6640;
+  --warn-bg:#fff7ea; --warn-l:#e0be86; --warn-i:#8a5a06;
+  --bad-bg:#fdf2ef; --bad-l:#e0aa99; --bad-i:#94331f;
+}
+*{box-sizing:border-box}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;color:var(--ink);background:#fff;
+  font-family:"Source Sans 3",system-ui,sans-serif;font-size:10.6pt;line-height:1.52}
+h1,h2,h3,h4{font-family:"Zilla Slab",Georgia,serif;margin:0;text-wrap:balance;
+  break-after:avoid;page-break-after:avoid}
+p{margin:0}p+p{margin-top:8px}
+code{font-family:"IBM Plex Mono",monospace;font-size:.88em;background:var(--rail);
+  padding:1px 5px;border-radius:4px}
+
+/* portada */
+.portada{min-height:242mm;display:flex;flex-direction:column;justify-content:center;
+  page-break-after:always;text-align:center;padding:0 10mm}
+.portada .icono{font-size:56pt;line-height:1}
+.portada .ente{font-size:11pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--gold);margin-top:16px}
+.portada h1{font-size:34pt;font-weight:700;margin-top:10px;line-height:1.05}
+.portada .baja{font-size:13pt;color:var(--soft);margin-top:12px}
+/* Un solo degradado en vez de tres cajas: las cajas vacias no imprimen. */
+.portada .barra{height:5px;width:150mm;margin:26px auto;border-radius:3px;
+  background:linear-gradient(to right,
+    #f4c20d 0%, #f4c20d 33.33%,
+    #1a4f8a 33.33%, #1a4f8a 66.66%,
+    #cf142b 66.66%, #cf142b 100%)}
+.portada .web{font-family:"IBM Plex Mono",monospace;font-size:11pt;color:var(--navy2);margin-top:8px}
+.portada .pie{margin-top:34px;font-size:9.5pt;color:var(--faint)}
+
+/* secciones */
+section{page-break-before:always;padding-top:2mm}
+section:first-of-type{page-break-before:avoid}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:8.5pt;font-weight:500;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+h2{font-size:19pt;font-weight:700;margin-top:4px;letter-spacing:-.01em}
+.regla{height:2px;width:42px;background:var(--gold);margin:9px 0 14px;border-radius:2px}
+h3{font-size:12.5pt;font-weight:600;margin-top:18px}
+h3+p{margin-top:6px}
+.sub{color:var(--soft)}
+
+/* pasos */
+ol.pasos{list-style:none;counter-reset:p;margin:14px 0 0;padding:0}
+ol.pasos>li{counter-increment:p;position:relative;padding:0 0 14px 40px;
+  break-inside:avoid;page-break-inside:avoid}
+ol.pasos>li::before{content:counter(p);position:absolute;left:0;top:-1px;
+  width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-family:"IBM Plex Mono",monospace;font-size:11pt;font-weight:500;
+  border:2px solid var(--gold);color:var(--gold)}
+ol.pasos>li>b{display:block;font-family:"Zilla Slab",serif;font-size:11.5pt;font-weight:600}
+ol.pasos>li span{display:block;color:var(--soft);margin-top:2px}
+
+/* avisos */
+.aviso{border-left:4px solid;border-radius:0 8px 8px 0;padding:11px 14px;margin-top:13px;
+  break-inside:avoid;page-break-inside:avoid;font-size:10pt}
+.aviso>b:first-child{display:block;font-family:"Zilla Slab",serif;margin-bottom:3px}
+.aviso.ok{background:var(--ok-bg);border-color:var(--ok-l);color:var(--ok-i)}
+.aviso.warn{background:var(--warn-bg);border-color:var(--warn-l);color:var(--warn-i)}
+.aviso.bad{background:var(--bad-bg);border-color:var(--bad-l);color:var(--bad-i)}
+
+/* tablas */
+table{border-collapse:collapse;width:100%;margin-top:13px;font-size:9.8pt;
+  break-inside:auto}
+th,td{padding:6px 9px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+thead{display:table-header-group}
+thead th{background:var(--rail);font-family:"Zilla Slab",serif;font-weight:600;
+  font-size:9pt;text-transform:uppercase;letter-spacing:.03em;color:var(--soft)}
+tr{break-inside:avoid;page-break-inside:avoid}
+
+ul.lista{margin:9px 0 0;padding-left:17px;color:var(--soft)}
+ul.lista li{margin-top:5px}
+ul.lista li::marker{color:var(--gold)}
+
+.caja{border:1px solid var(--line);border-radius:9px;padding:13px 15px;margin-top:13px;
+  background:var(--rail);break-inside:avoid;page-break-inside:avoid}
+.caja h4{font-size:11pt;font-weight:600;margin-bottom:5px}
+.caja b,.aviso b,td b,ol.pasos>li span b{display:inline}
+.dato{font-family:"IBM Plex Mono",monospace;font-size:10pt}
+figure{margin:14px 0 0;break-inside:avoid;page-break-inside:avoid}
+figure{break-inside:avoid-page}
+figure img{width:100%;height:auto;max-height:112mm;object-fit:contain;object-position:top;display:block;border:1px solid var(--line);border-radius:8px;background:#fff}
+figcaption{margin-top:5px;font-size:8.8pt;color:var(--faint);font-style:italic}
+footer{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);
+  font-size:8.6pt;color:var(--faint)}
+</style>
+</head>
+<body>
