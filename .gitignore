@@ -3,3 +3,4 @@ sql/*.json
 __pycache__/
 *.pyc
 .env
+manual/pag*.png

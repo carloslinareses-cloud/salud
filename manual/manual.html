@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual de la Farmacia Municipal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@page { size: Letter; margin: 16mm 15mm; }
+:root{
+  --navy:#0a2351; --navy2:#1a4f8a; --gold:#a8780c;
+  --ink:#16213a; --soft:#4b5670; --faint:#7d8699;
+  --line:#dfe3ec; --rail:#f4f6fa;
+  --ok-bg:#eff7f2; --ok-l:#a3c8b2; --ok-i:#1b6640;
+  --warn-bg:#fff7ea; --warn-l:#e0be86; --warn-i:#8a5a06;
+  --bad-bg:#fdf2ef; --bad-l:#e0aa99; --bad-i:#94331f;
+}
+*{box-sizing:border-box}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;color:var(--ink);background:#fff;
+  font-family:"Source Sans 3",system-ui,sans-serif;font-size:10.6pt;line-height:1.52}
+h1,h2,h3,h4{font-family:"Zilla Slab",Georgia,serif;margin:0;text-wrap:balance;
+  break-after:avoid;page-break-after:avoid}
+p{margin:0}p+p{margin-top:8px}
+code{font-family:"IBM Plex Mono",monospace;font-size:.88em;background:var(--rail);
+  padding:1px 5px;border-radius:4px}
+
+/* portada */
+.portada{min-height:242mm;display:flex;flex-direction:column;justify-content:center;
+  page-break-after:always;text-align:center;padding:0 10mm}
+.portada .icono{font-size:56pt;line-height:1}
+.portada .ente{font-size:11pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--gold);margin-top:16px}
+.portada h1{font-size:34pt;font-weight:700;margin-top:10px;line-height:1.05}
+.portada .baja{font-size:13pt;color:var(--soft);margin-top:12px}
+/* Un solo degradado en vez de tres cajas: las cajas vacias no imprimen. */
+.portada .barra{height:5px;width:150mm;margin:26px auto;border-radius:3px;
+  background:linear-gradient(to right,
+    #f4c20d 0%, #f4c20d 33.33%,
+    #1a4f8a 33.33%, #1a4f8a 66.66%,
+    #cf142b 66.66%, #cf142b 100%)}
+.portada .web{font-family:"IBM Plex Mono",monospace;font-size:11pt;color:var(--navy2);margin-top:8px}
+.portada .pie{margin-top:34px;font-size:9.5pt;color:var(--faint)}
+
+/* secciones */
+section{page-break-before:always;padding-top:2mm}
+section:first-of-type{page-break-before:avoid}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:8.5pt;font-weight:500;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+h2{font-size:19pt;font-weight:700;margin-top:4px;letter-spacing:-.01em}
+.regla{height:2px;width:42px;background:var(--gold);margin:9px 0 14px;border-radius:2px}
+h3{font-size:12.5pt;font-weight:600;margin-top:18px}
+h3+p{margin-top:6px}
+.sub{color:var(--soft)}
+
+/* pasos */
+ol.pasos{list-style:none;counter-reset:p;margin:14px 0 0;padding:0}
+ol.pasos>li{counter-increment:p;position:relative;padding:0 0 14px 40px;
+  break-inside:avoid;page-break-inside:avoid}
+ol.pasos>li::before{content:counter(p);position:absolute;left:0;top:-1px;
+  width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-family:"IBM Plex Mono",monospace;font-size:11pt;font-weight:500;
+  border:2px solid var(--gold);color:var(--gold)}
+ol.pasos>li>b{display:block;font-family:"Zilla Slab",serif;font-size:11.5pt;font-weight:600}
+ol.pasos>li span{display:block;color:var(--soft);margin-top:2px}
+
+/* avisos */
+.aviso{border-left:4px solid;border-radius:0 8px 8px 0;padding:11px 14px;margin-top:13px;
+  break-inside:avoid;page-break-inside:avoid;font-size:10pt}
+.aviso>b:first-child{display:block;font-family:"Zilla Slab",serif;margin-bottom:3px}
+.aviso.ok{background:var(--ok-bg);border-color:var(--ok-l);color:var(--ok-i)}
+.aviso.warn{background:var(--warn-bg);border-color:var(--warn-l);color:var(--warn-i)}
+.aviso.bad{background:var(--bad-bg);border-color:var(--bad-l);color:var(--bad-i)}
+
+/* tablas */
+table{border-collapse:collapse;width:100%;margin-top:13px;font-size:9.8pt;
+  break-inside:auto}
+th,td{padding:6px 9px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+thead{display:table-header-group}
+thead th{background:var(--rail);font-family:"Zilla Slab",serif;font-weight:600;
+  font-size:9pt;text-transform:uppercase;letter-spacing:.03em;color:var(--soft)}
+tr{break-inside:avoid;page-break-inside:avoid}
+
+ul.lista{margin:9px 0 0;padding-left:17px;color:var(--soft)}
+ul.lista li{margin-top:5px}
+ul.lista li::marker{color:var(--gold)}
+
+.caja{border:1px solid var(--line);border-radius:9px;padding:13px 15px;margin-top:13px;
+  background:var(--rail);break-inside:avoid;page-break-inside:avoid}
+.caja h4{font-size:11pt;font-weight:600;margin-bottom:5px}
+.caja b,.aviso b,td b,ol.pasos>li span b{display:inline}
+.dato{font-family:"IBM Plex Mono",monospace;font-size:10pt}
+footer{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);
+  font-size:8.6pt;color:var(--faint)}
+</style>
+</head>
+<body>
+
+<div class="portada">
+  <div class="icono">💊</div>
+  <div class="ente">Alcaldía del Municipio Bolivariano Cristóbal Rojas</div>
+  <h1>Farmacia Municipal</h1>
+  <div class="baja">Manual del sistema de inventario y entrega de medicamentos</div>
+  <div class="barra"></div>
+  <div class="web">salud.alcaldiadecharallave.com</div>
+  <div class="pie">Dirección de Salud Pública · Charallave, estado Miranda</div>
+</div>
+
+<!-- ============================================================ -->
+<section>
+  <p class="eyebrow">Para qué sirve</p>
+  <h2>Qué cambia con este sistema</h2>
+  <div class="regla"></div>
+
+  <p>Hasta ahora la farmacia llevaba su control en <b>cuatro hojas de Excel distintas</b>: una con
+  las existencias, otra con el registro diario de a quién se le entregó, otra con una matriz mensual
+  por medicamento, y otra con el catálogo. Cada una registraba la misma realidad de una forma, y
+  ninguna se cruzaba con las demás.</p>
+
+  <p>Por eso el inventario nunca cuadraba. Y por eso había medicinas vencidas repartiéndose.</p>
+
+  <div class="aviso bad">
+    <b>Lo que se encontró al revisar esas hojas</b>
+    De 3.448 entregas anotadas, <b>solo 3 tenían la cantidad</b>. Se registraba a quién y qué, casi
+    nunca cuánto — que es justo el número que descontaría del inventario.
+    Y había <b>128 lotes vencidos con 9.274 unidades</b> todavía contadas como disponibles,
+    incluido un JELCO vencido desde 2022.
+  </div>
+
+  <h3>La idea de fondo, en una frase</h3>
+  <p><b>La existencia se calcula, no se escribe.</b> Nadie teclea cuánto queda de un medicamento.
+  El sistema lo saca solo, sumando lo que entró y restando lo que salió. Si el número está mal,
+  es porque falta registrar un movimiento — no porque alguien se equivocó al escribirlo.</p>
+
+  <h3>Las tres piezas</h3>
+  <table>
+    <thead><tr><th>Pieza</th><th>Qué es</th><th>Ejemplo</th></tr></thead>
+    <tbody>
+      <tr><td><b>Producto</b></td><td>El medicamento o insumo en sí</td><td>LOSARTÁN 50mg</td></tr>
+      <tr><td><b>Lote</b></td><td>Cada compra que llega, con su número y su fecha de vencimiento</td>
+          <td>Lote 25002, vence 12/2027</td></tr>
+      <tr><td><b>Movimiento</b></td><td>Cada entrada, salida, ajuste o baja</td>
+          <td>Salieron 30 el 15/09</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px" class="sub">Un mismo producto puede tener varios lotes a la vez, cada
+  uno venciendo en fecha distinta. Por eso el sistema siempre te dice de <b>cuál lote</b> sacar.</p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <p class="eyebrow">Antes de empezar</p>
+  <h2>Cómo entrar</h2>
+  <div class="regla"></div>
+
+  <div class="caja">
+    <h4>La dirección</h4>
+    <p class="dato">salud.alcaldiadecharallave.com</p>
+    <p class="sub" style="margin-top:6px">Se abre desde el teléfono o desde la computadora, con
+    cualquier navegador. No hay que instalar nada.</p>
+  </div>
+
+  <ol class="pasos">
+    <li><b>La primera vez: regístrate</b>
+      <span>En la pantalla de entrada, escribe tu correo y la contraseña que quieras, y pulsa
+      <b>«Regístrate aquí»</b>. Tu cuenta queda creada pero <b>sin permisos</b>.</span></li>
+    <li><b>Pídele al administrador que te active</b>
+      <span>Él te asigna qué vas a hacer: entregar medicamentos, recibir mercancía, o administrar.
+      Hasta que lo haga, no vas a poder entrar. Es a propósito: así nadie se da permisos a sí mismo.</span></li>
+    <li><b>Cambia tu contraseña</b>
+      <span>La primera vez que entres, el sistema te va a pedir que la cambies. No es un capricho:
+      si otra persona te la puso, esa clave no es solo tuya.</span></li>
+  </ol>
+
+  <div class="aviso warn">
+    <b>Si olvidas tu contraseña</b>
+    El administrador te la puede restablecer. Cuando lo haga, el sistema te va a pedir que la
+    cambies otra vez al entrar.
+  </div>
+
+  <h3>Los tres perfiles</h3>
+  <table>
+    <thead><tr><th>Perfil</th><th>Puede hacer</th><th>No puede</th></tr></thead>
+    <tbody>
+      <tr><td><b>Despacho</b><br><span class="sub">3 personas</span></td>
+          <td>Entregar medicamentos a pacientes y a centros de salud. Consultar existencias.
+              Registrar un paciente nuevo.</td>
+          <td>Recibir mercancía, crear medicamentos, corregir existencias.</td></tr>
+      <tr><td><b>Inventario</b><br><span class="sub">1 persona</span></td>
+          <td>Registrar lo que llega, crear medicamentos y lotes, dar de baja vencidos,
+              corregir existencias tras un conteo.</td>
+          <td>Entregar medicamentos.</td></tr>
+      <tr><td><b>Administrador</b><br><span class="sub">1 persona</span></td>
+          <td>Todo lo anterior, más crear y desactivar usuarios, ver la actividad de todos
+              y consultar la bitácora.</td>
+          <td>Borrar la bitácora. Nadie puede.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <p class="eyebrow">Perfil despacho</p>
+  <h2>Entregar a una persona</h2>
+  <div class="regla"></div>
+  <p class="sub">Es la pantalla que más se usa. Está pensada para atender rápido, desde el teléfono,
+  con la persona esperando delante.</p>
+
+  <ol class="pasos">
+    <li><b>Busca a la persona</b>
+      <span>Escribe su cédula o parte de su nombre. Con tres letras basta. Aparecen los que coinciden.</span></li>
+    <li><b>Elígela de la lista</b>
+      <span>Debajo de su nombre vas a ver <b>su tratamiento crónico</b>, para saber qué le toca sin
+      preguntarle.</span></li>
+    <li><b>Escribe el medicamento</b>
+      <span>El sistema te muestra los lotes disponibles <b>ordenados por el que vence primero</b>,
+      con cuántas unidades quedan de cada uno. Los vencidos ni siquiera aparecen.</span></li>
+    <li><b>Elige el lote y pon la cantidad</b>
+      <span>Puedes agregar varios medicamentos a la misma entrega. Si te equivocas, la ✕ quita el renglón.</span></li>
+    <li><b>Pulsa «Registrar la entrega»</b>
+      <span>Se descuenta del inventario en ese momento y queda registrado con <b>tu nombre</b>.</span></li>
+  </ol>
+
+  <div class="aviso ok">
+    <b>Si la persona no está registrada</b>
+    Aparece el botón <b>«Registrar persona nueva»</b>. Con el nombre y la cédula basta para
+    atenderla ya; el teléfono es opcional. No hace falta salir de la pantalla.
+  </div>
+
+  <div class="aviso bad">
+    <b>Si dice que no se pudo registrar, NO se registró</b>
+    El sistema nunca dice «guardado» si el servidor no confirmó. Si se cayó el internet a mitad de
+    una entrega, te avisa que <b>no</b> quedó guardada y hay que repetirla. No la des por hecha.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <p class="eyebrow">Perfil despacho</p>
+  <h2>Entregar a un centro de salud</h2>
+  <div class="regla"></div>
+  <p class="sub">Cuando el despacho no es a una persona sino a un CDI, un ambulatorio o un
+  consultorio popular.</p>
+
+  <ol class="pasos">
+    <li><b>Cambia a «A un centro (CDI)»</b>
+      <span>Es el botón de arriba de la pantalla de entrega.</span></li>
+    <li><b>Busca el centro</b>
+      <span>Escribe parte de su nombre. Si no aparece, hay que darlo de alta primero: eso lo hace
+      el de inventario o el administrador.</span></li>
+    <li><b>Anota quién recibe</b>
+      <span>Nombre y apellido de la persona que firma, y su cédula. <b>El sistema no deja registrar
+      la entrega sin esto:</b> es la constancia de quién se llevó los medicamentos.</span></li>
+    <li><b>Carga los renglones y registra</b>
+      <span>Igual que con una persona: medicamento, lote y cantidad.</span></li>
+  </ol>
+
+  <div class="aviso warn">
+    <b>Por qué se exige quién recibe</b>
+    Una entrega a un centro es un traspaso entre instituciones. Sin el nombre de quien recibió, no
+    hay a quién preguntarle después si algo no llegó.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <p class="eyebrow">Perfil inventario</p>
+  <h2>Registrar la mercancía que llega</h2>
+  <div class="regla"></div>
+
+  <ol class="pasos">
+    <li><b>Entra a «Registrar lo que llega»</b>
+      <span>Es la segunda pestaña de tu pantalla.</span></li>
+    <li><b>Busca el medicamento</b>
+      <span>Si ya está en el catálogo, sale en la lista. Si es la primera vez que llega, pulsa
+      <b>«+ Es uno nuevo»</b> y se crea sin salir de ahí.</span></li>
+    <li><b>Copia el número de lote de la caja</b>
+      <span>Tal como viene impreso. Es lo que permite rastrear una medicina si el fabricante la retira.</span></li>
+    <li><b>Pon la fecha de vencimiento</b>
+      <span>Este es el dato más importante de todo el sistema.</span></li>
+    <li><b>Escribe cuántas unidades llegaron y registra</b>
+      <span>Quedan disponibles de inmediato para quien despacha.</span></li>
+  </ol>
+
+  <div class="aviso warn">
+    <b>Si no pones fecha de vencimiento</b>
+    El sistema te va a preguntar si estás seguro. Sin esa fecha <b>no puede avisarte cuándo se
+    vence ni ordenar por el que vence primero</b>, y ese lote va a quedar al final de la fila
+    siempre. Ponla aunque tengas que ir a buscar la caja.
+  </div>
+
+  <div class="caja">
+    <h4>Un mismo medicamento, varios lotes</h4>
+    <p class="sub">Es normal y es lo correcto. Si llegan 200 losartanes en marzo y 300 en agosto,
+    son <b>dos lotes distintos</b> con dos vencimientos distintos. El sistema los maneja por
+    separado y siempre despacha primero el que vence antes.</p>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <p class="eyebrow">Perfil inventario</p>
+  <h2>Vencimientos y conteos</h2>
+  <div class="regla"></div>
+
+  <h3>Las alertas</h3>
+  <p>Es lo primero que ves al entrar. Cuatro números: lotes vencidos, unidades vencidas, los que
+  vencen en 30 días y los que vencen en 90.</p>
+  <p>Debajo, la lista de cada uno con su lote, su fecha y cuántas unidades quedan.</p>
+
+  <div class="aviso ok">
+    <b>Cómo se usa de verdad</b>
+    Mira la lista de <b>«vencen en 30 días»</b> una vez por semana. Esos son los que hay que sacar
+    primero. Si un medicamento se está venciendo con existencia alta, es señal de que se está
+    pidiendo más de lo que se entrega.
+  </div>
+
+  <h3>Dar de baja un lote vencido</h3>
+  <ol class="pasos">
+    <li><b>Búscalo en la lista de vencidos</b><span>Pulsa «Dar de baja» en su renglón.</span></li>
+    <li><b>Confirma</b><span>Queda registrado quién lo hizo y cuándo.</span></li>
+    <li><b>Sepáralo físicamente</b>
+      <span>El sistema ya no lo va a ofrecer, pero la caja sigue en el anaquel. Retírala.</span></li>
+  </ol>
+
+  <h3>Corregir la existencia tras un conteo</h3>
+  <p>Cuando cuentas físicamente y no coincide con lo que dice el sistema.</p>
+  <ol class="pasos">
+    <li><b>Entra a «Corregir existencia»</b><span>La tercera pestaña.</span></li>
+    <li><b>Busca el lote</b><span>Te muestra cuánto dice el sistema que hay.</span></li>
+    <li><b>Escribe cuánto hay DE VERDAD</b>
+      <span>El sistema calcula la diferencia solo. No escribes la diferencia, escribes el total real.</span></li>
+    <li><b>Explica por qué no cuadra</b>
+      <span>Conteo físico, rotura, derrame, lo que sea. <b>Es obligatorio</b> y queda en la bitácora.</span></li>
+  </ol>
+
+  <div class="aviso warn">
+    <b>Si corriges mucho y seguido, hay un problema de fondo</b>
+    Un ajuste ocasional es normal. Ajustes constantes significan que hay entregas que no se están
+    registrando. Eso se ve en el panel del administrador.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <p class="eyebrow">Perfil administrador</p>
+  <h2>El panel de control</h2>
+  <div class="regla"></div>
+
+  <h3>Tablero</h3>
+  <p>Cuatro números del día: entregas de hoy, lotes vencidos, los que vencen en 30 días y los
+  pacientes que hay que revisar. Debajo, <b>cuánto entregó cada persona hoy</b> y la lista de lo
+  último que pasó, escrita en lenguaje normal.</p>
+
+  <h3>Bitácora</h3>
+  <p>Todo lo que se hace en el sistema queda aquí: quién, qué, cuándo, y qué cambió exactamente.
+  Se puede filtrar por tipo de acción y por persona.</p>
+  <div class="aviso bad">
+    <b>La bitácora no se puede editar ni borrar</b>
+    Ni por el administrador, ni por nadie. Eso no es un descuido: es lo que la hace servir como
+    prueba. Si se pudiera borrar, no probaría nada.
+  </div>
+
+  <h3>Usuarios</h3>
+  <p>Aquí activas a quien se registró, le pones su perfil, o lo desactivas.</p>
+  <div class="aviso warn">
+    <b>Los usuarios no se borran, se desactivan</b>
+    Si se borrara a alguien, todas sus entregas quedarían sin dueño y se perdería el rastro de quién
+    hizo qué. Al desactivarlo deja de entrar de inmediato, pero su historial queda intacto.
+  </div>
+
+  <h3>Pacientes por revisar</h3>
+  <p>Son los que vinieron mal desde los Excel: la celda de la cédula traía un nombre, un medicamento,
+  o la letra «F». <b>El sistema no los corrigió solo a propósito</b> — adivinar la cédula de una
+  persona real es justo lo que no se debe hacer.</p>
+  <p>Aquí ves cómo venía escrito el dato original, escribes la cédula correcta, y el paciente pasa a
+  activo.</p>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <p class="eyebrow">Importante</p>
+  <h2>Lo que el sistema no te va a dejar hacer</h2>
+  <div class="regla"></div>
+  <p class="sub">Y por qué. Estos candados están en la base de datos, no en la pantalla: no se
+  pueden saltar ni por error ni a propósito.</p>
+
+  <table>
+    <thead><tr><th>No se puede</th><th>Por qué</th></tr></thead>
+    <tbody>
+      <tr><td><b>Entregar de un lote vencido</b></td>
+          <td>Es medicina. Ni siquiera aparece en la lista al buscar.</td></tr>
+      <tr><td><b>Dejar la existencia en negativo</b></td>
+          <td>Si intentas sacar más de lo que hay, te dice cuánto queda de verdad.</td></tr>
+      <tr><td><b>Borrar un movimiento</b></td>
+          <td>Se corrige registrando el movimiento contrario. Así queda el rastro de que hubo un error
+              y de quién lo corrigió.</td></tr>
+      <tr><td><b>Registrar una entrega a nombre de otro</b></td>
+          <td>El nombre lo pone el servidor, no la pantalla. Si alguien lo intenta,
+              <b>queda anotado en la bitácora</b>.</td></tr>
+      <tr><td><b>Entregar sin decir a quién</b></td>
+          <td>Tiene que ser una persona o un centro. Nunca las dos, nunca ninguna.</td></tr>
+      <tr><td><b>Que un despachador cree medicamentos o ajuste existencias</b></td>
+          <td>Eso es del perfil de inventario. Cada quien hace lo suyo.</td></tr>
+      <tr><td><b>Cambiarse el rol uno mismo</b></td>
+          <td>Solo el administrador asigna perfiles.</td></tr>
+      <tr><td><b>Borrar o editar la bitácora</b></td>
+          <td>Nadie, en ningún perfil.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section>
+  <p class="eyebrow">Si algo sale mal</p>
+  <h2>Problemas comunes</h2>
+  <div class="regla"></div>
+
+  <table>
+    <thead><tr><th>Lo que ves</th><th>Qué hacer</th></tr></thead>
+    <tbody>
+      <tr><td>«El correo o la contraseña no son correctos»</td>
+          <td>Revisa que no tengas mayúsculas activadas. Si no, pídele al administrador que te la restablezca.</td></tr>
+      <tr><td>«Tu usuario está desactivado»</td>
+          <td>El administrador tiene que activarte. Puede que se haya desactivado por error.</td></tr>
+      <tr><td>«No hay conexión con el servidor»</td>
+          <td>Es tu internet. <b>Lo que estabas haciendo no se guardó</b>: hay que repetirlo.</td></tr>
+      <tr><td>«Ese lote está vencido»</td>
+          <td>Está bien que lo rechace. Busca otro lote del mismo medicamento, o avísale a inventario.</td></tr>
+      <tr><td>«No hay suficiente. Quedan X»</td>
+          <td>El sistema tiene menos de lo que crees. Si en el anaquel hay más, hace falta un ajuste por conteo.</td></tr>
+      <tr><td>No aparece el medicamento al buscar</td>
+          <td>O está agotado, o todos sus lotes están vencidos, o nunca se registró. Consulta con inventario.</td></tr>
+      <tr><td>No aparece el paciente</td>
+          <td>Prueba con menos letras del nombre, o con la cédula. Si de verdad no está, regístralo.</td></tr>
+      <tr><td>Se me fue una entrega mal hecha</td>
+          <td>Avísale al administrador. Él la anula y registra el movimiento que devuelve el stock.
+              No se borra: queda constancia del error y de la corrección.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="caja">
+    <h4>Una regla para todo</h4>
+    <p>Si el sistema te dice que algo no se pudo hacer, <b>no se hizo</b>. No lo des por hecho ni lo
+    anotes en papel «por si acaso»: vuelve a intentarlo. Y si te sigue rechazando, hay una razón —
+    léela, casi siempre te dice exactamente cuál es.</p>
+  </div>
+
+  <footer>
+    Alcaldía del Municipio Bolivariano Cristóbal Rojas · Dirección de Salud Pública<br>
+    Farmacia Municipal · salud.alcaldiadecharallave.com
+  </footer>
+</section>
+
+</body>
+</html>
