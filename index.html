@@ -182,6 +182,24 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 
 /* ---------- inventario y panel de admin ---------- */
 .sub-t{font-size:1rem;font-weight:800;margin:22px 0 8px;letter-spacing:-.01em}
+/* ---------- las tres areas del administrador ---------- */
+.areas{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px}
+.areas button{flex:1 1 auto; min-width:120px; min-height:46px; font:inherit; font-size:15px;
+  font-weight:750; cursor:pointer; padding:11px 16px; border-radius:12px;
+  border:1px solid var(--line); background:var(--card); color:var(--ink-soft);
+  box-shadow:var(--shadow)}
+.areas button:hover{color:var(--ink); border-color:var(--ink-faint)}
+.areas button.on{background:var(--navy); color:#fff; border-color:var(--navy)}
+.areas button.on:hover{color:#fff}
+/* el area escondida no se muestra aunque algo le ponga display */
+.zona-area[hidden]{display:none}
+@media (max-width:480px){
+  /* En el teléfono las tres áreas se acomodan en dos renglones. La letra
+     sube a 16px: es el mínimo para que el navegador no haga zoom solo. */
+  .areas{gap:6px}
+  .areas button{font-size:16px; min-height:48px; padding:12px 10px}
+}
+
 /* ---------- gestion de usuarios ---------- */
 .acciones-u{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end}
 .acciones-u button{font-size:12px; padding:6px 10px; min-height:32px; white-space:nowrap}

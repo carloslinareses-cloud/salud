@@ -205,6 +205,27 @@ CUERPO = """
           <td>Modificar la bit&aacute;cora.</td></tr>
     </tbody>
   </table>
+
+  <h3>El administrador tiene el ciclo completo</h3>
+  <p>Al entrar como administrador aparecen tres botones arriba. Con ellos se pasa de una parte
+  del trabajo a otra sin salir ni volver a entrar:</p>
+  <ul>
+    <li><b>Entregar</b> &mdash; la misma pantalla del perfil de despacho: buscar al paciente o al
+    centro, elegir el lote y registrar la entrega.</li>
+    <li><b>Mercanc&iacute;a</b> &mdash; la misma pantalla del perfil de inventario: registrar lo que
+    llega, ver alertas de vencimiento, dar de baja y corregir existencias.</li>
+    <li><b>Administraci&oacute;n</b> &mdash; el tablero, la bit&aacute;cora, los usuarios y los
+    pacientes por completar.</li>
+  </ul>
+  __FIG_AREAS__
+  <p>Lo que se est&eacute; haciendo no se pierde al cambiar de bot&oacute;n: se puede dejar una
+  entrega a medio armar, ir a mirar la existencia y volver, y sigue ah&iacute;. El sistema
+  recuerda tambi&eacute;n en qu&eacute; parte se estaba, para volver ah&iacute; al entrar de nuevo.</p>
+  <div class="aviso warn">
+    <b>Queda registrado igual</b>
+    Cuando el administrador entrega o recibe mercanc&iacute;a, la bit&aacute;cora lo anota con su
+    nombre, exactamente igual que a cualquier otra persona. Nadie queda fuera del registro.
+  </div>
 </section>
 
 <section>
@@ -458,6 +479,7 @@ FIGURAS = [
     ('__FIG_BITACORA__', '10-bitacora.jpg',       'Bit&aacute;cora, con filtros por acci&oacute;n y por persona.'),
     ('__FIG_USUARIOS__', '11-usuarios.jpg',       'El administrador crea la cuenta completa: nombre, correo, puesto y contrase&ntilde;a.'),
     ('__FIG_REVISAR__',  '12-por-revisar.jpg',    'Pacientes cuyo registro hay que completar.'),
+    ('__FIG_AREAS__',    '13-areas.jpg',          'Los tres botones del administrador. El t&iacute;tulo cambia con la parte elegida.'),
 ]
 
 cuerpo = CUERPO

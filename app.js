@@ -58,6 +58,7 @@
 
   function salir() {
     if (!sb) return;
+    try { sessionStorage.removeItem(RECUERDA_AREA); } catch (e) { /* modo privado */ }
     sb.auth.signOut().then(function () { location.reload(); });
   }
 
@@ -128,33 +129,111 @@
     };
   }
 
+  /* ---------------------------------------------------------------
+     Las tres áreas del ciclo. El administrador las tiene todas; cada
+     uno de los otros perfiles tiene la suya y no ve un selector.
+     La base de datos ya le da permiso completo al administrador: esto
+     es solo la puerta para llegar a cada pantalla.
+  --------------------------------------------------------------- */
+  var AREAS = [
+    { id: 'despacho',   boton: 'Entregar',
+      titulo: 'Entrega de medicamentos', sub: 'Buscar al paciente o al centro y registrar lo que se entrega',
+      hay: function () { return typeof window.PANTALLA_DESPACHO === 'function'; },
+      abre: function (z) { window.PANTALLA_DESPACHO(sb, z); } },
+    { id: 'inventario', boton: 'Mercancía',
+      titulo: 'Entrada de mercancía', sub: 'Registrar lo que llega, alertas de vencimiento, ajustes y bajas',
+      hay: function () { return typeof window.PANTALLA_INVENTARIO === 'function'; },
+      abre: function (z) { window.PANTALLA_INVENTARIO(sb, z); } },
+    { id: 'admin',      boton: 'Administración',
+      titulo: 'Panel del administrador', sub: 'Usuarios, actividad de todos y bitácora completa',
+      hay: function () { return typeof window.PANTALLA_ADMIN === 'function'; },
+      abre: function (z, u) { window.PANTALLA_ADMIN(sb, z, u); } }
+  ];
+
+  var EN_OBRA = '<div class="tarjeta"><h2>En construcción</h2>' +
+    '<p class="sub">Esta pantalla se habilita en la siguiente etapa.</p></div>';
+
+  var RECUERDA_AREA = 'farmacia_area';
+
   function abrirPanel(usuario, perfil) {
-    var info = PERFILES[perfil.rol] || { titulo: 'Panel', sub: '' };
     $('vistaAcceso').hidden = true;
     $('vistaPanel').hidden = false;
-    $('tituloPanel').textContent = info.titulo;
-    $('subPanel').textContent = info.sub;
     $('chipUsuario').textContent = (perfil.nombre || usuario.email) + ' · ' + perfil.rol;
     $('chipUsuario').hidden = false;
     $('btnSalir').hidden = false;
     var zona = $('contenidoPanel');
     zona.innerHTML = '';
 
-    if (perfil.rol === 'admin' && window.PANTALLA_ADMIN) {
-      window.PANTALLA_ADMIN(sb, zona, usuario);
+    if (perfil.rol === 'admin') {
+      montarAreas(usuario, zona);
       return;
     }
-    if (perfil.rol === 'inventario' && window.PANTALLA_INVENTARIO) {
-      window.PANTALLA_INVENTARIO(sb, zona);
-      return;
-    }
-    if (perfil.rol === 'despacho' && window.PANTALLA_DESPACHO) {
-      window.PANTALLA_DESPACHO(sb, zona);
-      return;
-    }
+
+    var info = PERFILES[perfil.rol] || { titulo: 'Panel', sub: '' };
+    $('tituloPanel').textContent = info.titulo;
+    $('subPanel').textContent = info.sub;
+
+    var suya = AREAS.filter(function (a) { return a.id === perfil.rol; })[0];
+    if (suya && suya.hay()) { suya.abre(zona, usuario); return; }
+    zona.innerHTML = EN_OBRA;
+  }
+
+  /* El administrador entra por donde estaba la última vez, para no tener
+     que volver a buscar su sitio cada vez que recarga.
+
+     Cada área tiene su propio cajón y se monta UNA sola vez, la primera
+     vez que se entra. Al cambiar de área no se borra la anterior: se
+     esconde. Hay dos razones:
+
+       1. Si se borrara, una respuesta del servidor que llegue tarde
+          intentaría escribir en algo que ya no existe y reventaría la
+          página. Pasó de verdad al probar esto.
+       2. Lo que estabas haciendo se conserva: puedes ir a mirar la
+          existencia y volver, y tu entrega a medio armar sigue ahí.
+  --------------------------------------------------------------- */
+  function montarAreas(usuario, zona) {
+    var guardada = null;
+    try { guardada = sessionStorage.getItem(RECUERDA_AREA); } catch (e) { guardada = null; }
+    var actual = AREAS.filter(function (a) { return a.id === guardada; })[0] || AREAS[2];
+    var montada = {};
+
     zona.innerHTML =
-      '<div class="tarjeta"><h2>En construcción</h2>' +
-      '<p class="sub">Esta pantalla se habilita en la siguiente etapa.</p></div>';
+      '<div class="areas" role="tablist">' + AREAS.map(function (a) {
+        return '<button type="button" role="tab" data-area="' + a.id + '">' + a.boton + '</button>';
+      }).join('') + '</div>' +
+      AREAS.map(function (a) {
+        return '<div class="zona-area" id="zona-' + a.id + '" hidden></div>';
+      }).join('');
+
+    function ir(area) {
+      actual = area;
+      try { sessionStorage.setItem(RECUERDA_AREA, area.id); } catch (e) { /* modo privado */ }
+      $('tituloPanel').textContent = area.titulo;
+      $('subPanel').textContent = area.sub;
+
+      zona.querySelectorAll('[data-area]').forEach(function (b) {
+        var suyo = b.dataset.area === area.id;
+        b.classList.toggle('on', suyo);
+        b.setAttribute('aria-selected', suyo ? 'true' : 'false');
+      });
+      AREAS.forEach(function (a) { $('zona-' + a.id).hidden = a.id !== area.id; });
+
+      if (!montada[area.id]) {
+        montada[area.id] = true;
+        var z = $('zona-' + area.id);
+        if (area.hay()) area.abre(z, usuario);
+        else z.innerHTML = EN_OBRA;
+      }
+    }
+
+    zona.querySelectorAll('[data-area]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = AREAS.filter(function (x) { return x.id === b.dataset.area; })[0];
+        if (a && a.id !== actual.id) ir(a);
+      });
+    });
+
+    ir(actual);
   }
 
   /* ---------------------------------------------------------------
