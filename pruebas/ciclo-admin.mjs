@@ -107,15 +107,21 @@ try {
 
   console.log('\n--- 2. Mercancia: registrar lo que llega ---')
   await irArea('inventario')
-  await pag.waitForSelector('[data-p="entrada"]', { timeout: 20000 })
-  await pag.click('[data-p="entrada"]')
-  await pag.waitForSelector('#eProd', { timeout: 15000 })
-  prueba('el administrador entra a Mercancia', true)
+  await pag.waitForSelector('[data-p="catalogo"]', { timeout: 20000 })
+  await pag.click('[data-p="catalogo"]')
+  await pag.waitForSelector('#catBusca', { timeout: 15000 })
+  await pag.waitForSelector('.ficha, .vacio', { timeout: 25000 })
+  const cuantos = await pag.$eval('.conteo', e => e.textContent.trim()).catch(() => '')
+  prueba('el catalogo se ve entero sin tener que escribir', /medicamento/i.test(cuantos), cuantos)
 
-  await pag.type('#eProd', MED)
-  await pag.waitForSelector('#eRes .item', { timeout: 20000 })
-  await pag.click('#eRes [data-nuevo="1"]')
-  await pag.waitForSelector('#lCant', { timeout: 20000 })
+  const conDatos = await pag.$$eval('.ficha', fs => fs.slice(0, 1).map(f => f.innerText.replace(/\s+/g, ' ')))
+  prueba('cada renglon dice cuanto hay y en cuantos lotes',
+    /unidad|lote/i.test(conDatos[0] || ''), conDatos[0] || '(sin fichas)')
+
+  await pag.type('#catBusca', MED)
+  await pag.waitForSelector('#catNuevo', { timeout: 25000 })
+  await pag.click('#catNuevo')
+  await pag.waitForSelector('#lCant', { timeout: 25000 })
   prueba('puede crear un medicamento nuevo en el catalogo', true)
 
   await pag.type('#lCodigo', LOTE)
@@ -151,8 +157,19 @@ try {
   prueba('elige al paciente y llega a la cesta', true)
 
   await pag.type('#buscaMed', MED)
-  await pag.waitForSelector('#resMed .item', { timeout: 20000 })
-  await pag.click('#resMed .item')
+  /* CANDADO: la lista se muestra de entrada con TODO lo disponible, así que
+     hay que esperar a que el filtro la haya reducido a lo de la prueba. Sin
+     esto se hacía clic en el primer medicamento REAL de la farmacia y se le
+     descontaba existencia de verdad. Pasó una vez; no puede volver a pasar. */
+  await pag.waitForFunction(m => {
+    const f = document.querySelectorAll('#resMed .ficha')
+    return f.length > 0 && [...f].every(x => x.innerText.includes(m))
+  }, { timeout: 25000 }, MED)
+  const primera = await pag.$eval('#resMed .ficha', e => e.innerText.replace(/\s+/g, ' '))
+  if (!primera.includes(MED)) {
+    throw new Error('CANDADO: la primera ficha no es la de la prueba, es «' + primera + '». No se toca.')
+  }
+  await pag.click('#resMed .ficha')
   await new Promise(r => setTimeout(r, 1200))
 
   const hayCant = await pag.$('#renglones input[type="number"], #zonaCesta input[type="number"]')
@@ -183,6 +200,54 @@ try {
   const quedan = Array.isArray(saldo) && saldo[0] ? Number(saldo[0].existencia) : null
   prueba(`quedan ${CANT_ENTRA - CANT_SALE} unidades (entraron ${CANT_ENTRA}, salieron ${CANT_SALE})`,
     quedan === CANT_ENTRA - CANT_SALE, 'quedan: ' + JSON.stringify(saldo))
+
+  console.log('\n--- 4b. La hoja de conteo, tipo Excel ---')
+  await irArea('inventario')
+  await pag.waitForSelector('[data-p="conteo"]', { timeout: 20000 })
+  await pag.click('[data-p="conteo"]')
+  await pag.waitForSelector('.celda', { timeout: 25000 })
+  const cuantosLotes = await pag.$eval('.conteo', e => e.textContent.trim()).catch(() => '')
+  prueba('la hoja trae los lotes de 50 en 50', /de \d+ lotes|lotes?$/i.test(cuantosLotes), cuantosLotes)
+
+  await pag.type('#hojaBusca', MED)
+  /* CANDADO: igual que arriba, hay que esperar a que el filtro deje SOLO
+     los lotes de la prueba antes de escribir en ninguna casilla. */
+  await pag.waitForFunction(m => {
+    const f = document.querySelectorAll('.tabla.hoja tbody tr')
+    return f.length > 0 && [...f].every(x => x.innerText.includes(m))
+  }, { timeout: 25000 }, MED)
+
+  const CONTADO = 25   // lo que "se contó de verdad"
+  await pag.evaluate(c => {
+    const i = document.querySelector('.celda')
+    i.value = String(c)
+    i.dispatchEvent(new Event('input', { bubbles: true }))
+  }, CONTADO)
+  await new Promise(r => setTimeout(r, 400))
+
+  const dif = await pag.$eval('.tabla.hoja tr.cambiada .dif', e => e.textContent.trim()).catch(() => '')
+  prueba('calcula sola la diferencia', dif === String(CONTADO - (CANT_ENTRA - CANT_SALE)), dif)
+  const barra = await pag.$eval('.barra-guardar', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '')
+  prueba('avisa cuantos renglones cambiaron', /1 rengl[oó]n cambiado/i.test(barra), barra)
+
+  await pag.type('#hMotivo', 'Conteo fisico de la prueba automatica')
+  await pag.click('#hGuardar')
+  await pag.waitForFunction(
+    () => /Guardad|no se guard/i.test((document.getElementById('avisoInv') || {}).textContent || ''),
+    { timeout: 30000 })
+  const msgHoja = await pag.$eval('#avisoInv', e => e.textContent.trim())
+  prueba('guarda las correcciones de golpe', /Guardada/i.test(msgHoja), msgHoja)
+
+  const tras = await pag.evaluate(async (med) => {
+    const c = window.CONFIG
+    const t = JSON.parse(localStorage.getItem(
+      Object.keys(localStorage).find(k => k.includes('auth-token')))).access_token
+    const r = await fetch(`${c.SUPABASE_URL}/rest/v1/v_existencia_lote?select=existencia&producto=eq.${encodeURIComponent(med)}`,
+      { headers: { apikey: c.SUPABASE_ANON_KEY, 'Accept-Profile': 'farmacia', Authorization: 'Bearer ' + t } })
+    return await r.json()
+  }, MED)
+  prueba(`la existencia quedo en ${CONTADO}, que fue lo contado`,
+    Array.isArray(tras) && Number(tras[0]?.existencia) === CONTADO, JSON.stringify(tras))
 
   console.log('\n--- 5. Administracion: queda en la bitacora ---')
   await irArea('admin')
@@ -242,6 +307,14 @@ delete from farmacia.bitacora
     or registro_id in (select id::text from farmacia.productos where nombre like 'ZZZ-CICLO%')
     or registro_id in (select id::text from farmacia.pacientes where nombre like 'ZZZ%');
 
+-- Los movimientos que generaron esas entregas, SEA CUAL SEA el medicamento.
+-- Si solo se borraran los de los productos ZZZ, una entrega de prueba sobre
+-- un medicamento real dejaría su descuento puesto para siempre. Pasó una vez.
+delete from farmacia.bitacora
+ where registro_id in (select m.id::text from farmacia.movimientos m
+                        where m.entrega_id in (select id from zzz_e));
+delete from farmacia.movimientos m where m.entrega_id in (select id from zzz_e);
+
 delete from farmacia.entrega_detalle d using zzz_e z where d.entrega_id = z.id;
 delete from farmacia.entregas e using zzz_e z where e.id = z.id;
 delete from farmacia.movimientos m using farmacia.lotes l, farmacia.productos p
@@ -258,7 +331,9 @@ commit;`)
 
 const resto = await sql(`select
   (select count(*) from farmacia.productos where nombre like 'ZZZ-CICLO%') productos,
-  (select count(*) from farmacia.pacientes where nombre like 'ZZZ%') pacientes;`)
+  (select count(*) from farmacia.pacientes where nombre like 'ZZZ%') pacientes,
+  (select count(*) from farmacia.movimientos m where m.entrega_id is not null
+     and not exists (select 1 from farmacia.entregas e where e.id = m.entrega_id)) descuentos_huerfanos;`)
 const quedaron = JSON.parse(resto.cuerpo || '[]')[0] || {}
 const suma = Object.values(quedaron).reduce((a, b) => a + Number(b), 0)
 prueba('la prueba no deja nada suyo en la base', suma === 0,

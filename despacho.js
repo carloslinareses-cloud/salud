@@ -58,8 +58,7 @@
           '<div><b>' + esc(destino.titulo) + '</b><span>' + esc(destino.sub) + '</span></div>' +
           '<button type="button" class="quitar" id="cambiarDestino">Cambiar</button>' +
         '</div>' +
-        (destino.tratamiento ? '<div class="trat"><span class="lbl">Su tratamiento</span>' +
-           esc(destino.tratamiento) + '</div>' : '') +
+        pintarTratamiento() +
         (modo === 'institucion' ?
           '<label for="recibeNombre">Quién recibe</label>' +
           '<input id="recibeNombre" type="text" placeholder="Nombre y apellido de quien firma" autocomplete="off">' +
@@ -67,6 +66,10 @@
           '<input id="recibeCedula" type="text" inputmode="numeric" placeholder="Solo números">' : '');
       document.getElementById('cambiarDestino').addEventListener('click', function () {
         destino = null; pintarDestino();
+      });
+      var conProd = (destino.tratamiento || []).filter(function (x) { return x.producto_id; });
+      z.querySelectorAll('[data-trat]').forEach(function (b) {
+        b.addEventListener('click', function () { agregarDelTratamiento(conProd[+b.dataset.trat]); });
       });
       return;
     }
@@ -81,6 +84,62 @@
     var caja = document.getElementById('buscaDestino');
     caja.addEventListener('input', retardo(function () { buscarDestino(caja.value.trim()); }, 280));
     caja.focus();
+  }
+
+  /* El tratamiento del paciente: cada medicamento con su existencia y un
+     botón para agregarlo de una vez. Los que no tienen se ven apagados y
+     dicen por qué, en vez de dejar buscar en vano. */
+  function pintarTratamiento() {
+    if (destino.tipo !== 'paciente') return '';
+    var t = destino.tratamiento;
+    if (t === undefined) return '<div class="trat"><span class="lbl">Su tratamiento</span>' +
+      '<span class="sub chico">Buscando…</span></div>';
+    if (!t || !t.length) return '';
+
+    /* Los renglones que no se pudieron enlazar con un medicamento del
+       catálogo se muestran como vinieron del Excel: son un dato real. */
+    var conProd = t.filter(function (x) { return x.producto_id; });
+    var sueltos = t.filter(function (x) { return !x.producto_id && x.texto_original; });
+
+    return '<div class="trat">' +
+      '<span class="lbl">Su tratamiento · ' + t.length +
+        (t.length === 1 ? ' medicamento' : ' medicamentos') + '</span>' +
+      (conProd.length
+        ? '<div class="trat-lista">' + conProd.map(function (x, i) {
+            var hay = Number(x.disponible) || 0;
+            return '<button type="button" class="trat-med' + (hay > 0 ? '' : ' sin') + '" ' +
+              'data-trat="' + i + '"' + (hay > 0 ? '' : ' disabled') + '>' +
+              '<span class="tm-nom">' + esc(x.producto) +
+                (x.dosificacion ? ' <em>' + esc(x.dosificacion) + '</em>' : '') + '</span>' +
+              '<span class="tm-hay">' + (hay > 0
+                ? hay + ' disponibles'
+                : (x.situacion === 'solo_vencido' ? 'solo vencido' : 'sin existencia')) + '</span>' +
+            '</button>';
+          }).join('') + '</div>'
+        : '') +
+      (sueltos.length
+        ? '<span class="sub chico">Además, del Excel: ' +
+          esc(sueltos.map(function (x) { return x.texto_original; }).join(' · ')) + '</span>'
+        : '') +
+    '</div>';
+  }
+
+  /* Al tocar un medicamento del tratamiento se busca su lote: el que vence
+     primero, que es el que hay que sacar. */
+  function agregarDelTratamiento(x) {
+    var av = document.getElementById('zonaAviso');
+    sb.from('v_lotes_para_despachar')
+      .select('lote_id,producto_id,producto,lote,vence,existencia,situacion')
+      .eq('producto_id', x.producto_id).limit(1)
+      .then(function (r) {
+        var l = r.data && r.data[0];
+        if (!l) {
+          if (av) av.innerHTML = '<div class="aviso warn">De ' + esc(x.producto) +
+            ' no queda nada que se pueda entregar.</div>';
+          return;
+        }
+        agregar(l);
+      });
   }
 
   function buscarDestino(q) {
@@ -139,10 +198,16 @@
                   sub: (x.cedula ? (x.nacionalidad || 'V') + '-' + x.cedula : 'sin cédula válida') +
                        (x.telefono ? ' · ' + x.telefono : '') };
       pintarDestino();
-      sb.from('tratamientos_paciente').select('texto_original').eq('paciente_id', x.id).limit(1)
+      /* Su tratamiento, con la existencia de cada medicamento al lado. La
+         farmacia ya sabe qué toma cada paciente crónico: mostrarlo aquí
+         evita tener que buscarlo a mano uno por uno. */
+      sb.from('v_tratamiento_paciente')
+        .select('producto_id,producto,dosificacion,texto_original,disponible,situacion')
+        .eq('paciente_id', x.id)
         .then(function (r) {
-          var t = r.data && r.data[0] ? r.data[0].texto_original : null;
-          if (t) { destino.tratamiento = t; pintarDestino(); }
+          if (!destino || destino.id !== x.id) return;   // ya cambió de paciente
+          destino.tratamiento = r.data || [];
+          pintarDestino();
         });
     } else {
       destino = { tipo: 'institucion', id: x.id, titulo: x.nombre, sub: x.tipo || 'Centro de salud' };
@@ -209,47 +274,75 @@
     caja.addEventListener('input', retardo(function () { buscarMed(caja.value.trim()); }, 280));
     document.getElementById('btnRegistrar').addEventListener('click', registrar);
     pintarRenglones();
+    /* Se muestra de entrada lo que hay, sin obligar a escribir: así se ve
+       qué se puede entregar hoy en vez de adivinar nombres. */
+    buscarMed('');
   }
+
+  var SIT_TXT = {
+    por_vencer_30: { t: 'Vence en 30 días', c: 'ojo' },
+    por_vencer_90: { t: 'Vence en 90 días', c: 'ojo' },
+    sin_fecha:     { t: 'Sin vencimiento',  c: 'gris' },
+    vigente:       { t: 'Vigente',          c: 'ok' }
+  };
 
   function buscarMed(q) {
     var lista = document.getElementById('resMed');
     if (!lista) return;
-    if (q.length < 3) { lista.innerHTML = ''; return; }
     lista.innerHTML = '<div class="cargando">Buscando…</div>';
 
-    // La vista ya viene ordenada por el que vence primero (FEFO) y sin vencidos.
-    sb.from('v_lotes_para_despachar')
-      .select('lote_id,producto_id,producto,lote,vence,existencia,situacion')
-      .ilike('producto', '*' + q.replace(/[%,()]/g, '') + '*')
-      .limit(20)
-      .then(function (r) {
-        if (r.error) { lista.innerHTML = '<div class="cargando">' + esc(r.error.message) + '</div>'; return; }
-        var f = r.data || [];
-        if (!f.length) {
-          lista.innerHTML = '<div class="cargando">No hay existencia disponible de eso. ' +
-            'Puede estar agotado o vencido.</div>';
-          return;
-        }
-        lista.innerHTML = f.map(function (x, i) {
-          var alerta = x.situacion === 'por_vencer_30' ? ' <em class="ojo">vence pronto</em>' : '';
-          return '<button type="button" class="item" data-i="' + i + '">' +
-                 '<b>' + esc(x.producto) + '</b>' +
-                 '<span>lote ' + esc(x.lote || 'sin número') + ' · vence ' + fecha(x.vence) +
-                 ' · quedan ' + Math.round(x.existencia) + alerta + '</span></button>';
-        }).join('');
-        lista.querySelectorAll('.item').forEach(function (b) {
-          b.addEventListener('click', function () { agregar(f[+b.dataset.i]); });
-        });
+    /* La vista ya viene ordenada por el que vence primero (FEFO) y sin
+       vencidos: lo primero de la lista es lo que hay que sacar. */
+    var p = sb.from('v_lotes_para_despachar')
+      .select('lote_id,producto_id,producto,dosificacion,lote,vence,existencia,situacion',
+              { count: 'exact' });
+    if (q.length >= 2) p = p.ilike('producto', '*' + q.replace(/[%,()]/g, '') + '*');
+
+    p.limit(30).then(function (r) {
+      var zz = document.getElementById('resMed');
+      if (!zz) return;
+      if (r.error) { zz.innerHTML = '<div class="cargando">' + esc(r.error.message) + '</div>'; return; }
+      var f = r.data || [];
+      if (!f.length) {
+        zz.innerHTML = '<div class="vacio"><b>' +
+          (q ? 'No hay existencia de «' + esc(q) + '».' : 'No hay nada disponible para entregar.') +
+          '</b><span>Puede estar agotado o vencido. Míralo en Mercancía.</span></div>';
+        return;
+      }
+      var total = r.count == null ? f.length : r.count;
+      zz.innerHTML =
+        '<p class="conteo">' + (total > f.length
+          ? 'Los ' + f.length + ' primeros de ' + total + ' lotes disponibles. Escribe para acotar.'
+          : total + (total === 1 ? ' lote disponible' : ' lotes disponibles')) + '</p>' +
+        '<div class="fichas">' + f.map(function (x, i) {
+          var m = SIT_TXT[x.situacion] || { t: '', c: 'gris' };
+          var yaEsta = cesta.some(function (c) { return c.lote_id === x.lote_id; });
+          return '<button type="button" class="ficha" data-i="' + i + '"' +
+            (yaEsta ? ' disabled' : '') + '>' +
+            '<div class="ficha-nom"><b>' + esc(x.producto) + '</b>' +
+              '<span class="ficha-pres">lote ' + esc(x.lote || 'sin número') +
+              ' · vence ' + fecha(x.vence) + '</span></div>' +
+            '<div class="ficha-datos">' +
+              '<span class="ficha-cant">' + Math.round(x.existencia) + '<em>quedan</em></span>' +
+            '</div>' +
+            (yaEsta ? '<span class="sit ok">Ya está</span>'
+                    : '<span class="sit ' + m.c + '">' + m.t + '</span>') +
+          '</button>';
+        }).join('') + '</div>';
+
+      zz.querySelectorAll('.ficha').forEach(function (b) {
+        b.addEventListener('click', function () { agregar(f[+b.dataset.i]); });
       });
+    });
   }
 
   function agregar(l) {
     if (cesta.some(function (c) { return c.lote_id === l.lote_id; })) return;
     cesta.push({ lote_id: l.lote_id, producto: l.producto, lote: l.lote,
                  vence: l.vence, disponible: l.existencia, cantidad: 1 });
-    document.getElementById('buscaMed').value = '';
-    document.getElementById('resMed').innerHTML = '';
     pintarRenglones(); refrescarBoton();
+    var caja = document.getElementById('buscaMed');
+    buscarMed(caja ? caja.value.trim() : '');
   }
 
   function pintarRenglones() {

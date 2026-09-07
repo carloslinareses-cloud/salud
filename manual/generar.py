@@ -239,15 +239,21 @@ CUERPO = """
     <li><b>Busca a la persona</b>
       <span>Escribe su c&eacute;dula o parte de su nombre. Con tres letras basta.</span></li>
   </ol>
-  __FIG_BUSCAR__
 
   <ol class="pasos" style="margin-top:16px">
     <li><b>El&iacute;gela de la lista</b>
-      <span>Debajo de su nombre aparece su tratamiento cr&oacute;nico, para saber qu&eacute; le
-      corresponde.</span></li>
-    <li><b>Escribe el medicamento</b>
-      <span>El sistema muestra los lotes disponibles ordenados por el que vence primero, con las
-      unidades que quedan de cada uno.</span></li>
+      <span>Debajo de su nombre aparece <b>su tratamiento</b>: cada medicamento que toma, con las
+      unidades que hay de cada uno. En verde los que s&iacute; hay; apagados los que est&aacute;n
+      agotados o solo tienen existencia vencida. Se toca uno y se agrega solo, con el lote que
+      vence primero ya elegido.</span></li>
+  </ol>
+  __FIG_BUSCAR2__
+
+  <ol class="pasos" style="margin-top:16px">
+    <li><b>O b&uacute;scalo en la lista</b>
+      <span>Sin escribir nada aparece todo lo que hay disponible hoy, ordenado por el que vence
+      primero, con su lote, su fecha y cu&aacute;ntas unidades quedan. Escribir solo sirve para
+      acotar. Lo que ya est&aacute; en la entrega se marca &laquo;Ya est&aacute;&raquo;.</span></li>
   </ol>
   __FIG_LOTE__
 
@@ -293,8 +299,11 @@ CUERPO = """
   <ol class="pasos">
     <li><b>Entra a &laquo;Registrar lo que llega&raquo;</b></li>
     <li><b>Busca el medicamento</b>
-      <span>Si es la primera vez que llega, se crea desde la misma pantalla con
-      &laquo;+ Es uno nuevo&raquo;.</span></li>
+      <span>El cat&aacute;logo se ve completo sin escribir nada, de 50 en 50, y cada rengl&oacute;n
+      dice cu&aacute;ntas unidades hay, en cu&aacute;ntos lotes y cu&aacute;ndo vence el primero.
+      Se puede filtrar por <i>Con existencia</i>, <i>Sin existencia</i>, <i>Por vencerse</i> o
+      <i>Solo vencido</i>. Si es la primera vez que llega, se crea desde la misma
+      pantalla.</span></li>
     <li><b>Copia el n&uacute;mero de lote de la caja</b>
       <span>Tal como viene impreso. Permite rastrear el medicamento si el fabricante lo
       retira.</span></li>
@@ -304,6 +313,13 @@ CUERPO = """
       <span>Quedan disponibles de inmediato para quien despacha.</span></li>
   </ol>
   __FIG_RECIBIR__
+
+  <h3>Sumar a un lote que ya existe</h3>
+  <p>Al abrir un medicamento se ven <b>todos sus lotes</b>, con lo que queda en cada uno y su
+  situaci&oacute;n. Si lo que lleg&oacute; es del mismo lote que ya est&aacute; en el anaquel, se
+  le suma con el bot&oacute;n <b>Sumar</b>: as&iacute; no se parte la existencia del mismo lote en
+  dos renglones. Si es un lote distinto, se abre uno nuevo m&aacute;s abajo.</p>
+  __FIG_LOTES__
 
   <div class="caja">
     <h4>Un mismo medicamento, varios lotes</h4>
@@ -339,12 +355,20 @@ CUERPO = """
   </ol>
 
   <h3>Corregir la existencia tras un conteo</h3>
+  <p>Funciona como una hoja de c&aacute;lculo: los lotes salen en una tabla de 50 en 50 y se
+  escribe directamente sobre ella. No hay que buscar y corregir uno por uno.</p>
   <ol class="pasos">
-    <li><b>Entra a &laquo;Corregir existencia&raquo;</b></li>
-    <li><b>Busca el lote</b><span>Muestra cu&aacute;nto tiene registrado el sistema.</span></li>
-    <li><b>Escribe cu&aacute;ntas unidades hay realmente</b>
-      <span>El sistema calcula la diferencia. Se escribe el total real, no la diferencia.</span></li>
-    <li><b>Indica el motivo</b><span>Conteo f&iacute;sico, rotura, derrame. Queda registrado.</span></li>
+    <li><b>Entra a &laquo;Corregir existencia&raquo;</b>
+      <span>Aparecen los lotes con existencia. Se puede filtrar y buscar.</span></li>
+    <li><b>Escribe en la columna &laquo;Hay de verdad&raquo;</b>
+      <span>Se escribe el <b>total real</b>, no la diferencia: el sistema la calcula solo y la
+      muestra al lado. Con <b>Enter</b> se baja al siguiente rengl&oacute;n.</span></li>
+    <li><b>Corrige todos los que hagan falta</b>
+      <span>Los renglones cambiados se marcan y abajo se lleva la cuenta. Los cambios no se
+      pierden al pasar de p&aacute;gina.</span></li>
+    <li><b>Escribe el motivo y guarda</b>
+      <span>Conteo f&iacute;sico, rotura, derrame. Se guardan <b>todos juntos</b>, con tu nombre y
+      el motivo. O entran todos o no entra ninguno: nunca queda un conteo a medias.</span></li>
   </ol>
   __FIG_AJUSTE__
 </section>
@@ -468,13 +492,14 @@ CUERPO = """
 
 FIGURAS = [
     ('__FIG_ENTRAR__',   '01-entrar.jpg',         'Pantalla de entrada al sistema.'),
-    ('__FIG_BUSCAR__',   '02-buscar-paciente.jpg','B&uacute;squeda del paciente por nombre o c&eacute;dula.'),
-    ('__FIG_LOTE__',     '03-elegir-lote.jpg',    'Lotes disponibles, ordenados por el que vence primero.'),
+    ('__FIG_BUSCAR2__',  '02-buscar-paciente.jpg','El tratamiento del paciente, con lo que hay de cada medicamento.'),
+    ('__FIG_LOTES__',    '14-lotes.jpg',          'Los lotes que ya tiene un medicamento: se le puede sumar a uno.'),
+    ('__FIG_LOTE__',     '03-elegir-lote.jpg',    'Lo disponible hoy, con lote, vencimiento y unidades que quedan.'),
     ('__FIG_ENTREGA__',  '04-entrega-lista.jpg',  'La entrega armada, lista para registrar.'),
     ('__FIG_CDI__',      '05-entrega-cdi.jpg',    'Entrega a un centro de salud, con los datos de quien recibe.'),
-    ('__FIG_RECIBIR__',  '07-recibir.jpg',        'Registro de mercanc&iacute;a que llega.'),
+    ('__FIG_RECIBIR__',  '07-recibir.jpg',        'El cat&aacute;logo con la existencia de cada medicamento a la vista.'),
     ('__FIG_ALERTAS__',  '06-alertas.jpg',        'Alertas de vencimiento al entrar.'),
-    ('__FIG_AJUSTE__',   '08-ajuste.jpg',         'Correcci&oacute;n de existencia tras un conteo f&iacute;sico.'),
+    ('__FIG_AJUSTE__',   '08-ajuste.jpg',         'La hoja de conteo: se escribe encima y se guardan todas juntas.'),
     ('__FIG_TABLERO__',  '09-tablero.jpg',        'Tablero del administrador.'),
     ('__FIG_BITACORA__', '10-bitacora.jpg',       'Bit&aacute;cora, con filtros por acci&oacute;n y por persona.'),
     ('__FIG_USUARIOS__', '11-usuarios.jpg',       'El administrador crea la cuenta completa: nombre, correo, puesto y contrase&ntilde;a.'),
