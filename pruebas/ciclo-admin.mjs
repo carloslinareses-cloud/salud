@@ -292,7 +292,8 @@ try {
      prueba antes de escribir en ninguna casilla. */
   await pag.waitForFunction(m => {
     const f = document.querySelectorAll('.tabla.hoja tbody tr')
-    return f.length > 0 && [...f].every(x => x.innerText.includes(m))
+    return f.length > 0 && [...f].every(x => x.innerText.includes(m) ||
+      [...x.querySelectorAll('input')].some(i => i.value.includes(m)))
   }, { timeout: 25000 }, MED)
 
   const CONTADO = 25   // lo que "se contó de verdad"
@@ -332,7 +333,8 @@ try {
   const VENCE2 = new Date(Date.now() + 500 * 864e5).toISOString().slice(0, 10)
   await pag.waitForFunction(m => {
     const f = document.querySelectorAll('#hojaLista .tabla.hoja tbody tr')
-    return f.length > 0 && [...f].every(x => x.innerText.includes(m))
+    return f.length > 0 && [...f].every(x => x.innerText.includes(m) ||
+      [...x.querySelectorAll('input')].some(i => i.value.includes(m)))
   }, { timeout: 25000 }, MED)
 
   const hayCampos = await pag.evaluate(() => ({

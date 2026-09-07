@@ -166,6 +166,73 @@ try {
   prueba('y la existencia suma los dos lotes',
     Number(f[0].total) === CANT1 + CANT2 + 15, JSON.stringify(f[0]))
 
+  console.log('\n--- Corregir el nombre desde la hoja de conteo ---')
+  const NOMBRE2 = INSUMO + ' CORREGIDO'
+  await pag.click('[data-p="conteo"]')
+  await pag.waitForSelector('#hojaLista .celda, #hojaLista .vacio', { timeout: 25000 })
+  await pag.type('#hojaBusca', INSUMO)
+  await pag.waitForFunction(m => {
+    const f = document.querySelectorAll('#hojaLista .tabla.hoja tbody tr')
+    return f.length === 2 && [...f].every(x => x.innerText.includes(m) ||
+      [...x.querySelectorAll('input')].some(i => i.value.includes(m)))
+  }, { timeout: 25000 }, INSUMO).catch(() => {})
+
+  const filas = await pag.$$eval('#hojaLista .tabla.hoja tbody tr', f => f.length)
+  prueba('el insumo sale con sus DOS lotes', filas === 2, 'filas: ' + filas)
+
+  const hayNombre = await pag.$('#hojaLista [data-campo="producto"]')
+  prueba('la hoja deja editar el nombre del medicamento', !!hayNombre)
+
+  /* Primero el caso peligroso: dos nombres distintos para el mismo
+     medicamento. Tiene que negarse y no guardar nada. */
+  await pag.evaluate(n => {
+    const c = document.querySelectorAll('#hojaLista [data-campo="producto"]')
+    c[0].value = n + ' UNO'; c[0].dispatchEvent(new Event('input', { bubbles: true }))
+    c[1].value = n + ' DOS'; c[1].dispatchEvent(new Event('input', { bubbles: true }))
+  }, INSUMO)
+  await new Promise(r => setTimeout(r, 700))
+  await pag.waitForSelector('#hMotivo', { timeout: 10000 })
+  await pag.type('#hMotivo', 'Prueba de nombres en conflicto')
+  await pag.evaluate(() => { document.getElementById('avisoInv').innerHTML = '' })
+  await pag.click('#hGuardar')
+  await pag.waitForFunction(
+    () => ((document.getElementById('avisoInv') || {}).textContent || '').trim().length > 0,
+    { timeout: 25000 })
+  const msgChoque = await pag.$eval('#avisoInv', e => e.textContent.trim())
+  prueba('NO deja ponerle dos nombres distintos al mismo medicamento',
+    /dos nombres distintos/i.test(msgChoque), msgChoque)
+
+  let f2 = await sql(`select count(*) c from farmacia.productos where nombre = '${INSUMO}';`)
+  prueba('y no guardo nada: el nombre sigue igual', Number(f2[0].c) === 1, JSON.stringify(f2[0]))
+
+  /* Ahora bien: el mismo nombre en los dos renglones. */
+  await pag.evaluate(n => {
+    document.querySelectorAll('#hojaLista [data-campo="producto"]').forEach(c => {
+      c.value = n; c.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }, NOMBRE2)
+  await new Promise(r => setTimeout(r, 700))
+  // La barra se vuelve a dibujar en cada cambio, asi que el motivo hay que
+  // volver a escribirlo antes de guardar otra vez.
+  await pag.evaluate(() => { document.getElementById('hMotivo').value = '' })
+  await pag.type('#hMotivo', 'Se corrige el nombre del medicamento')
+  await pag.evaluate(() => { document.getElementById('avisoInv').innerHTML = '' })
+  await pag.click('#hGuardar')
+  await pag.waitForFunction(
+    () => /Guardad|No se|dos nombres/i.test((document.getElementById('avisoInv') || {}).textContent || ''),
+    { timeout: 30000 })
+  const msgOk = await pag.$eval('#avisoInv', e => e.textContent.trim())
+  prueba('guarda el nombre corregido', /Guardada/i.test(msgOk), msgOk)
+
+  await new Promise(r => setTimeout(r, 1500))
+  f2 = await sql(`select nombre from farmacia.productos where nombre like 'ZZZ-CARGA%';`)
+  prueba('el medicamento quedo con el nombre nuevo',
+    f2.length === 1 && f2[0].nombre === NOMBRE2, JSON.stringify(f2))
+
+  f2 = await sql(`select count(*) c from farmacia.v_existencia_lote
+                   where producto = '${NOMBRE2}';`)
+  prueba('y sus DOS lotes cambiaron de nombre juntos', Number(f2[0].c) === 2, JSON.stringify(f2[0]))
+
   console.log('\n--- Errores de JavaScript ---')
   const graves = errores.filter(e => !/favicon|404|net::ERR_/i.test(e))
   prueba('la pagina no lanzo ningun error', graves.length === 0, graves.slice(0, 2).join(' | '))

@@ -1135,11 +1135,15 @@
     var z = document.getElementById('zonaInv');
     z.innerHTML =
       '<h2 class="sub-t">Corregir existencia tras un conteo</h2>' +
-      '<p class="sub">Se puede corregir <b>todo</b> de cada lote: lo que contaste, ' +
-      'el número de lote y la fecha de vencimiento. Muchos lotes vinieron del Excel sin ' +
-      'número y sin fecha, y sin fecha el sistema no puede avisar cuándo se vencen. ' +
+      '<p class="sub">Se puede corregir <b>todo</b>: el nombre del medicamento, su ' +
+      'presentación, el número de lote, la fecha de vencimiento y lo que contaste. ' +
       'Corrige los que hagan falta y guárdalos todos juntos. Con <b>Enter</b> bajas al ' +
       'siguiente renglón, como en una hoja de cálculo.</p>' +
+      '<div class="aviso warn">' +
+        '<b>El nombre es del medicamento, no del lote</b>' +
+        'Si un medicamento tiene tres lotes, cambiarle el nombre en un renglón lo cambia ' +
+        'en los tres. La cantidad y el número de lote sí son de cada lote por separado.' +
+      '</div>' +
       '<div class="chips" id="hojaFiltros">' + FILTROS_HOJA.map(function (f) {
         return '<button type="button" data-f="' + f.id + '">' + f.txt + '</button>';
       }).join('') + '</div>' +
@@ -1174,7 +1178,8 @@
     z.innerHTML = '<div class="cargando">Cargando los lotes…</div>';
 
     var q = sb.from('v_existencia_lote')
-      .select('lote_id,producto,dosificacion,lote,vence,existencia,en_cajas,situacion', { count: 'exact' })
+      .select('lote_id,producto_id,producto,dosificacion,presentacion,lote,vence,' +
+              'existencia,en_cajas,situacion', { count: 'exact' })
       .eq('estado', 'disponible');
 
     if (hoja.filtro === 'con')  q = q.gt('existencia', 0);
@@ -1206,7 +1211,7 @@
     z.innerHTML =
       contador(hoja, 'lote', 'lotes') +
       '<div class="tabla-caja"><table class="tabla hoja"><thead><tr>' +
-        '<th>Medicamento</th><th>Número de lote</th><th>Vence</th>' +
+        '<th>Medicamento</th><th>Presentación</th><th>Número de lote</th><th>Vence</th>' +
         '<th class="der">Sistema dice</th><th class="der">Hay de verdad</th><th class="der">Diferencia</th>' +
       '</tr></thead><tbody>' +
       hoja.filas.map(function (x, i) {
@@ -1214,11 +1219,19 @@
         var c = hoja.cambios[x.lote_id];
         var real = c ? c.real : sis;
         var dif = real - sis;
+        var nombreAhora = c && c.producto !== undefined ? c.producto : (x.producto || '');
+        var presAhora = c && c.presentacion !== undefined ? c.presentacion : (x.presentacion || '');
         var loteAhora = c && c.lote !== undefined ? c.lote : (x.lote || '');
         var venceAhora = c && c.vence !== undefined ? c.vence : (x.vence ? String(x.vence).slice(0, 10) : '');
         return '<tr data-lote="' + x.lote_id + '"' + (c ? ' class="cambiada"' : '') + '>' +
-          '<td class="c-med"><b>' + esc(x.producto) + '</b>' +
-            (x.dosificacion ? ' <span class="sub chico">' + esc(x.dosificacion) + '</span>' : '') + '</td>' +
+          '<td class="c-med" data-col="Medicamento">' +
+            '<input class="celda celda-nom" type="text" autocomplete="off" data-campo="producto" ' +
+            'data-i="' + i + '" value="' + esc(nombreAhora) + '" ' +
+            'aria-label="Nombre del medicamento"></td>' +
+          '<td data-col="Presentación">' +
+            '<input class="celda celda-txt" type="text" autocomplete="off" data-campo="presentacion" ' +
+            'data-i="' + i + '" value="' + esc(presAhora) + '" placeholder="—" ' +
+            'aria-label="Presentación y componentes"></td>' +
           '<td data-col="Número de lote">' +
             '<input class="celda celda-txt" type="text" autocomplete="off" data-campo="lote" ' +
             'data-i="' + i + '" value="' + esc(loteAhora) + '" placeholder="sin número" ' +
@@ -1255,24 +1268,42 @@
         var cRe = tr.querySelector('[data-campo="cantidad"]');
         var cLo = tr.querySelector('[data-campo="lote"]');
         var cVe = tr.querySelector('[data-campo="vence"]');
+        var cNo = tr.querySelector('[data-campo="producto"]');
+        var cPr = tr.querySelector('[data-campo="presentacion"]');
 
         var real = parseInt(cRe.value, 10);
         var loteNuevo = cLo.value.trim();
         var venceNuevo = cVe.value || '';
+        var nombreNuevo = cNo.value.trim().replace(/\s+/g, ' ');
+        var presNuevo = cPr.value.trim();
         var loteViejo = fila.lote || '';
         var venceViejo = fila.vence ? String(fila.vence).slice(0, 10) : '';
+        var nombreViejo = fila.producto || '';
+        var presViejo = fila.presentacion || '';
 
         var cambio = {};
         if (!isNaN(real) && real >= 0 && real !== sis) { cambio.real = real; cambio.sis = sis; }
         if (loteNuevo !== loteViejo)  cambio.lote = loteNuevo;
         if (venceNuevo !== venceViejo) cambio.vence = venceNuevo;
+        if (nombreNuevo && nombreNuevo !== nombreViejo) {
+          cambio.producto = nombreNuevo;
+          cambio.productoId = fila.producto_id;
+          cambio.productoViejo = nombreViejo;
+        }
+        if (presNuevo !== presViejo) {
+          cambio.presentacion = presNuevo;
+          cambio.productoId = fila.producto_id;
+        }
 
         if (!Object.keys(cambio).length) {
           delete hoja.cambios[fila.lote_id];
           tr.classList.remove('cambiada');
           tr.querySelector('.dif').textContent = '—';
         } else {
-          cambio.producto = fila.producto;
+          /* Ojo: `producto` es el nombre NUEVO que se escribió. Para saber de
+             qué medicamento es el renglón se usa `deQuien`, que es otra cosa.
+             Tenerlos con el mismo nombre hacía que el viejo pisara al nuevo. */
+          cambio.deQuien = fila.producto;
           cambio.loteViejo = loteViejo;
           cambio.venceViejo = venceViejo;
           hoja.cambios[fila.lote_id] = cambio;
@@ -1309,23 +1340,32 @@
     var claves = Object.keys(hoja.cambios);
     if (!claves.length) { z.innerHTML = ''; return; }
 
-    var cuenta = { cant: 0, lote: 0, vence: 0 };
+    var cuenta = { cant: 0, lote: 0, vence: 0, nombre: 0, pres: 0 };
+    var productosTocados = {};
     claves.forEach(function (k) {
       var c = hoja.cambios[k];
-      if (c.real !== undefined) cuenta.cant++;
-      if (c.lote !== undefined) cuenta.lote++;
-      if (c.vence !== undefined) cuenta.vence++;
+      if (c.real !== undefined)   cuenta.cant++;
+      if (c.lote !== undefined)   cuenta.lote++;
+      if (c.vence !== undefined)  cuenta.vence++;
+      if (c.producto !== undefined)     { cuenta.nombre++; productosTocados[c.productoId] = c.producto; }
+      if (c.presentacion !== undefined) cuenta.pres++;
     });
     var detalle = [];
-    if (cuenta.cant)  detalle.push(cuenta.cant + (cuenta.cant === 1 ? ' cantidad' : ' cantidades'));
-    if (cuenta.lote)  detalle.push(cuenta.lote + (cuenta.lote === 1 ? ' número de lote' : ' números de lote'));
-    if (cuenta.vence) detalle.push(cuenta.vence + (cuenta.vence === 1 ? ' vencimiento' : ' vencimientos'));
+    if (cuenta.cant)   detalle.push(cuenta.cant + (cuenta.cant === 1 ? ' cantidad' : ' cantidades'));
+    if (cuenta.nombre) detalle.push(cuenta.nombre + (cuenta.nombre === 1 ? ' nombre' : ' nombres'));
+    if (cuenta.pres)   detalle.push(cuenta.pres + (cuenta.pres === 1 ? ' presentación' : ' presentaciones'));
+    if (cuenta.lote)   detalle.push(cuenta.lote + (cuenta.lote === 1 ? ' número de lote' : ' números de lote'));
+    if (cuenta.vence)  detalle.push(cuenta.vence + (cuenta.vence === 1 ? ' vencimiento' : ' vencimientos'));
 
     z.innerHTML =
       '<div class="barra-guardar">' +
         '<div class="bg-txt"><b>' + claves.length +
           (claves.length === 1 ? ' renglón cambiado' : ' renglones cambiados') + '</b>' +
           '<span>' + esc(detalle.join(' · ')) + '</span></div>' +
+        (cuenta.nombre
+          ? '<p class="sub chico"><span class="ojo">El nombre es del medicamento, no del lote:</span> ' +
+            'cambiarlo aquí lo cambia en <b>todos sus lotes</b>.</p>'
+          : '') +
         '<label for="hMotivo">Por qué se corrige <span class="opc">(queda en la bitácora)</span></label>' +
         '<input id="hMotivo" type="text" placeholder="Conteo físico de septiembre, rotura, derrame…">' +
         '<div class="botonera">' +
@@ -1359,7 +1399,46 @@
       btn.textContent = 'Guardar ' + claves.length + (claves.length === 1 ? ' corrección' : ' correcciones');
     }
 
-    /* Primero los datos del lote (número y vencimiento), uno por uno porque
+    /* Primero los medicamentos: el nombre y la presentación son suyos, no
+       del lote. Si el mismo medicamento se editó en dos renglones con
+       nombres distintos, no se guarda nada: hay que decidir cuál es. */
+    var porProducto = {};
+    var choque = null;
+    claves.forEach(function (k) {
+      var c = hoja.cambios[k];
+      if (c.producto === undefined && c.presentacion === undefined) return;
+      var id = c.productoId;
+      if (!id) { choque = 'no se pudo saber a qué medicamento pertenece el renglón'; return; }
+      var ya = porProducto[id];
+      if (ya) {
+        if (c.producto !== undefined && ya.nombre !== undefined && ya.nombre !== c.producto) {
+          choque = '«' + ya.nombre + '» y «' + c.producto + '»';
+        }
+        if (c.presentacion !== undefined && ya.pres !== undefined && ya.pres !== c.presentacion) {
+          choque = choque || 'dos presentaciones distintas para el mismo medicamento';
+        }
+      }
+      porProducto[id] = porProducto[id] || {};
+      if (c.producto !== undefined)     porProducto[id].nombre = c.producto;
+      if (c.presentacion !== undefined) porProducto[id].pres = c.presentacion;
+    });
+
+    if (choque && /^no se pudo/.test(choque)) {
+      aviso('bad', 'No se guardó nada: ' + choque + '. Vuelve a cargar la hoja e inténtalo.');
+      btn.disabled = false;
+      btn.textContent = 'Guardar ' + claves.length + (claves.length === 1 ? ' corrección' : ' correcciones');
+      return;
+    }
+    if (choque) {
+      aviso('warn', 'Le pusiste dos nombres distintos al mismo medicamento: ' + choque + '. ' +
+                    'Como el nombre es del medicamento y no del lote, hay que decidir cuál es. ' +
+                    'No se guardó nada.');
+      btn.disabled = false;
+      btn.textContent = 'Guardar ' + claves.length + (claves.length === 1 ? ' corrección' : ' correcciones');
+      return;
+    }
+
+    /* Después los datos del lote (número y vencimiento), uno por uno porque
        cada lote es una fila distinta. Si alguno choca con otro lote que ya
        tiene ese mismo número y esa misma fecha, se dice cuál y no se sigue. */
     var cambiosLote = claves.filter(function (k) {
@@ -1367,6 +1446,22 @@
     });
 
     var cadena = Promise.resolve();
+
+    Object.keys(porProducto).forEach(function (id) {
+      cadena = cadena.then(function () {
+        var campos = {};
+        if (porProducto[id].nombre !== undefined) campos.nombre = porProducto[id].nombre;
+        if (porProducto[id].pres !== undefined)   campos.presentacion = porProducto[id].pres || null;
+        return sb.from('productos').update(campos).eq('id', id).then(function (r) {
+          if (r.error) {
+            throw new Error(r.error.code === '23505'
+              ? 'Ya hay otro medicamento con el nombre «' + campos.nombre + '». ' +
+                'No se guardó nada: si son el mismo, cárgalo en el que ya existe.'
+              : 'Al cambiar el medicamento: ' + r.error.message);
+          }
+        });
+      });
+    });
     cambiosLote.forEach(function (k) {
       cadena = cadena.then(function () {
         var c = hoja.cambios[k];
@@ -1376,9 +1471,9 @@
         return sb.from('lotes').update(campos).eq('id', k).then(function (r) {
           if (r.error) {
             throw new Error(r.error.code === '23505'
-              ? 'En ' + c.producto + ' ya hay otro lote con ese mismo número y esa misma fecha. ' +
-                'No se guardó nada: revisa ese renglón.'
-              : 'En ' + c.producto + ': ' + r.error.message);
+              ? 'En ' + (c.deQuien || 'ese medicamento') + ' ya hay otro lote con ese mismo ' +
+                'número y esa misma fecha. No se guardó nada: revisa ese renglón.'
+              : 'En ' + (c.deQuien || 'ese medicamento') + ': ' + r.error.message);
           }
         });
       });
