@@ -184,8 +184,14 @@
       '<div class="chips" id="catFiltros">' + FILTROS_CAT.map(function (f) {
         return '<button type="button" data-f="' + f.id + '">' + f.txt + '</button>';
       }).join('') + '</div>' +
-      '<label for="catBusca">Buscar</label>' +
-      '<input id="catBusca" type="search" autocomplete="off" placeholder="Nombre del medicamento o insumo…">' +
+      '<div class="busca-fila">' +
+        '<div class="busca-campo">' +
+          '<label for="catBusca">Buscar</label>' +
+          '<input id="catBusca" type="search" autocomplete="off" ' +
+            'placeholder="Nombre del medicamento o insumo…">' +
+        '</div>' +
+        '<button type="button" class="secundario" id="catCrear">+ Registrar medicamento</button>' +
+      '</div>' +
       '<div id="catLista"></div>' +
       '<div id="catDetalle"></div>';
 
@@ -194,6 +200,10 @@
     caja.addEventListener('input', retardo(function () {
       cat.busca = caja.value.trim(); cat.pagina = 0; cargarCatalogo();
     }, 300));
+
+    document.getElementById('catCrear').addEventListener('click', function () {
+      formProducto(cat.busca);
+    });
 
     z.querySelectorAll('#catFiltros button').forEach(function (b) {
       b.classList.toggle('on', b.dataset.f === cat.filtro);
@@ -249,7 +259,7 @@
           '<button type="button" class="principal" id="catNuevo">Crear «' + esc(cat.busca) + '» en el catálogo</button>'
           : '<span>Prueba con otro filtro.</span>') + '</div>';
       var bn = document.getElementById('catNuevo');
-      if (bn) bn.addEventListener('click', function () { crearProducto(cat.busca); });
+      if (bn) bn.addEventListener('click', function () { formProducto(cat.busca); });
       return;
     }
 
@@ -467,19 +477,127 @@
     });
   }
 
-  function crearProducto(nombre) {
-    sb.from('productos').insert({ nombre: nombre.toUpperCase(), categoria: 'medicamento' })
-      .select().single().then(function (r) {
+  /* ---------- registrar un medicamento o insumo nuevo ----------
+     Con todos sus campos, no solo el nombre: la dosificación y la
+     presentación son lo que distingue un LOSARTAN 50mg de uno de 100mg,
+     y confundirlos es un error de medicación. */
+  var UNIDADES = ['unidad', 'tableta', 'cápsula', 'ampolla', 'frasco', 'sobre',
+                  'tubo', 'caja', 'bolsa', 'ml', 'mg', 'gramo'];
+
+  function formProducto(nombre) {
+    var z = document.getElementById('catDetalle');
+    document.getElementById('catLista').innerHTML = '';
+    limpiaAviso();
+
+    z.innerHTML =
+      '<h3 class="sub-t">Registrar un medicamento o insumo</h3>' +
+      '<p class="sub">Lo que se escriba aquí es lo que verá quien despacha. ' +
+      'La dosificación es lo que distingue una presentación de otra.</p>' +
+
+      '<label>Qué es</label>' +
+      '<div class="chips" id="pCat">' +
+        '<button type="button" data-c="medicamento" class="on">Medicamento</button>' +
+        '<button type="button" data-c="insumo">Insumo</button>' +
+      '</div>' +
+
+      '<label for="pNombre">Nombre</label>' +
+      '<input id="pNombre" type="text" autocomplete="off" value="' + esc(nombre || '') + '" ' +
+        'placeholder="LOSARTAN POTASICO">' +
+      '<p class="sub chico" id="pAviso"></p>' +
+
+      '<label for="pDosis">Dosificación <span class="opc">(la fuerza: 50mg, 500mg/5ml…)</span></label>' +
+      '<input id="pDosis" type="text" autocomplete="off" placeholder="50mg">' +
+
+      '<label for="pPres">Presentación <span class="opc">(cómo viene: caja de 30, jarabe…)</span></label>' +
+      '<input id="pPres" type="text" autocomplete="off" placeholder="Caja de 30 tabletas">' +
+
+      '<label for="pUnidad">Cómo se cuenta</label>' +
+      '<select id="pUnidad">' + UNIDADES.map(function (u) {
+        return '<option value="' + esc(u) + '"' + (u === 'unidad' ? ' selected' : '') + '>' +
+               esc(u.charAt(0).toUpperCase() + u.slice(1)) + '</option>';
+      }).join('') + '</select>' +
+
+      '<label for="pMinimo">Avisar cuando queden menos de <span class="opc">(0 = sin aviso)</span></label>' +
+      '<input id="pMinimo" type="number" min="0" inputmode="numeric" value="0">' +
+
+      '<div class="botonera">' +
+        '<button type="button" class="principal" id="pGuardar">Registrar y cargarle un lote</button>' +
+        '<button type="button" class="secundario" id="pCancelar">Cancelar</button>' +
+      '</div>';
+
+    var caja = document.getElementById('pNombre');
+    caja.focus();
+
+    document.getElementById('pCat').querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.getElementById('pCat').querySelectorAll('button').forEach(function (x) {
+          x.classList.toggle('on', x === b);
+        });
+      });
+    });
+
+    /* Mientras escribe se le avisa si ya hay uno parecido, para no repetirlo:
+       tener el mismo medicamento dos veces parte la existencia en dos. */
+    caja.addEventListener('input', retardo(function () {
+      var av = document.getElementById('pAviso');
+      if (!av) return;
+      var v = caja.value.trim();
+      if (v.length < 3) { av.innerHTML = ''; return; }
+      sb.from('v_catalogo')
+        .select('producto_id,producto,dosificacion,presentacion,disponible,vencido,lotes')
+        .ilike('busqueda', '*' + sinAcentos(v) + '*').limit(3)
+        .then(function (r) {
+          var av2 = document.getElementById('pAviso');
+          if (!av2) return;
+          var f = r.data || [];
+          if (!f.length) { av2.innerHTML = ''; return; }
+          av2.innerHTML = '<span class="ojo">Ya están en el catálogo:</span> ' +
+            f.map(function (x, i) {
+              return '<button type="button" class="enlace" data-ya="' + i + '">' +
+                     esc(x.producto) + '</button>';
+            }).join(' · ');
+          av2.querySelectorAll('[data-ya]').forEach(function (b) {
+            b.addEventListener('click', function () { verProducto(f[+b.dataset.ya]); });
+          });
+        });
+    }, 350));
+
+    document.getElementById('pCancelar').addEventListener('click', function () {
+      document.getElementById('catDetalle').innerHTML = '';
+      cargarCatalogo();
+    });
+
+    document.getElementById('pGuardar').addEventListener('click', function () {
+      var nom = caja.value.trim().replace(/\s+/g, ' ');
+      if (nom.length < 3) { aviso('warn', 'Escribe el nombre del medicamento.'); caja.focus(); return; }
+      var elegida = document.querySelector('#pCat button.on');
+      var btn = this; btn.disabled = true; btn.textContent = 'Registrando…';
+
+      sb.from('productos').insert({
+        nombre: nom,
+        dosificacion: document.getElementById('pDosis').value.trim() || null,
+        presentacion: document.getElementById('pPres').value.trim() || null,
+        categoria: elegida ? elegida.dataset.c : 'medicamento',
+        unidad: document.getElementById('pUnidad').value,
+        stock_minimo: parseInt(document.getElementById('pMinimo').value, 10) || 0,
+        activo: true
+      }).select().single().then(function (r) {
         if (r.error) {
-          aviso('bad', r.error.code === '23505'
-            ? 'Ese medicamento ya está en el catálogo, búscalo arriba.'
-            : 'No se pudo crear: ' + r.error.message);
+          btn.disabled = false; btn.textContent = 'Registrar y cargarle un lote';
+          if (r.error.code === '23505') {
+            aviso('warn', 'Ya hay uno con ese nombre exacto. Búscalo arriba y cárgale el lote ahí, ' +
+                          'para no tener el mismo medicamento dos veces.');
+            return;
+          }
+          aviso('bad', 'No se pudo crear: ' + r.error.message);
           return;
         }
         aviso('ok', r.data.nombre + ' quedó en el catálogo. Ahora regístrale su primer lote.');
         verProducto({ producto_id: r.data.id, producto: r.data.nombre,
-                      dosificacion: null, presentacion: null, disponible: 0, vencido: 0 });
+                      dosificacion: r.data.dosificacion, presentacion: r.data.presentacion,
+                      disponible: 0, vencido: 0 });
       });
+    });
   }
 
   /* ================================================================
@@ -495,9 +613,11 @@
     var z = document.getElementById('zonaInv');
     z.innerHTML =
       '<h3 class="sub-t">Corregir existencia tras un conteo</h3>' +
-      '<p class="sub">Escribe en la columna <b>Hay de verdad</b> lo que contaste. ' +
-      'Puedes corregir muchos de una vez y guardarlos todos juntos. ' +
-      'Con <b>Enter</b> pasas al siguiente renglón, como en una hoja de cálculo.</p>' +
+      '<p class="sub">Se puede corregir <b>todo</b> de cada lote: lo que contaste, ' +
+      'el número de lote y la fecha de vencimiento. Muchos lotes vinieron del Excel sin ' +
+      'número y sin fecha, y sin fecha el sistema no puede avisar cuándo se vencen. ' +
+      'Corrige los que hagan falta y guárdalos todos juntos. Con <b>Enter</b> bajas al ' +
+      'siguiente renglón, como en una hoja de cálculo.</p>' +
       '<div class="chips" id="hojaFiltros">' + FILTROS_HOJA.map(function (f) {
         return '<button type="button" data-f="' + f.id + '">' + f.txt + '</button>';
       }).join('') + '</div>' +
@@ -564,7 +684,7 @@
     z.innerHTML =
       contador(hoja, 'lote', 'lotes') +
       '<div class="tabla-caja"><table class="tabla hoja"><thead><tr>' +
-        '<th>Medicamento</th><th>Lote</th><th>Vence</th>' +
+        '<th>Medicamento</th><th>Número de lote</th><th>Vence</th>' +
         '<th class="der">Sistema dice</th><th class="der">Hay de verdad</th><th class="der">Diferencia</th>' +
       '</tr></thead><tbody>' +
       hoja.filas.map(function (x, i) {
@@ -572,14 +692,22 @@
         var c = hoja.cambios[x.lote_id];
         var real = c ? c.real : sis;
         var dif = real - sis;
-        return '<tr data-lote="' + x.lote_id + '"' + (dif ? ' class="cambiada"' : '') + '>' +
+        var loteAhora = c && c.lote !== undefined ? c.lote : (x.lote || '');
+        var venceAhora = c && c.vence !== undefined ? c.vence : (x.vence ? String(x.vence).slice(0, 10) : '');
+        return '<tr data-lote="' + x.lote_id + '"' + (c ? ' class="cambiada"' : '') + '>' +
           '<td class="c-med"><b>' + esc(x.producto) + '</b>' +
             (x.dosificacion ? ' <span class="sub chico">' + esc(x.dosificacion) + '</span>' : '') + '</td>' +
-          '<td data-col="Lote">' + esc(x.lote || '—') + '</td>' +
-          '<td data-col="Vence">' + fecha(x.vence) + ' ' + sit(x.situacion) + '</td>' +
+          '<td data-col="Número de lote">' +
+            '<input class="celda celda-txt" type="text" autocomplete="off" data-campo="lote" ' +
+            'data-i="' + i + '" value="' + esc(loteAhora) + '" placeholder="sin número" ' +
+            'aria-label="Número de lote"></td>' +
+          '<td data-col="Vence">' +
+            '<input class="celda celda-fecha" type="date" data-campo="vence" ' +
+            'data-i="' + i + '" value="' + esc(venceAhora) + '" aria-label="Vence"> ' +
+            sit(x.situacion) + '</td>' +
           '<td class="der num" data-col="Sistema dice">' + num(sis) + '</td>' +
           '<td class="der c-celda" data-col="Hay de verdad">' +
-            '<input class="celda" type="number" min="0" inputmode="numeric" ' +
+            '<input class="celda" type="number" min="0" inputmode="numeric" data-campo="cantidad" ' +
             'data-i="' + i + '" data-sis="' + sis + '" value="' + real + '" aria-label="Hay de verdad"></td>' +
           '<td class="der num dif" data-col="Diferencia">' + (dif ? (dif > 0 ? '+' : '') + num(dif) : '—') + '</td>' +
         '</tr>';
@@ -587,34 +715,65 @@
       '</tbody></table></div>' +
       paginador(hoja, 'hoja');
 
+    /* Cualquiera de las tres casillas de un renglón cuenta como un cambio:
+       la cantidad contada, el número de lote y la fecha de vencimiento. */
     var celdas = z.querySelectorAll('.celda');
     celdas.forEach(function (inp) {
-      inp.addEventListener('input', function () {
-        var i = +inp.dataset.i, sis = +inp.dataset.sis;
+      inp.addEventListener('input', anotaCambio);
+      inp.addEventListener('change', anotaCambio);
+
+      function anotaCambio() {
+        var i = +inp.dataset.i;
         var fila = hoja.filas[i];
-        var real = parseInt(inp.value, 10);
         var tr = inp.closest('tr');
-        if (isNaN(real) || real < 0 || real === sis) {
+        var previo = hoja.cambios[fila.lote_id] || {};
+
+        var sis = Math.round(Number(fila.existencia) || 0);
+        var cRe = tr.querySelector('[data-campo="cantidad"]');
+        var cLo = tr.querySelector('[data-campo="lote"]');
+        var cVe = tr.querySelector('[data-campo="vence"]');
+
+        var real = parseInt(cRe.value, 10);
+        var loteNuevo = cLo.value.trim();
+        var venceNuevo = cVe.value || '';
+        var loteViejo = fila.lote || '';
+        var venceViejo = fila.vence ? String(fila.vence).slice(0, 10) : '';
+
+        var cambio = {};
+        if (!isNaN(real) && real >= 0 && real !== sis) { cambio.real = real; cambio.sis = sis; }
+        if (loteNuevo !== loteViejo)  cambio.lote = loteNuevo;
+        if (venceNuevo !== venceViejo) cambio.vence = venceNuevo;
+
+        if (!Object.keys(cambio).length) {
           delete hoja.cambios[fila.lote_id];
           tr.classList.remove('cambiada');
           tr.querySelector('.dif').textContent = '—';
         } else {
-          hoja.cambios[fila.lote_id] = { real: real, sis: sis, producto: fila.producto, lote: fila.lote };
+          cambio.producto = fila.producto;
+          cambio.loteViejo = loteViejo;
+          cambio.venceViejo = venceViejo;
+          hoja.cambios[fila.lote_id] = cambio;
           tr.classList.add('cambiada');
-          var d = real - sis;
-          tr.querySelector('.dif').textContent = (d > 0 ? '+' : '') + num(d);
+          var d = cambio.real !== undefined ? cambio.real - sis : 0;
+          tr.querySelector('.dif').textContent = d ? (d > 0 ? '+' : '') + num(d) : '—';
         }
+        if (previo && !hoja.cambios[fila.lote_id]) { /* dejó de estar cambiado */ }
         pintarGuardar();
-      });
-      /* Enter baja al siguiente renglón, como en una hoja de cálculo. */
+      }
+
+      /* Enter baja a la misma casilla del renglón siguiente, como en una
+         hoja de cálculo. */
       inp.addEventListener('keydown', function (ev) {
         if (ev.key !== 'Enter') return;
         ev.preventDefault();
-        var sig = celdas[+inp.dataset.i + 1];
-        if (sig) { sig.focus(); sig.select(); }
+        var campo = inp.dataset.campo;
+        var sig = z.querySelector('tr:nth-child(' + (+inp.dataset.i + 2) + ') [data-campo="' + campo + '"]');
+        if (sig) { sig.focus(); if (sig.select) sig.select(); }
         else { var b = document.getElementById('hGuardar'); if (b) b.focus(); }
       });
-      inp.addEventListener('focus', function () { inp.select(); });
+      if (inp.type !== 'date') {
+        inp.addEventListener('focus', function () { inp.select(); });
+      }
     });
 
     engancharPaginador(z, hoja, cargarHoja);
@@ -627,17 +786,24 @@
     var claves = Object.keys(hoja.cambios);
     if (!claves.length) { z.innerHTML = ''; return; }
 
-    var suben = claves.filter(function (k) { return hoja.cambios[k].real > hoja.cambios[k].sis; }).length;
-    var bajan = claves.length - suben;
+    var cuenta = { cant: 0, lote: 0, vence: 0 };
+    claves.forEach(function (k) {
+      var c = hoja.cambios[k];
+      if (c.real !== undefined) cuenta.cant++;
+      if (c.lote !== undefined) cuenta.lote++;
+      if (c.vence !== undefined) cuenta.vence++;
+    });
+    var detalle = [];
+    if (cuenta.cant)  detalle.push(cuenta.cant + (cuenta.cant === 1 ? ' cantidad' : ' cantidades'));
+    if (cuenta.lote)  detalle.push(cuenta.lote + (cuenta.lote === 1 ? ' número de lote' : ' números de lote'));
+    if (cuenta.vence) detalle.push(cuenta.vence + (cuenta.vence === 1 ? ' vencimiento' : ' vencimientos'));
 
     z.innerHTML =
       '<div class="barra-guardar">' +
         '<div class="bg-txt"><b>' + claves.length +
           (claves.length === 1 ? ' renglón cambiado' : ' renglones cambiados') + '</b>' +
-          '<span>' + (suben ? suben + ' con más de lo que decía el sistema' : '') +
-          (suben && bajan ? ' · ' : '') +
-          (bajan ? bajan + ' con menos' : '') + '</span></div>' +
-        '<label for="hMotivo">Por qué no cuadra <span class="opc">(queda en la bitácora)</span></label>' +
+          '<span>' + esc(detalle.join(' · ')) + '</span></div>' +
+        '<label for="hMotivo">Por qué se corrige <span class="opc">(queda en la bitácora)</span></label>' +
         '<input id="hMotivo" type="text" placeholder="Conteo físico de septiembre, rotura, derrame…">' +
         '<div class="botonera">' +
           '<button type="button" class="principal" id="hGuardar">Guardar ' + claves.length +
@@ -657,34 +823,63 @@
     var claves = Object.keys(hoja.cambios);
     var motivo = document.getElementById('hMotivo').value.trim();
     if (motivo.length < 4) {
-      aviso('warn', 'Escribe por qué no cuadra: queda en la bitácora.');
+      aviso('warn', 'Escribe por qué se corrige: queda en la bitácora.');
       document.getElementById('hMotivo').focus();
       return;
     }
     var btn = document.getElementById('hGuardar');
     btn.disabled = true; btn.textContent = 'Guardando…';
 
-    /* Todos los ajustes van en una sola petición: o entran todos o no
-       entra ninguno. Así no queda un conteo a medio guardar. */
-    var filas = claves.map(function (k) {
-      var c = hoja.cambios[k];
-      return { lote_id: k, tipo: 'ajuste', cantidad: c.real - c.sis,
-               motivo: motivo, origen: 'sistema' };
+    function falla(msg) {
+      aviso('bad', msg);
+      btn.disabled = false;
+      btn.textContent = 'Guardar ' + claves.length + (claves.length === 1 ? ' corrección' : ' correcciones');
+    }
+
+    /* Primero los datos del lote (número y vencimiento), uno por uno porque
+       cada lote es una fila distinta. Si alguno choca con otro lote que ya
+       tiene ese mismo número y esa misma fecha, se dice cuál y no se sigue. */
+    var cambiosLote = claves.filter(function (k) {
+      return hoja.cambios[k].lote !== undefined || hoja.cambios[k].vence !== undefined;
     });
 
-    sb.from('movimientos').insert(filas).then(function (r) {
-      if (r.error) {
-        aviso('bad', 'No se guardó nada: ' + r.error.message);
-        btn.disabled = false;
-        btn.textContent = 'Guardar ' + claves.length + (claves.length === 1 ? ' corrección' : ' correcciones');
-        return;
-      }
+    var cadena = Promise.resolve();
+    cambiosLote.forEach(function (k) {
+      cadena = cadena.then(function () {
+        var c = hoja.cambios[k];
+        var campos = { };
+        if (c.lote !== undefined)  campos.codigo = c.lote || null;
+        if (c.vence !== undefined) campos.vence = c.vence || null;
+        return sb.from('lotes').update(campos).eq('id', k).then(function (r) {
+          if (r.error) {
+            throw new Error(r.error.code === '23505'
+              ? 'En ' + c.producto + ' ya hay otro lote con ese mismo número y esa misma fecha. ' +
+                'No se guardó nada: revisa ese renglón.'
+              : 'En ' + c.producto + ': ' + r.error.message);
+          }
+        });
+      });
+    });
+
+    /* Después las cantidades, todas en una sola petición: o entran todas o
+       no entra ninguna, para no dejar un conteo a medias. */
+    cadena.then(function () {
+      var filas = claves.filter(function (k) { return hoja.cambios[k].real !== undefined; })
+        .map(function (k) {
+          var c = hoja.cambios[k];
+          return { lote_id: k, tipo: 'ajuste', cantidad: c.real - c.sis,
+                   motivo: motivo, origen: 'sistema' };
+        });
+      if (!filas.length) return { error: null };
+      return sb.from('movimientos').insert(filas);
+    }).then(function (r) {
+      if (r && r.error) { falla('No se guardaron las cantidades: ' + r.error.message); return; }
       aviso('ok', 'Guardadas ' + claves.length +
                   (claves.length === 1 ? ' corrección' : ' correcciones') +
                   '. Quedaron registradas con tu nombre y el motivo.');
       hoja.cambios = {};
       cargarHoja();
-    });
+    }).catch(function (e) { falla(e.message || String(e)); });
   }
 
   /* ================================================================

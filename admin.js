@@ -56,7 +56,7 @@
       sb.from('entregas').select('id', { count: 'exact', head: true }).eq('fecha', hoy).eq('anulada', false),
       sb.from('v_alertas').select('tipo,existencia').limit(1000),
       sb.from('pacientes').select('id', { count: 'exact', head: true }).eq('estado', 'por_revisar'),
-      sb.from('bitacora').select('momento,usuario_nombre,usuario_rol,tabla,operacion,despues,nota')
+      sb.from('bitacora').select('momento,usuario_nombre,usuario_rol,tabla,operacion,despues,nota,registro_id')
         .order('momento', { ascending: false }).limit(25),
       sb.from('entregas').select('entregado_por_nombre').eq('fecha', hoy).eq('anulada', false).limit(500)
     ]).then(function (r) {
@@ -89,8 +89,12 @@
               }).join('') + '</div>'
           : '') +
         '<h3 class="sub-t">Lo último que pasó</h3>' +
-        (act.length ? '<div class="feed">' + act.map(linea).join('') + '</div>'
+        (act.length ? '<p class="sub">Lo que se creó por equivocación y todavía no tiene ' +
+                      'historial se puede quitar desde aquí.</p>' +
+                      '<div class="feed">' + act.map(linea).join('') + '</div>'
                     : '<p class="sub">Todavía no hay movimientos.</p>');
+
+      engancharDeshacer(z, verTablero);
     }).catch(function (e) {
       z.innerHTML = '<div class="aviso bad">No se pudo cargar: ' + esc(e.message || e) + '</div>';
     });
@@ -135,8 +139,60 @@
     } else {
       t = '<b>' + esc(quien) + '</b> ' + esc(b.operacion.toLowerCase()) + ' en ' + esc(b.tabla);
     }
+    /* Solo se puede deshacer lo que se CREO y todavia no tiene historial.
+       La base lo comprueba otra vez al borrar: si ya tiene un lote, un
+       movimiento o una entrega, se niega. */
+    var sePuede = b.operacion === 'INSERT' && b.registro_id &&
+                  BORRABLES[b.tabla] && d.nombre !== undefined || false;
+    if (b.operacion === 'INSERT' && b.registro_id && BORRABLES[b.tabla]) sePuede = true;
+
     return '<div class="ev"><span class="txt">' + t + '</span>' +
+           (sePuede
+             ? '<button type="button" class="deshacer" data-quitar="' + esc(b.registro_id) + '" ' +
+               'data-tabla="' + esc(b.tabla) + '" data-que="' +
+               esc(d.nombre || d.codigo || d.correo || '') + '">Quitar</button>'
+             : '') +
            '<span class="cuando">' + hace(b.momento) + '</span></div>';
+  }
+
+  /* Qué se puede deshacer y cómo se llama en cristiano. */
+  var BORRABLES = {
+    productos:     { que: 'el medicamento', porque: 'ya tiene lotes cargados o pacientes que lo toman' },
+    lotes:         { que: 'el lote',        porque: 'ya tiene entradas, salidas o ajustes' },
+    pacientes:     { que: 'a la persona',   porque: 'ya retiró medicamentos o tiene tratamiento cargado' },
+    instituciones: { que: 'el centro',      porque: 'ya recibió alguna entrega' }
+  };
+
+  /* Engancha los botones de deshacer de un contenedor. */
+  function engancharDeshacer(z, recargar) {
+    z.querySelectorAll('[data-quitar]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var info = BORRABLES[b.dataset.tabla];
+        var que = b.dataset.que || 'esto';
+        if (!window.confirm('¿Quitar ' + info.que + ' «' + que + '»?\n\n' +
+            'Solo se puede si todavía no tiene historial. Queda anotado en la bitácora.')) return;
+        b.disabled = true; b.textContent = 'Quitando…';
+
+        sb.from(b.dataset.tabla).delete().eq('id', b.dataset.quitar).select()
+          .then(function (r) {
+            if (r.error) {
+              b.disabled = false; b.textContent = 'Quitar';
+              aviso('bad', 'No se pudo quitar: ' + r.error.message);
+              return;
+            }
+            if (!r.data || !r.data.length) {
+              /* La base lo rechazó por su candado: no se borra lo que ya
+                 tiene historial. Se dice por qué, no un error seco. */
+              b.disabled = false; b.textContent = 'Quitar';
+              aviso('warn', 'No se puede quitar «' + que + '»: ' + info.porque + '. ' +
+                            'Lo que ya pasó no se borra. Si no se va a usar más, desactívalo.');
+              return;
+            }
+            aviso('ok', 'Se quitó «' + que + '». Quedó anotado en la bitácora.');
+            recargar();
+          });
+      });
+    });
   }
 
   /* ---------------------------------------------------------------- bitácora */

@@ -234,6 +234,29 @@ _, rr = sql("select rol from farmacia.perfiles where id='%s';" % uid_d)
 prueba('nadie se asciende a si mismo a admin', rr[0]['rol'] == 'despacho',
        'quedo como %s' % rr[0]['rol'])
 
+# ------------------------------------------------------------------ borrar
+# El administrador puede deshacer lo que creo por error, pero SOLO lo que
+# todavia no tiene historial. Y solo el administrador.
+grupo('Borrar')
+
+est, r = pide(URL + '/rest/v1/productos?nombre=eq.' + MED.replace(' ', '%20'), cab=D, metodo='DELETE')
+_, rr = sql("select count(*) c from farmacia.productos where nombre='%s';" % MED)
+prueba('un despachador NO puede borrar un medicamento', rr[0]['c'] == 1,
+       'HTTP %s, quedan %s' % (est, rr[0]['c']))
+
+est, r = pide(URL + '/rest/v1/pacientes?nombre=eq.' + PAC.replace(' ', '%20'), cab=D, metodo='DELETE')
+_, rr = sql("select count(*) c from farmacia.pacientes where nombre='%s';" % PAC)
+prueba('un despachador NO puede borrar a un paciente', rr[0]['c'] == 1,
+       'HTTP %s, quedan %s' % (est, rr[0]['c']))
+
+# El medicamento de la prueba YA tiene lotes y movimientos: ni el
+# administrador lo puede borrar. El candado esta en la base.
+_, rr = sql("select id from farmacia.perfiles where rol='admin' and activo limit 1;")
+est, r = sql("delete from farmacia.productos where nombre='%s';" % MED)
+_, rr = sql("select count(*) c from farmacia.productos where nombre='%s';" % MED)
+prueba('ni el servidor borra un medicamento que ya tiene lotes', rr[0]['c'] == 1,
+       'quedan %s' % rr[0]['c'])
+
 # ------------------------------------------------------------------ destinatarios
 grupo('A quien se entrega')
 est, r = pide(URL + '/rest/v1/entregas',

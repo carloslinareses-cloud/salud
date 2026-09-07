@@ -110,17 +110,34 @@ try {
   await pag.waitForSelector('[data-p="catalogo"]', { timeout: 20000 })
   await pag.click('[data-p="catalogo"]')
   await pag.waitForSelector('#catBusca', { timeout: 15000 })
-  await pag.waitForSelector('.ficha, .vacio', { timeout: 25000 })
-  const cuantos = await pag.$eval('.conteo', e => e.textContent.trim()).catch(() => '')
+  await pag.waitForSelector('#catLista .ficha, #catLista .vacio', { timeout: 25000 })
+  const cuantos = await pag.$eval('#catLista .conteo', e => e.textContent.trim()).catch(() => '')
   prueba('el catalogo se ve entero sin tener que escribir', /medicamento/i.test(cuantos), cuantos)
 
-  const conDatos = await pag.$$eval('.ficha', fs => fs.slice(0, 1).map(f => f.innerText.replace(/\s+/g, ' ')))
+  const conDatos = await pag.$$eval('#catLista .ficha', fs => fs.slice(0, 1).map(f => f.innerText.replace(/\s+/g, ' ')))
   prueba('cada renglon dice cuanto hay y en cuantos lotes',
     /unidad|lote/i.test(conDatos[0] || ''), conDatos[0] || '(sin fichas)')
 
   await pag.type('#catBusca', MED)
   await pag.waitForSelector('#catNuevo', { timeout: 25000 })
   await pag.click('#catNuevo')
+
+  await pag.waitForSelector('#pGuardar', { timeout: 25000 })
+  const campos = await pag.evaluate(() => ({
+    nombre: !!document.getElementById('pNombre'),
+    dosis: !!document.getElementById('pDosis'),
+    pres: !!document.getElementById('pPres'),
+    unidad: !!document.getElementById('pUnidad'),
+    minimo: !!document.getElementById('pMinimo'),
+    categorias: [...document.querySelectorAll('#pCat button')].map(b => b.dataset.c),
+  }))
+  prueba('el formulario pide todos los campos del medicamento',
+    campos.nombre && campos.dosis && campos.pres && campos.unidad && campos.minimo &&
+    campos.categorias.join(',') === 'medicamento,insumo', JSON.stringify(campos))
+
+  await pag.type('#pDosis', '500mg')
+  await pag.type('#pPres', 'Caja de prueba')
+  await pag.click('#pGuardar')
   await pag.waitForSelector('#lCant', { timeout: 25000 })
   prueba('puede crear un medicamento nuevo en el catalogo', true)
 
@@ -141,20 +158,38 @@ try {
   await pag.waitForSelector('#buscaDestino', { timeout: 20000 })
   prueba('el administrador entra a Entregar', true)
 
-  await pag.type('#buscaDestino', CEDULA)
-  await new Promise(r => setTimeout(r, 1500))
-  const hayNuevo = await pag.$('#nuevoPac')
-  if (hayNuevo) {
-    await pag.click('#nuevoPac')
-    await pag.waitForSelector('#nNombre', { timeout: 15000 })
-    await pag.type('#nNombre', PAC)
-    const ced = await pag.$('#nCedula')
-    if (ced) { await pag.evaluate(c => { document.getElementById('nCedula').value = c }, CEDULA) }
-    await pag.click('#guardarPac')
-    await new Promise(r => setTimeout(r, 2000))
-  }
-  await pag.waitForSelector('#buscaMed', { timeout: 20000 })
+  await pag.waitForSelector('#resultados .ficha, #resultados .vacio', { timeout: 25000 })
+  const cuantasPersonas = await pag.$eval('#resultados .conteo', e => e.textContent.trim()).catch(() => '')
+  prueba('la lista de personas se ve sin escribir', /persona/i.test(cuantasPersonas), cuantasPersonas)
+
+  await pag.click('#btnNuevoDestino')
+  await pag.waitForSelector('#guardarPac', { timeout: 20000 })
+  const camposPac = await pag.evaluate(() => ({
+    nac: [...document.querySelectorAll('#nNac button')].map(b => b.dataset.n),
+    cedula: !!document.getElementById('nCedula'),
+    cne: !!document.getElementById('nBuscarCne'),
+    nombre: !!document.getElementById('nNombre'),
+    sexo: [...document.querySelectorAll('#nSexo button')].map(b => b.dataset.s),
+    fecha: !!document.getElementById('nFecha'),
+    telefono: !!document.getElementById('nTelefono'),
+    direccion: !!document.getElementById('nDireccion'),
+  }))
+  prueba('el formulario de la persona pide todos los campos',
+    camposPac.nac.join(',') === 'V,E' && camposPac.cedula && camposPac.cne && camposPac.nombre &&
+    camposPac.sexo.length === 3 && camposPac.fecha && camposPac.telefono && camposPac.direccion,
+    JSON.stringify(camposPac))
+
+  await pag.evaluate(c => { document.getElementById('nCedula').value = c }, CEDULA)
+  await pag.type('#nNombre', PAC)
+  await pag.type('#nTelefono', '04241234567')
+  await pag.type('#nDireccion', 'Direccion de prueba')
+  await pag.click('#nSexo [data-s="F"]')
+  await pag.click('#guardarPac')
+  await pag.waitForSelector('#zonaDestino .elegido', { timeout: 25000 })
   prueba('elige al paciente y llega a la cesta', true)
+
+  const ficha = await pag.$eval('#zonaDestino .elegido', e => e.innerText.replace(/\s+/g, ' '))
+  prueba('la ficha del paciente muestra su cedula', ficha.includes(CEDULA), ficha)
 
   await pag.type('#buscaMed', MED)
   /* CANDADO: la lista se muestra de entrada con TODO lo disponible, así que
@@ -205,8 +240,8 @@ try {
   await irArea('inventario')
   await pag.waitForSelector('[data-p="conteo"]', { timeout: 20000 })
   await pag.click('[data-p="conteo"]')
-  await pag.waitForSelector('.celda', { timeout: 25000 })
-  const cuantosLotes = await pag.$eval('.conteo', e => e.textContent.trim()).catch(() => '')
+  await pag.waitForSelector('#hojaLista .celda', { timeout: 25000 })
+  const cuantosLotes = await pag.$eval('#hojaLista .conteo', e => e.textContent.trim()).catch(() => '')
   prueba('la hoja trae los lotes de 50 en 50', /de \d+ lotes|lotes?$/i.test(cuantosLotes), cuantosLotes)
 
   await pag.type('#hojaBusca', MED)
@@ -219,7 +254,7 @@ try {
 
   const CONTADO = 25   // lo que "se contó de verdad"
   await pag.evaluate(c => {
-    const i = document.querySelector('.celda')
+    const i = document.querySelector('#hojaLista [data-campo="cantidad"]')
     i.value = String(c)
     i.dispatchEvent(new Event('input', { bubbles: true }))
   }, CONTADO)
@@ -249,6 +284,59 @@ try {
   prueba(`la existencia quedo en ${CONTADO}, que fue lo contado`,
     Array.isArray(tras) && Number(tras[0]?.existencia) === CONTADO, JSON.stringify(tras))
 
+  /* Lo nuevo: en la misma hoja se puede corregir el numero de lote y la
+     fecha de vencimiento, no solo la cantidad. */
+  const LOTE2 = LOTE + 'B'
+  const VENCE2 = new Date(Date.now() + 500 * 864e5).toISOString().slice(0, 10)
+  await pag.waitForFunction(m => {
+    const f = document.querySelectorAll('#hojaLista .tabla.hoja tbody tr')
+    return f.length > 0 && [...f].every(x => x.innerText.includes(m))
+  }, { timeout: 25000 }, MED)
+
+  const hayCampos = await pag.evaluate(() => ({
+    lote: !!document.querySelector('#hojaLista [data-campo="lote"]'),
+    vence: !!document.querySelector('#hojaLista [data-campo="vence"]'),
+    cantidad: !!document.querySelector('#hojaLista [data-campo="cantidad"]'),
+  }))
+  prueba('la hoja deja corregir lote, vencimiento y cantidad',
+    hayCampos.lote && hayCampos.vence && hayCampos.cantidad, JSON.stringify(hayCampos))
+
+  await pag.evaluate(({ l, v }) => {
+    const cl = document.querySelector('#hojaLista [data-campo="lote"]')
+    const cv = document.querySelector('#hojaLista [data-campo="vence"]')
+    cl.value = l; cl.dispatchEvent(new Event('input', { bubbles: true }))
+    cv.value = v; cv.dispatchEvent(new Event('change', { bubbles: true }))
+  }, { l: LOTE2, v: VENCE2 })
+  await new Promise(r => setTimeout(r, 400))
+  const barra2 = await pag.$eval('.barra-guardar', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '')
+  prueba('dice que cambio el numero de lote y el vencimiento',
+    /n[uú]mero de lote/i.test(barra2) && /vencimiento/i.test(barra2), barra2)
+
+  await pag.type('#hMotivo', 'Se leyo el lote de la caja')
+  // Se limpia el aviso anterior: si no, la espera pasa al instante con el
+  // mensaje del guardado anterior y no se comprueba nada.
+  await pag.evaluate(() => { document.getElementById('avisoInv').innerHTML = '' })
+  await pag.click('#hGuardar')
+  await pag.waitForFunction(
+    () => /Guardad|no se guard|No se puede/i.test((document.getElementById('avisoInv') || {}).textContent || ''),
+    { timeout: 30000 })
+  const msgLote = await pag.$eval('#avisoInv', e => e.textContent.trim())
+  prueba('el guardado del lote no dio error', /Guardada/i.test(msgLote), msgLote)
+  await new Promise(r => setTimeout(r, 1200))
+
+  const lote2 = await pag.evaluate(async (med) => {
+    const c = window.CONFIG
+    const t = JSON.parse(localStorage.getItem(
+      Object.keys(localStorage).find(k => k.includes('auth-token')))).access_token
+    const r = await fetch(`${c.SUPABASE_URL}/rest/v1/v_existencia_lote?select=lote,vence,existencia&producto=eq.${encodeURIComponent(med)}`,
+      { headers: { apikey: c.SUPABASE_ANON_KEY, 'Accept-Profile': 'farmacia', Authorization: 'Bearer ' + t } })
+    return await r.json()
+  }, MED)
+  prueba('guardo el numero de lote y la fecha nuevos',
+    lote2[0]?.lote === LOTE2 && String(lote2[0]?.vence).slice(0, 10) === VENCE2, JSON.stringify(lote2))
+  prueba('y no toco la existencia al corregir solo esos datos',
+    Number(lote2[0]?.existencia) === CONTADO, JSON.stringify(lote2))
+
   console.log('\n--- 5. Administracion: queda en la bitacora ---')
   await irArea('admin')
   await pag.waitForSelector('[data-p="bitacora"]', { timeout: 20000 })
@@ -257,6 +345,80 @@ try {
   const bit = await pag.evaluate(() => document.body.innerText)
   prueba('la bitacora registra al administrador como quien lo hizo',
     /Carlos Linares/i.test(bit), bit.slice(0, 160))
+
+  console.log('\n--- 5b. Deshacer desde "Lo ultimo que paso" ---')
+  await pag.click('[data-p="tablero"]')
+  await pag.waitForSelector('.feed', { timeout: 25000 })
+  await new Promise(r => setTimeout(r, 1200))
+
+  const hayQuitar = await pag.$$eval('[data-quitar]', bs => bs.length)
+  prueba('en la actividad aparece el boton de quitar', hayQuitar > 0, 'botones: ' + hayQuitar)
+
+  /* El candado que importa: el medicamento de la prueba YA tiene lotes y
+     movimientos, asi que la base tiene que negarse a borrarlo. */
+  const botonMed = await pag.$(`[data-quitar][data-tabla="productos"][data-que="${MED}"]`)
+  if (botonMed) {
+    pag.once('dialog', async d => { await d.accept() })
+    await pag.evaluate(() => { document.getElementById('avisoAdm').innerHTML = '' })
+    await botonMed.click()
+    await pag.waitForFunction(
+      () => ((document.getElementById('avisoAdm') || {}).textContent || '').trim().length > 0,
+      { timeout: 25000 })
+    const msgQ = await pag.$eval('#avisoAdm', e => e.textContent.trim())
+    prueba('NO deja quitar algo que ya tiene historial', /No se puede quitar/i.test(msgQ), msgQ)
+    prueba('y explica por que, no da un error seco', /lotes cargados|pacientes que lo toman/i.test(msgQ), msgQ)
+
+    const sigue = await pag.evaluate(async (med) => {
+      const c = window.CONFIG
+      const t = JSON.parse(localStorage.getItem(
+        Object.keys(localStorage).find(k => k.includes('auth-token')))).access_token
+      const r = await fetch(`${c.SUPABASE_URL}/rest/v1/productos?select=nombre&nombre=eq.${encodeURIComponent(med)}`,
+        { headers: { apikey: c.SUPABASE_ANON_KEY, 'Accept-Profile': 'farmacia', Authorization: 'Bearer ' + t } })
+      return (await r.json()).length
+    }, MED)
+    prueba('el medicamento sigue ahi, no se borro', sigue === 1, 'quedan: ' + sigue)
+  } else {
+    prueba('encuentro el boton del medicamento de la prueba', false, 'no aparecio en la actividad')
+  }
+
+  /* El camino contrario: algo recien creado y SIN historial sí se quita. */
+  const SUELTO = 'ZZZ-SUELTO ' + MARCA
+  await irArea('inventario')
+  await pag.click('[data-p="catalogo"]')
+  await pag.waitForSelector('#catCrear', { timeout: 20000 })
+  await pag.click('#catCrear')
+  await pag.waitForSelector('#pNombre', { timeout: 20000 })
+  await pag.evaluate(n => { document.getElementById('pNombre').value = n }, SUELTO)
+  await pag.click('#pGuardar')
+  await pag.waitForSelector('#lCant', { timeout: 25000 })
+
+  await irArea('admin')
+  await pag.click('[data-p="tablero"]')
+  await pag.waitForSelector('.feed', { timeout: 25000 })
+  await new Promise(r => setTimeout(r, 1200))
+  const botonSuelto = await pag.$(`[data-quitar][data-tabla="productos"][data-que="${SUELTO}"]`)
+  if (botonSuelto) {
+    pag.once('dialog', async d => { await d.accept() })
+    await pag.evaluate(() => { document.getElementById('avisoAdm').innerHTML = '' })
+    await botonSuelto.click()
+    await pag.waitForFunction(
+      () => ((document.getElementById('avisoAdm') || {}).textContent || '').trim().length > 0,
+      { timeout: 25000 })
+    const msgS = await pag.$eval('#avisoAdm', e => e.textContent.trim())
+    prueba('SI deja quitar lo que no tiene historial', /Se quitó/i.test(msgS), msgS)
+
+    const quedan = await pag.evaluate(async (med) => {
+      const c = window.CONFIG
+      const t = JSON.parse(localStorage.getItem(
+        Object.keys(localStorage).find(k => k.includes('auth-token')))).access_token
+      const r = await fetch(`${c.SUPABASE_URL}/rest/v1/productos?select=nombre&nombre=eq.${encodeURIComponent(med)}`,
+        { headers: { apikey: c.SUPABASE_ANON_KEY, 'Accept-Profile': 'farmacia', Authorization: 'Bearer ' + t } })
+      return (await r.json()).length
+    }, SUELTO)
+    prueba('y de verdad desaparecio del catalogo', quedan === 0, 'quedan: ' + quedan)
+  } else {
+    prueba('encuentro el boton del medicamento suelto', false, 'no aparecio en la actividad')
+  }
 
   console.log('\n--- 6. Recuerda el area al recargar ---')
   await pag.reload({ waitUntil: 'networkidle2' })
@@ -302,9 +464,9 @@ create temporary table zzz_e on commit drop as
 delete from farmacia.bitacora
  where registro_id in (select id::text from zzz_e)
     or registro_id in (select d.id::text from farmacia.entrega_detalle d join zzz_e z on z.id = d.entrega_id)
-    or registro_id in (select l.id::text from farmacia.lotes l join farmacia.productos p on p.id = l.producto_id where p.nombre like 'ZZZ-CICLO%')
-    or registro_id in (select m.id::text from farmacia.movimientos m join farmacia.lotes l on l.id = m.lote_id join farmacia.productos p on p.id = l.producto_id where p.nombre like 'ZZZ-CICLO%')
-    or registro_id in (select id::text from farmacia.productos where nombre like 'ZZZ-CICLO%')
+    or registro_id in (select l.id::text from farmacia.lotes l join farmacia.productos p on p.id = l.producto_id where p.nombre like 'ZZZ-%')
+    or registro_id in (select m.id::text from farmacia.movimientos m join farmacia.lotes l on l.id = m.lote_id join farmacia.productos p on p.id = l.producto_id where p.nombre like 'ZZZ-%')
+    or registro_id in (select id::text from farmacia.productos where nombre like 'ZZZ-%')
     or registro_id in (select id::text from farmacia.pacientes where nombre like 'ZZZ%');
 
 -- Los movimientos que generaron esas entregas, SEA CUAL SEA el medicamento.
@@ -323,14 +485,14 @@ delete from farmacia.lotes l using farmacia.productos p
  where l.producto_id = p.id and p.nombre like 'ZZZ-CICLO%';
 delete from farmacia.tratamientos_paciente t using farmacia.pacientes q
  where t.paciente_id = q.id and q.nombre like 'ZZZ%';
-delete from farmacia.productos where nombre like 'ZZZ-CICLO%';
+delete from farmacia.productos where nombre like 'ZZZ-%';
 delete from farmacia.pacientes where nombre like 'ZZZ%';
 
 set local session_replication_role = origin;
 commit;`)
 
 const resto = await sql(`select
-  (select count(*) from farmacia.productos where nombre like 'ZZZ-CICLO%') productos,
+  (select count(*) from farmacia.productos where nombre like 'ZZZ-%') productos,
   (select count(*) from farmacia.pacientes where nombre like 'ZZZ%') pacientes,
   (select count(*) from farmacia.movimientos m where m.entrega_id is not null
      and not exists (select 1 from farmacia.entregas e where e.id = m.entrega_id)) descuentos_huerfanos;`)
