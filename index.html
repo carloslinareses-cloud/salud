@@ -108,9 +108,6 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .aviso.warn{background:var(--warn-bg); border-color:var(--warn-line); color:var(--warn-ink)}
 .aviso.bad{background:var(--bad-bg); border-color:var(--bad-line); color:var(--bad-ink)}
 
-/* ---------- estado de obra ---------- */
-.pasos{list-style:none; margin:14px 0 0; padding:0}
-.pasos li{display:flex; gap:11px; align-items:flex-start; padding:9px 0;
   border-top:1px solid var(--line); font-size:.95rem}
 .pasos li:first-child{border-top:0}
 .pasos .mark{flex:none; width:22px; height:22px; border-radius:50%; display:grid;
@@ -121,10 +118,6 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .pasos .t{font-weight:700}
 .pasos .d{color:var(--ink-soft); font-size:.9rem; display:block; margin-top:1px}
 
-/* ---------- cifras ---------- */
-.cifras{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-top:14px}
-.cifra{background:var(--rail); border:1px solid var(--line); border-radius:10px; padding:13px}
-.cifra b{display:block; font-size:1.5rem; font-weight:850; letter-spacing:-.02em;
   font-variant-numeric:tabular-nums; line-height:1.1}
 .cifra span{display:block; font-size:12px; color:var(--ink-soft); font-weight:650; margin-top:3px}
 .cifra.alerta{background:var(--bad-bg); border-color:var(--bad-line)}
@@ -132,9 +125,9 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 
 
 /* ---------- pantalla de entrega ---------- */
-.conmuta{display:flex;gap:6px;background:var(--rail);border:1px solid var(--line);
+.conmuta{display:flex;flex-wrap:wrap;gap:6px;background:var(--rail);border:1px solid var(--line);
   border-radius:11px;padding:4px;margin-bottom:16px}
-.conmuta button{flex:1;font:inherit;font-size:14px;font-weight:750;cursor:pointer;
+.conmuta button{flex:1 1 auto;font:inherit;font-size:14px;font-weight:750;cursor:pointer;
   padding:10px 8px;min-height:44px;border:0;border-radius:8px;background:transparent;color:var(--ink-soft)}
 .conmuta button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
 
@@ -180,11 +173,29 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   .renglon{flex-wrap:wrap}
   .renglon .que{flex:1 1 100%}
   .botonera{flex-direction:column}
+  .conmuta button{flex:1 1 40%}
+  .acciones-u{width:100%; justify-content:flex-start}
+  .acciones-u button{flex:1 1 auto; min-height:44px; font-size:13px}
+  .fila-clave button{min-height:44px}
 }
 
 
 /* ---------- inventario y panel de admin ---------- */
 .sub-t{font-size:1rem;font-weight:800;margin:22px 0 8px;letter-spacing:-.01em}
+/* ---------- gestion de usuarios ---------- */
+.acciones-u{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end}
+.acciones-u button{font-size:12px; padding:6px 10px; min-height:32px; white-space:nowrap}
+button.suave{background:var(--rail); color:var(--ink); border:1px solid var(--line);
+  border-radius:8px; font-weight:650; cursor:pointer}
+button.suave:hover{background:var(--line)}
+button.peligro{background:var(--bad-bg); color:var(--bad-ink); border:1px solid var(--bad-line);
+  border-radius:8px; font-weight:650; cursor:pointer}
+.fila-clave{display:flex; gap:8px; align-items:stretch}
+.fila-clave input{flex:1; margin:0}
+.fila-clave button{flex:none; padding:0 14px}
+.credencial{display:block; margin:8px 0; padding:10px 12px; background:var(--rail);
+  border:1px solid var(--line); border-radius:8px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:15px; font-weight:700; letter-spacing:.01em; user-select:all; word-break:break-all}
 .pill{flex:none;font-size:13px;font-weight:800;padding:5px 12px;border-radius:99px;
   background:var(--navy);color:#fff;font-variant-numeric:tabular-nums}
 .feed{margin-top:10px;display:flex;flex-direction:column}
@@ -249,9 +260,9 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
           <button class="principal" id="btnEntrar" type="submit">Entrar</button>
         </form>
 
-        <p class="sub registrarse">¿Primera vez?
-          <button type="button" class="enlace" id="btnRegistro">Regístrate aquí</button><br>
-          <span class="chico">Tu cuenta queda sin permisos hasta que el administrador te active.</span>
+        <p class="sub registrarse">
+          <span class="chico">Las cuentas las crea el administrador. Si no tienes uno,
+          pídeselo: no hay registro por cuenta propia.</span>
         </p>
 
         <div id="errorAcceso" class="aviso bad" hidden></div>
@@ -259,35 +270,9 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
         <div id="avisoPreparacion" class="aviso warn" hidden>
           <b>El sistema está en preparación</b>
           Todavía no se ha creado la base de datos, así que el acceso aún no funciona.
-          Más abajo puedes ver en qué va la obra.
         </div>
       </div>
 
-      <!-- ======== ESTADO DE LA OBRA ======== -->
-      <div class="tarjeta">
-        <h2>En qué va la obra</h2>
-        <p class="sub">Esta página se actualiza sola cada vez que se publica un avance.</p>
-        <ul class="pasos" id="listaPasos"></ul>
-      </div>
-
-      <div class="tarjeta">
-        <h2>Lo que ya se revisó de los datos actuales</h2>
-        <p class="sub">Salió de los dos archivos de Excel de la Dirección de Salud.</p>
-        <div class="cifras">
-          <div class="cifra"><b>1.496</b><span>Pacientes registrados</span></div>
-          <div class="cifra"><b>414</b><span>Medicamentos en catálogo</span></div>
-          <div class="cifra"><b>645</b><span>Entregas ya registradas</span></div>
-          <div class="cifra alerta"><b>128</b><span>Lotes vencidos aún en existencia</span></div>
-          <div class="cifra alerta"><b>9.274</b><span>Unidades vencidas</span></div>
-          <div class="cifra alerta"><b>705</b><span>Unidades que vencen en 30 días</span></div>
-        </div>
-        <div class="aviso bad">
-          <b>Lo más urgente</b>
-          Hay 128 lotes vencidos que el Excel todavía cuenta como disponibles. El sistema nuevo
-          impedirá despachar de un lote vencido, con un candado en la base de datos y no solo
-          un aviso en pantalla.
-        </div>
-      </div>
     </section>
 
     <!-- ======== CAMBIO DE CONTRASEÑA OBLIGATORIO ======== -->

@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .env
 manual/pag*.png
+node_modules/
+package-lock.json
+perfil-chrome/

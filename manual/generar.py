@@ -200,7 +200,7 @@ CUERPO = """
               corregir existencias tras un conteo.</td>
           <td>Entregar medicamentos.</td></tr>
       <tr><td><b>Administrador</b><br><span class="sub">1 persona</span></td>
-          <td>Todo lo anterior, m&aacute;s crear y desactivar usuarios, ver la actividad de todos
+          <td>Todo lo anterior, m&aacute;s crear, desactivar y retirar usuarios, ver la actividad de todos
               y consultar la bit&aacute;cora.</td>
           <td>Modificar la bit&aacute;cora.</td></tr>
     </tbody>
@@ -345,12 +345,22 @@ CUERPO = """
   __FIG_BITACORA__
 
   <h3>Usuarios</h3>
-  <p>Aqu&iacute; se activa a quien se registr&oacute;, se le asigna su perfil o se le retira el
-  acceso.</p>
+  <p>El administrador crea la cuenta completa desde aqu&iacute;: nombre, correo, puesto y una
+  contrase&ntilde;a provisional. La persona no tiene que registrarse ni hacer ning&uacute;n paso
+  previo &mdash; recibe sus datos y ya puede entrar.</p>
   __FIG_USUARIOS__
+  <p>Cada usuario se puede desactivar, volver a activar, cambiarle la contrase&ntilde;a si la
+  olvid&oacute;, o retirarlo del sistema.</p>
   <div class="aviso warn">
-    <b>Los usuarios se desactivan, no se borran</b>
-    As&iacute; su historial de entregas se conserva completo y sigue siendo consultable.
+    <b>La contrase&ntilde;a provisional se ve una sola vez</b>
+    Al crear el usuario, la pantalla muestra el correo y la contrase&ntilde;a para
+    entreg&aacute;rselos a la persona. No se guardan en ninguna parte y no se vuelven a mostrar.
+    Si se pierden, el administrador le pone una nueva.
+  </div>
+  <div class="aviso warn">
+    <b>Lo que hizo cada quien no se borra</b>
+    Aunque se retire a una persona del sistema, sus entregas y sus apuntes de la bit&aacute;cora
+    se conservan con su nombre. El historial queda completo.
   </div>
 
   <h3>Pacientes por completar</h3>
@@ -446,7 +456,7 @@ FIGURAS = [
     ('__FIG_AJUSTE__',   '08-ajuste.jpg',         'Correcci&oacute;n de existencia tras un conteo f&iacute;sico.'),
     ('__FIG_TABLERO__',  '09-tablero.jpg',        'Tablero del administrador.'),
     ('__FIG_BITACORA__', '10-bitacora.jpg',       'Bit&aacute;cora, con filtros por acci&oacute;n y por persona.'),
-    ('__FIG_USUARIOS__', '11-usuarios.jpg',       'Gesti&oacute;n de usuarios y perfiles.'),
+    ('__FIG_USUARIOS__', '11-usuarios.jpg',       'El administrador crea la cuenta completa: nombre, correo, puesto y contrase&ntilde;a.'),
     ('__FIG_REVISAR__',  '12-por-revisar.jpg',    'Pacientes cuyo registro hay que completar.'),
 ]
 

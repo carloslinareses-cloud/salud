@@ -7,42 +7,6 @@
   var $ = function (id) { return document.getElementById(id); };
 
   /* ---------------------------------------------------------------
-     Estado de la obra. Al terminar cada etapa se cambia aquí y el
-     usuario lo ve publicado. Estados: 'hecho' | 'curso' | 'falta'
-  --------------------------------------------------------------- */
-  var PASOS = [
-    { e: 'hecho', t: 'Espacio en internet creado',
-      d: 'salud.alcaldiadecharallave.com, con su repositorio y publicación automática' },
-    { e: 'hecho', t: 'Datos actuales leídos y revisados',
-      d: '1.496 pacientes, 414 medicamentos y 645 entregas, sacados de los Excel de la Dirección de Salud' },
-    { e: 'hecho', t: 'Base de datos, permisos y bitácora',
-      d: '10 tablas, 26 permisos y 14 candados. Probado: no deja despachar vencidos, ni dejar existencia en negativo, ni borrar la bitácora' },
-    { e: 'hecho', t: 'Pantalla de entrega de medicamentos',
-      d: 'Busca a la persona o al centro, propone el lote que vence primero y descuenta del inventario' },
-    { e: 'hecho', t: 'Datos actuales cargados',
-      d: '455 medicamentos, 472 lotes y 1.496 pacientes. 78 quedaron marcados para revisar: ninguno se perdió' },
-    { e: 'hecho', t: 'Pantalla de entrada de mercancía',
-      d: 'Registrar lo que llega con su lote y vencimiento, alertas, bajas y corrección por conteo' },
-    { e: 'hecho', t: 'Panel del administrador',
-      d: 'Cifras del día, actividad en vivo, bitácora consultable, usuarios y pacientes por revisar' },
-    { e: 'hecho', t: 'Historial de entregas traspasado',
-      d: '4.999 entregas de los Excel, consultables por cédula o por nombre. No descuentan inventario: el 87% no anotaba la cantidad' }
-  ];
-
-  var MARCA = { hecho: '✓', curso: '•', falta: '' };
-
-  function pintarPasos() {
-    var ul = $('listaPasos');
-    if (!ul) return;
-    ul.innerHTML = PASOS.map(function (p) {
-      return '<li class="' + p.e + '">' +
-        '<span class="mark" aria-hidden="true">' + MARCA[p.e] + '</span>' +
-        '<span><span class="t">' + p.t + '</span>' +
-        '<span class="d">' + p.d + '</span></span></li>';
-    }).join('');
-  }
-
-  /* ---------------------------------------------------------------
      Acceso
   --------------------------------------------------------------- */
   var sb = null;
@@ -90,24 +54,6 @@
       })
       .catch(function (err) { mostrarError(traducirError(err)); })
       .then(function () { btn.disabled = false; btn.textContent = 'Entrar'; });
-  }
-
-  function registrarse() {
-    $('errorAcceso').hidden = true;
-    var correo = $('correo').value.trim(), clave = $('clave').value;
-    if (!correo || clave.length < 8) {
-      mostrarError('Escribe tu correo y una contraseña de al menos 8 caracteres, y vuelve a pulsar Regístrate.');
-      return;
-    }
-    if (!sb) { mostrarError('Todavía no hay conexión con el servidor.'); return; }
-    sb.auth.signUp({ email: correo, password: clave }).then(function (r) {
-      if (r.error) throw r.error;
-      var e = $('errorAcceso');
-      e.className = 'aviso ok';
-      e.textContent = 'Cuenta creada. Avísale al administrador para que te dé permisos: ' +
-                      'hasta entonces no vas a poder entrar.';
-      e.hidden = false;
-    }).catch(function (err) { mostrarError(traducirError(err)); });
   }
 
   function salir() {
@@ -215,12 +161,10 @@
      Arranque
   --------------------------------------------------------------- */
   function arrancar() {
-    pintarPasos();
     $('pie').textContent = 'Publicado el ' +
       new Date().toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
     $('formAcceso').addEventListener('submit', entrar);
-    $('btnRegistro').addEventListener('click', registrarse);
     $('btnSalir').addEventListener('click', salir);
 
     if (!window.CONFIG || !window.CONFIG.listo()) {
@@ -228,11 +172,31 @@
       $('btnEntrar').disabled = true;
       return;
     }
-    // La biblioteca de Supabase solo se carga si ya hay configuración.
+    /* La biblioteca de Supabase se carga aparte y tarda. Hasta que llegue,
+       el botón queda apagado: si no, quien escribe rápido o tiene mal
+       internet pulsa Entrar antes de tiempo y recibe un mensaje que parece
+       que el sistema está roto, cuando en realidad solo estaba cargando. */
+    var boton = $('btnEntrar');
+    var textoBoton = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = 'Conectando…';
+
     var s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
-    s.onload = function () { if (iniciarSupabase()) cargarSesion(); };
-    s.onerror = function () { mostrarError('No se pudo cargar la conexión. Revisa tu internet.'); };
+    s.onload = function () {
+      if (iniciarSupabase()) {
+        boton.disabled = false;
+        boton.textContent = textoBoton;
+        cargarSesion();
+      } else {
+        boton.textContent = textoBoton;
+        mostrarError('No se pudo preparar la conexión. Recarga la página.');
+      }
+    };
+    s.onerror = function () {
+      boton.textContent = textoBoton;
+      mostrarError('No se pudo cargar la conexión. Revisa tu internet y recarga la página.');
+    };
     document.head.appendChild(s);
   }
 
