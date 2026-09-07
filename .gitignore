@@ -9,3 +9,9 @@ package-lock.json
 perfil-chrome/
 bajadas-prueba/
 papeles/
+# Capturas que dejan las pruebas cuando algo falla. Salen de la base de
+# PRODUCCION: pueden llevar nombres y cedulas de personas reales, asi que
+# no entran nunca al repositorio, que es publico.
+fallo-*.png
+perfil-*/
+bajadas-*/

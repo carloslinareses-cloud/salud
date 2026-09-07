@@ -175,7 +175,11 @@ try {
     const f = document.querySelectorAll('#resMed .ficha')
     return f.length > 0 && [...f].every(x => x.innerText.includes(m))
   }, { timeout: 25000 }, MED)
-  await pag.click('#resMed .ficha')
+  /* Se busca y se toca DENTRO de la pagina, en el mismo instante: entre
+     la espera y el clic puede llegar una respuesta atrasada del buscador
+     que repinta la lista, y entonces el boton que se tenia ya no existe.
+     Daba "Node is either not clickable or not an Element". */
+  await pag.evaluate(() => { document.querySelector('#resMed .ficha').click() })
   await new Promise(r => setTimeout(r, 900))
   await pag.evaluate(c => {
     const i = document.querySelector('#renglones input[type="number"]')

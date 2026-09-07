@@ -404,6 +404,19 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .sin-cant{color:var(--ink-soft); font-style:italic}
 .descarga-nota{align-self:center; font-size:12px; font-weight:650; color:var(--ink-faint)}
 
+/* ---------- patologias ---------- */
+.ficha-pat{display:block; margin-top:4px; font-size:11.5px; font-weight:700;
+  color:var(--warn-ink); overflow-wrap:anywhere}
+.chips.patologias{max-height:260px; overflow-y:auto; margin-top:8px}
+.chips.patologias button{font-size:12.5px; font-weight:700; padding:9px 13px}
+.chips.patologias button em{font-style:normal; margin-left:7px; font-size:11px; font-weight:800;
+  opacity:.65}
+.patologias-ficha{background:var(--warn-bg); border-color:var(--warn-line)}
+.patologias-ficha .lbl{color:var(--warn-ink)}
+.pat-chip{display:inline-block; padding:7px 12px; border-radius:99px; font-size:12.5px;
+  font-weight:750; color:var(--warn-ink); background:var(--card);
+  border:1px solid var(--warn-line)}
+
 /* ---------- la hoja de conteo en el telefono ----------
    En una pantalla de 375 px la tabla no cabe y la casilla editable queda
    fuera, obligando a arrastrar en cada renglon. Ahi se convierte en
@@ -773,7 +786,9 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="logos-base64.js"></script>
 <script src="pdf-header.js"></script>
 <script src="reportes.js"></script>
+<script src="picker.js"></script>
 <script src="tablero-entregas.js"></script>
+<script src="personas.js"></script>
 <script src="despacho.js"></script>
 <script src="inventario.js"></script>
 <script src="admin.js"></script>

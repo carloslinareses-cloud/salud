@@ -229,11 +229,11 @@ try {
   await pag.click('#tratBusca')
   await pag.type('#tratBusca', MED)
   await pag.waitForFunction(m => {
-    const f = document.querySelectorAll('#tratRes [data-cat]')
+    const f = document.querySelectorAll('#tratRes [data-i]')
     return f.length > 0 && [...f].some(x => x.innerText.includes(m))
   }, { timeout: 25000 }, MED)
   await pag.evaluate(m => {
-    const b = [...document.querySelectorAll('#tratRes [data-cat]')].find(x => x.innerText.includes(m))
+    const b = [...document.querySelectorAll('#tratRes [data-i]')].find(x => x.innerText.includes(m))
     b.click()
   }, MED)
   await espera(300)

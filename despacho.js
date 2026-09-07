@@ -96,6 +96,7 @@
           '<button type="button" class="quitar" id="cambiarDestino">Cambiar</button>' +
         '</div>' +
         (destino.detalle ? '<p class="sub chico">' + esc(destino.detalle) + '</p>' : '') +
+        pintarPatologias() +
         pintarTratamiento() +
         (modo === 'institucion' ?
           '<h2 class="sub-t">Quién recibe</h2>' +
@@ -168,7 +169,7 @@
     if (esPac) {
       q = sb.from('v_pacientes_ficha')
         .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,' +
-                'estado,medicamentos,entregas,ultima_entrega', { count: 'exact' });
+                'estado,medicamentos,entregas,ultima_entrega,patologias,n_patologias', { count: 'exact' });
       if (bus.busca.length >= 2) {
         var t = bus.busca.replace(/[%,()]/g, '');
         var soloNum = t.replace(/\D/g, '');
@@ -300,7 +301,8 @@
       if (x.telefono) det.push(x.telefono);
       if (x.direccion) det.push(x.direccion);
       destino = { tipo: 'paciente', id: x.id, titulo: x.nombre, sub: ced,
-                  detalle: det.join(' · ') || null };
+                  detalle: det.join(' · ') || null,
+                  patologias: x.patologias || '' };
       pintarDestino(); pintarRenglones();
       sb.from('v_tratamiento_paciente')
         .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,disponible,situacion')
@@ -461,7 +463,7 @@
 
     /* Primero: ¿ya está registrada aquí? Si sí, no se crea otra vez. */
     sb.from('v_pacientes_ficha')
-      .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,estado,medicamentos,entregas,ultima_entrega')
+      .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,estado,medicamentos,entregas,ultima_entrega,patologias,n_patologias')
       .eq('cedula', ced).eq('nacionalidad', elegido('nNac', 'n') || 'V').limit(1)
       .then(function (r) {
         var ya = r.data && r.data[0];
@@ -560,7 +562,7 @@
         tratNuevo = []; tratBusca = ''; tratAbierto = false;
         /* Se vuelve a leer de la ficha, para que traiga la edad calculada. */
         sb.from('v_pacientes_ficha')
-          .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,estado,medicamentos,entregas,ultima_entrega')
+          .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,estado,medicamentos,entregas,ultima_entrega,patologias,n_patologias')
           .eq('id', r.data.id).single()
           .then(function (f) {
             elegirDestino(f.data || r.data);
@@ -666,6 +668,22 @@
      sí están enlazadas.
   ================================================================ */
 
+  /* Lo que tiene la persona. Se ve, no se toca: aqui se entrega, y
+     corregir la ficha clinica se hace en Mercancia > Personas, con calma
+     y con todos los campos delante. */
+  function pintarPatologias() {
+    if (destino.tipo !== 'paciente') return '';
+    var p = destino.patologias;
+    if (!p) return '';
+    return '<div class="trat patologias-ficha">' +
+      '<span class="lbl">Sus patologías</span>' +
+      '<div class="trat-lista">' +
+        String(p).split(' · ').map(function (x) {
+          return '<span class="pat-chip">' + esc(x) + '</span>';
+        }).join('') +
+      '</div></div>';
+  }
+
   function pintarTratamiento() {
     if (destino.tipo !== 'paciente') return '';
     var t = destino.tratamiento;
@@ -746,116 +764,16 @@
     '</div>';
   }
 
-  /* El buscador de medicinas del catálogo. Es el mismo en los dos sitios:
-     al registrar a la persona y al corregir su tratamiento después. */
+  /* El buscador de medicinas es el de picker.js: lo comparten esta
+     pantalla y la de Personas. Aquí solo se dice dónde va y qué hacer
+     con lo que se elija. */
   function buscadorMedicinas(rotulo) {
-    return '<div class="picker-med" id="tratPicker">' +
-      '<label for="tratBusca">' + esc(rotulo) + '</label>' +
-      '<input id="tratBusca" type="search" autocomplete="off" ' +
-        'placeholder="Escribe el nombre del medicamento…" value="' + esc(tratBusca) + '">' +
-      '<div id="tratRes"></div>' +
-    '</div>';
+    return window.FARMPICK.caja('trat', rotulo, 'Escribe el nombre del medicamento…', tratBusca);
   }
 
-  /* Engancha el buscador. `alElegir` recibe {producto_id, producto,
-     dosificacion, presentacion} o, si no está en el catálogo,
-     {producto_id: null, texto_original, producto}. */
   function engancharBuscador(alElegir) {
-    var caja = document.getElementById('tratBusca');
-    if (!caja) return;
-    /* En cuanto se toca una tecla, la lista de abajo deja de valer: es de
-       lo que se escribio ANTES. Se apaga de inmediato, sin esperar al
-       retardo, porque si no el boton de "anotar tal como lo escribi" se
-       queda ahi con el texto viejo y anota la medicina equivocada. */
-    caja.addEventListener('input', function () {
-      var z = document.getElementById('tratRes');
-      if (z && caja.value.trim() !== tratBusca) {
-        z.innerHTML = '<div class="cargando">Buscando en el catálogo…</div>';
-      }
-    });
-    caja.addEventListener('input', retardo(function () {
-      tratBusca = caja.value.trim();
-      buscarParaTratamiento(tratBusca, alElegir);
-    }, 280));
-    caja.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Enter') ev.preventDefault();
-    });
-    buscarParaTratamiento(tratBusca, alElegir);
-  }
-
-  var tratPedido = 0;
-
-  function buscarParaTratamiento(q, alElegir) {
-    var z = document.getElementById('tratRes');
-    if (!z) return;
-    z.innerHTML = '<div class="cargando">Buscando en el catálogo…</div>';
-
-    /* Se busca en el CATÁLOGO, no en lo que hay disponible: una persona
-       puede necesitar algo que hoy está agotado, y eso es justo lo que
-       hay que dejar anotado. */
-    var p = sb.from('v_catalogo')
-      .select('producto_id,producto,dosificacion,presentacion,disponible,situacion',
-              { count: 'exact' });
-    if (q.length >= 2) p = p.ilike('producto', '*' + q.replace(/[%,()]/g, '') + '*');
-
-    /* Cada busqueda lleva su numero. Con internet lento salian dos en
-       vuelo a la vez y la que tardaba mas pintaba encima de la nueva. */
-    var mio = ++tratPedido;
-    p.order('producto').limit(20).then(function (r) {
-      if (mio !== tratPedido) return;
-      var zz = document.getElementById('tratRes');
-      if (!zz) return;
-      if (r.error) { zz.innerHTML = '<div class="aviso bad">' + esc(r.error.message) + '</div>'; return; }
-      var f = r.data || [];
-
-      /* Lo escrito a mano siempre se puede anotar: si el catálogo todavía
-         no tiene ese medicamento, el dato de la persona no se pierde. */
-      var aMano = q.length >= 3
-        ? '<button type="button" class="ficha ficha-mano" id="tratAMano">' +
-            '<div class="ficha-nom"><b>Anotar «' + esc(q) + '» tal como lo escribí</b>' +
-            '<span class="ficha-pres">No hace falta que esté en el catálogo.</span></div>' +
-          '</button>'
-        : '';
-
-      if (!f.length) {
-        zz.innerHTML = aMano
-          ? '<div class="fichas">' + aMano + '</div>'
-          : '<div class="vacio"><b>' +
-            (q ? 'No hay «' + esc(q) + '» en el catálogo.' : 'El catálogo todavía está vacío.') +
-            '</b><span>Escribe al menos tres letras y se puede anotar igual, ' +
-            'tal como lo dice la receta.</span></div>';
-      } else {
-        var total = r.count == null ? f.length : r.count;
-        zz.innerHTML =
-          '<p class="conteo">' + (total > f.length
-            ? 'Los ' + f.length + ' primeros de ' + total +
-              '. Escribe más letras para acotar.'
-            : total + (total === 1 ? ' medicamento' : ' medicamentos')) + '</p>' +
-          '<div class="fichas">' + f.map(function (x, i) {
-          var hay = Math.round(Number(x.disponible) || 0);
-          return '<button type="button" class="ficha" data-cat="' + i + '">' +
-            '<div class="ficha-nom"><b>' + esc(x.producto) + '</b>' +
-              '<span class="ficha-pres">' +
-              esc([x.dosificacion, x.presentacion].filter(Boolean).join(' · ') || 'sin presentación') +
-              '</span></div>' +
-            '<div class="ficha-datos"><span class="ficha-cant' + (hay ? '' : ' cero') + '">' +
-              hay + '<em>' + (hay === 1 ? 'disponible' : 'disponibles') + '</em></span></div>' +
-          '</button>';
-        }).join('') + aMano + '</div>';
-      }
-
-      zz.querySelectorAll('[data-cat]').forEach(function (b) {
-        b.addEventListener('click', function () {
-          var x = f[+b.dataset.cat];
-          alElegir({ producto_id: x.producto_id, producto: x.producto,
-                     dosificacion: x.dosificacion, presentacion: x.presentacion });
-        });
-      });
-      var m = document.getElementById('tratAMano');
-      if (m) m.addEventListener('click', function () {
-        alElegir({ producto_id: null, texto_original: q, producto: q });
-      });
-    });
+    if (!document.getElementById('tratBusca')) return;
+    window.FARMPICK.medicinas(sb, 'trat', alElegir);
   }
 
   /* ---- corregir el tratamiento de alguien que YA está registrado ---- */
@@ -868,21 +786,14 @@
     if (z.scrollIntoView) z.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  /* Compara sin acentos ni mayusculas, y CRUZADO: lo escrito a mano contra
-     el nombre del catalogo y al reves. Si no, anotar "losartan" a mano
-     cuando ya tenia LOSARTAN del catalogo lo dejaba dos veces. */
+  /* Compara CRUZADO: lo escrito a mano contra el nombre del catalogo y al
+     reves. Sin esto, anotar "losartan" a mano cuando ya tenia LOSARTAN del
+     catalogo lo dejaba dos veces. */
   function yaLoTiene(lista, x) {
-    var igual = function (a, b) {
-      a = a == null ? '' : String(a); b = b == null ? '' : String(b);
-      if (!a || !b) return false;
-      return (window.FARM ? window.FARM.sinAcentos(a) : a.toLowerCase().trim()) ===
-             (window.FARM ? window.FARM.sinAcentos(b) : b.toLowerCase().trim());
-    };
+    var igual = window.FARMPICK.mismo;
     return (lista || []).some(function (t) {
       if (x.producto_id && t.producto_id) return t.producto_id === x.producto_id;
-      var suyo  = t.producto || t.texto_original;
-      var nuevo = x.producto || x.texto_original;
-      return igual(suyo, nuevo) ||
+      return igual(t.producto || t.texto_original, x.producto || x.texto_original) ||
              igual(t.texto_original, x.producto) ||
              igual(t.producto, x.texto_original);
     });
@@ -902,7 +813,6 @@
 
     sb.from('tratamientos_paciente').insert(fila).select().single().then(function (r) {
       if (r.error) { avisoTrat('bad', 'No se pudo anotar: ' + r.error.message); return; }
-      tratBusca = '';
       recargarTratamiento(pid, function () {
         avisoTrat('ok', x.producto + ' quedó anotado en su tratamiento.');
       });

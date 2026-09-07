@@ -84,6 +84,7 @@
           '<button type="button" data-p="cargar">Registrar lo que llega</button>' +
           '<button type="button" data-p="catalogo">Catálogo</button>' +
           '<button type="button" data-p="alertas">Alertas</button>' +
+          '<button type="button" data-p="personas">Personas</button>' +
           '<button type="button" data-p="entregas">Lo entregado</button>' +
           '<button type="button" data-p="conteo">Corregir existencia</button>' +
         '</div>' +
@@ -101,12 +102,26 @@
     else if (pestana === 'alertas') verAlertas();
     else if (pestana === 'catalogo') verCatalogo();
     else if (pestana === 'entregas') verEntregas();
+    else if (pestana === 'personas') verPersonas();
     else verConteo();
   }
 
   /* El tablero de lo que salió. Es el mismo módulo que usa el panel del
      administrador; aquí se monta con su propio prefijo porque las dos
      copias conviven en la página y los identificadores chocarían. */
+  /* Las fichas de la gente: sus datos, sus patologias y lo que necesita.
+     Esta aqui, al lado de lo que se carga a mano, porque es trabajo de la
+     misma clase: pasar el cuaderno al sistema. */
+  function verPersonas() {
+    var z = document.getElementById('zonaInv');
+    if (typeof window.PANTALLA_PERSONAS !== 'function') {
+      z.innerHTML = '<div class="aviso warn">La pantalla de personas todavía se está ' +
+                    'cargando. Vuelve a entrar en unos segundos.</div>';
+      return;
+    }
+    window.PANTALLA_PERSONAS(sb, z, { prefijo: 'pe' });
+  }
+
   function verEntregas() {
     var z = document.getElementById('zonaInv');
     if (typeof window.TABLERO_ENTREGAS !== 'function') {
