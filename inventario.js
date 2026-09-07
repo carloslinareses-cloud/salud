@@ -85,6 +85,7 @@
           '<button type="button" data-p="catalogo">Catálogo</button>' +
           '<button type="button" data-p="alertas">Alertas</button>' +
           '<button type="button" data-p="personas">Personas</button>' +
+          '<button type="button" data-p="centros">Centros</button>' +
           '<button type="button" data-p="entregas">Lo entregado</button>' +
           '<button type="button" data-p="conteo">Corregir existencia</button>' +
         '</div>' +
@@ -103,6 +104,7 @@
     else if (pestana === 'catalogo') verCatalogo();
     else if (pestana === 'entregas') verEntregas();
     else if (pestana === 'personas') verPersonas();
+    else if (pestana === 'centros') verCentros();
     else verConteo();
   }
 
@@ -120,6 +122,18 @@
       return;
     }
     window.PANTALLA_PERSONAS(sb, z, { prefijo: 'pe' });
+  }
+
+  /* Los CDI, ambulatorios y consultorios: sus datos, la lista de insumos
+     que necesitan y todo lo que se les ha entregado. */
+  function verCentros() {
+    var z = document.getElementById('zonaInv');
+    if (typeof window.PANTALLA_CENTROS !== 'function') {
+      z.innerHTML = '<div class="aviso warn">La pantalla de centros todavía se está ' +
+                    'cargando. Vuelve a entrar en unos segundos.</div>';
+      return;
+    }
+    window.PANTALLA_CENTROS(sb, z, { prefijo: 'ce' });
   }
 
   function verEntregas() {

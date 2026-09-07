@@ -98,6 +98,7 @@
         (destino.detalle ? '<p class="sub chico">' + esc(destino.detalle) + '</p>' : '') +
         pintarPatologias() +
         pintarTratamiento() +
+        pintarRequerimientos() +
         (modo === 'institucion' ?
           '<h2 class="sub-t">Quién recibe</h2>' +
           '<p class="sub">Hace falta para el acta de entrega-recepción.</p>' +
@@ -116,6 +117,34 @@
       });
       z.querySelectorAll('[data-quita]').forEach(function (b) {
         b.addEventListener('click', function () { quitarMedicina(b.dataset.quita); });
+      });
+      var conReq = (destino.requerimientos || []).filter(function (x) { return x.producto_id; });
+      z.querySelectorAll('[data-req]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          agregarDelPedido(conReq[+b.dataset.req]).then(function (r) {
+            if (r) { pintarRenglones(); refrescarBoton(); }
+            if (r === 'corto') {
+              aviso('warn', 'De ' + conReq[+b.dataset.req].producto +
+                ' no hay lo que pide: se agregó todo lo que queda.');
+            }
+          });
+        });
+      });
+      var todo = document.getElementById('reqTodo');
+      if (todo) todo.addEventListener('click', function () {
+        var puede = conReq.filter(function (x) { return Number(x.disponible) > 0; });
+        todo.disabled = true; todo.textContent = 'Agregando…';
+        Promise.all(puede.map(function (x) { return agregarDelPedido(x, true); }))
+          .then(function (rs) {
+            pintarRenglones(); refrescarBoton();
+            var puestos = rs.filter(Boolean).length;
+            var cortos = rs.filter(function (y) { return y === 'corto'; }).length;
+            aviso(cortos ? 'warn' : 'ok',
+              'Se agregaron ' + puestos + ' de los ' + puede.length + ' insumos que pide' +
+              (cortos ? '. De ' + cortos + (cortos === 1 ? ' no hay' : ' no hay') +
+                        ' lo que pide: se puso lo que queda.' : '.') +
+              ' Revisa las cantidades antes de registrar.');
+          });
       });
       var pend = document.getElementById('tratPend');
       if (pend) pend.addEventListener('click', function () { anotarPendientes(); });
@@ -320,6 +349,18 @@
                   sub: (x.tipo || 'Centro de salud') + (x.direccion ? ' · ' + x.direccion : ''),
                   detalle: x.telefono || null, responsable: x.responsable || '' };
       pintarDestino(); pintarRenglones();
+      /* Su lista de insumos, la que hace rapido armarle el pedido. */
+      sb.from('v_requerimientos_institucion')
+        .select('requerimiento_id,producto_id,producto,dosificacion,texto_original,' +
+                'cantidad,disponible,cobertura')
+        .eq('institucion_id', x.id).order('producto', { nullsFirst: false })
+        .then(function (r) {
+          if (!destino || destino.id !== x.id) return;   // ya cambio de centro
+          /* Un error NO es "no pide nada": es "no se pudo preguntar". */
+          destino.requerimientos = r.error ? null : (r.data || []);
+          destino.falloReq = r.error ? r.error.message : null;
+          pintarDestino();
+        });
     }
   }
 
@@ -667,6 +708,89 @@
      se escribieron, y aparecen aparte para no confundirlas con las que
      sí están enlazadas.
   ================================================================ */
+
+  /* LO QUE PIDE EL CENTRO.
+
+     Un CDI pide veinte renglones casi siempre iguales. Su lista se
+     mantiene en Mercancia > Centros; aqui sale para armar el pedido de un
+     toque. Cada renglon dice cuanto necesita y cuanto hay: si no alcanza,
+     se agrega lo que hay y se dice, en vez de prometer lo que no existe. */
+  function pintarRequerimientos() {
+    if (destino.tipo !== 'institucion') return '';
+    var r = destino.requerimientos;
+    if (r === undefined) return '<div class="trat"><span class="lbl">Lo que pide este centro</span>' +
+      '<span class="sub chico">Buscando…</span></div>';
+    if (r === null) return '<div class="trat"><span class="lbl">Lo que pide este centro</span>' +
+      '<div class="aviso bad">No se pudo leer su lista' +
+      (destino.falloReq ? ': ' + esc(destino.falloReq) : '') +
+      '. No quiere decir que no pida nada.</div></div>';
+    if (!r.length) return '<div class="trat"><span class="lbl">Lo que pide este centro</span>' +
+      '<span class="sub chico">No tiene lista de insumos. Se le puede armar en ' +
+      'Mercancía → Centros y así la próxima vez sale sola.</span></div>';
+
+    var conProd = r.filter(function (x) { return x.producto_id; });
+    var sueltos = r.filter(function (x) { return !x.producto_id && x.texto_original; });
+    var sePuede = conProd.filter(function (x) { return Number(x.disponible) > 0; });
+
+    return '<div class="trat">' +
+      '<span class="lbl">Lo que pide este centro · ' + r.length +
+        (r.length === 1 ? ' insumo' : ' insumos') + '</span>' +
+      (conProd.length
+        ? '<div class="trat-lista">' + conProd.map(function (x, i) {
+            var hay = Math.round(Number(x.disponible) || 0);
+            var pide = x.cantidad == null ? null : Math.round(x.cantidad);
+            return '<button type="button" class="trat-med' + (hay > 0 ? '' : ' sin') + '" ' +
+              'data-req="' + i + '"' + (hay > 0 ? '' : ' disabled') + '>' +
+              '<span class="tm-nom">' + esc(x.producto) +
+                (x.dosificacion ? ' <em>' + esc(x.dosificacion) + '</em>' : '') + '</span>' +
+              '<span class="tm-hay">' +
+                (pide != null ? 'necesita ' + pide + ' · ' : '') +
+                (hay > 0 ? 'hay ' + hay : 'sin existencia') +
+                (pide != null && hay > 0 && hay < pide ? ' — no alcanza' : '') +
+              '</span></button>';
+          }).join('') + '</div>'
+        : '') +
+      (sueltos.length
+        ? '<div class="trat-sueltos">' +
+          '<span class="ts-lbl">Pide también, sin enlazar al catálogo</span>' +
+          sueltos.map(function (x) {
+            return '<span class="trat-texto">' + esc(x.texto_original) +
+              (x.cantidad != null ? ' <em>' + Math.round(x.cantidad) + '</em>' : '') + '</span>';
+          }).join('') + '</div>'
+        : '') +
+      (sePuede.length > 1
+        ? '<button type="button" class="trat-mas" id="reqTodo">+ Agregar los ' + sePuede.length +
+          ' que hay en existencia</button>'
+        : '') +
+    '</div>';
+  }
+
+  /* Agrega un renglon del pedido con la cantidad que pide el centro, o con
+     lo que quede si no alcanza. Nunca mas de lo que hay: la base lo
+     rechazaria y ademas seria prometer lo que no existe. */
+  function agregarDelPedido(x, callado) {
+    var av = document.getElementById('zonaAviso');
+    return sb.from('v_lotes_para_despachar')
+      .select('lote_id,producto_id,producto,lote,vence,existencia,en_cajas,' +
+              'empaque,unidades_por_empaque,situacion')
+      .eq('producto_id', x.producto_id).limit(1)
+      .then(function (r) {
+        var l = r.data && r.data[0];
+        if (!l) {
+          if (av && !callado) av.innerHTML = '<div class="aviso warn">De ' + esc(x.producto) +
+            ' no queda nada que se pueda entregar.</div>';
+          return false;
+        }
+        if (cesta.some(function (c) { return c.lote_id === l.lote_id; })) return false;
+        var hay = Math.round(Number(l.existencia) || 0);
+        var pide = x.cantidad == null ? 1 : Math.round(x.cantidad);
+        cesta.push({ lote_id: l.lote_id, producto: l.producto, lote: l.lote,
+                     vence: l.vence, disponible: l.existencia,
+                     cantidad: Math.max(1, Math.min(pide, hay)),
+                     empaque: l.empaque, porEmpaque: l.unidades_por_empaque });
+        return pide > hay ? 'corto' : true;
+      });
+  }
 
   /* Lo que tiene la persona. Se ve, no se toca: aqui se entrega, y
      corregir la ficha clinica se hace en Mercancia > Personas, con calma
