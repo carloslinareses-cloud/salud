@@ -181,6 +181,98 @@
   };
 
   /* ----------------------------------------------------------------
+     INFORME DE VARIAS TABLAS
+
+     `pdfTabla` saca una sola tabla. Un informe del período necesita
+     varias seguidas —las cifras, qué se entregó, día por día, quién
+     despachó y el detalle— con sus títulos y sin que ninguna quede
+     partida del suyo.
+  ---------------------------------------------------------------- */
+  R.pdfInforme = function (opts) {
+    if (!hayPDF()) { alert('Todavía se está cargando el generador de PDF. Inténtalo en unos segundos.'); return; }
+    var doc = nuevoPDF(opts.horizontal);
+    var ancho = doc.internal.pageSize.getWidth();
+    var alto = doc.internal.pageSize.getHeight();
+    var y = window.dibujarHeaderPDF(doc, { titulo: opts.titulo, subtitulo: opts.subtitulo });
+    var dibujoAlgo = false;
+
+    if (opts.resumen && opts.resumen.length) {
+      y = banda(doc, y + 5, opts.resumen, ancho);
+    }
+
+    (opts.bloques || []).forEach(function (b) {
+      if (!b || !b.filas || !b.filas.length) return;
+
+      /* El título de una tabla nunca se queda solo al pie de una hoja
+         con su tabla en la siguiente. */
+      if (y + 22 > alto - 20) { doc.addPage(); window.dibujarFooterPDF(doc); y = 22; }
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(10, 35, 81);
+      doc.text(String(b.titulo || ''), 14, y + 7);
+      if (b.nota) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        doc.setTextColor(120, 120, 120);
+        doc.text(String(b.nota), 14, y + 12, { maxWidth: ancho - 28 });
+      }
+
+      doc.autoTable({
+        startY: y + (b.nota ? 15 : 10),
+        head: [b.encabezados],
+        body: b.filas,
+        foot: b.pie ? [b.pie] : undefined,
+        styles: { fontSize: 8, cellPadding: 1.8, overflow: 'linebreak' },
+        headStyles: { fillColor: [10, 35, 81], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+        footStyles: { fillColor: [238, 242, 249], textColor: [10, 35, 81], fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [244, 247, 251] },
+        columnStyles: b.columnas || {},
+        margin: { left: 14, right: 14 },
+        didDrawPage: function () { window.dibujarFooterPDF(doc); }
+      });
+      y = doc.lastAutoTable.finalY + 6;
+      dibujoAlgo = true;
+    });
+
+    if (!dibujoAlgo) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(110, 110, 110);
+      doc.text(opts.vacio || 'No hay nada que mostrar en este período.', 14, y + 12);
+      window.dibujarFooterPDF(doc);
+    }
+
+    return entregar(doc, opts.archivo || opts.titulo, opts.devolver);
+  };
+
+  /* La banda de cifras de arriba: cada número con su rótulo, en cajas
+     del mismo tamaño. Devuelve la Y donde sigue el documento. */
+  function banda(doc, y, cifras, ancho) {
+    var util = ancho - 28;
+    var porFila = cifras.length <= 4 ? cifras.length : Math.ceil(cifras.length / 2);
+    var w = util / porFila, h = 15, x = 14, yy = y;
+
+    cifras.forEach(function (c, i) {
+      if (i && i % porFila === 0) { yy += h + 3; x = 14; }
+      doc.setFillColor(244, 247, 251);
+      doc.setDrawColor(214, 224, 240);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(x, yy, w - 3, h, 1.6, 1.6, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(10, 35, 81);
+      doc.text(String(c.v), x + 4, yy + 7);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(110, 110, 110);
+      doc.text(String(c.k), x + 4, yy + 12, { maxWidth: w - 8 });
+      x += w;
+    });
+    return yy + h + 2;
+  }
+
+  /* ----------------------------------------------------------------
      ACTA DE ENTREGA-RECEPCIÓN
      Es el documento que respalda lo que sale hacia un centro de salud.
      Lo firma quien entrega y quien recibe.

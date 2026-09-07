@@ -239,10 +239,50 @@
   /* ---------------------------------------------------------------
      Arranque
   --------------------------------------------------------------- */
+  /* ---------------------------------------------------------------
+     Modo claro y modo oscuro
+
+     El color ya se decidio en el <head>, antes de pintar nada. Aqui solo
+     se engancha el boton. El texto dice A DONDE va, no donde esta: "Modo
+     claro" es lo que se consigue al pulsarlo. Es lo que espera la gente
+     de un boton.
+  --------------------------------------------------------------- */
+  function pintarBotonTema() {
+    var b = $('btnTema');
+    if (!b || !window.FARMTEMA) return;
+    var esOscuro = window.FARMTEMA.actual() === 'oscuro';
+    var voyA = esOscuro ? 'claro' : 'oscuro';
+    b.innerHTML = '<span aria-hidden="true">' + (esOscuro ? '\u2600' : '\u263D') + '</span>' +
+                  '<span class="tema-txt">Modo ' + voyA + '</span>';
+    b.setAttribute('aria-label', 'Ver la página en modo ' + voyA);
+    b.title = 'Ver la página en modo ' + voyA;
+  }
+
+  function engancharTema() {
+    var b = $('btnTema');
+    if (!b || !window.FARMTEMA) return;
+    pintarBotonTema();
+    b.addEventListener('click', function () {
+      window.FARMTEMA.poner(window.FARMTEMA.actual() === 'oscuro' ? 'claro' : 'oscuro');
+      pintarBotonTema();
+    });
+    /* Si nadie eligio a mano y el telefono cambia solo de modo (de dia a
+       de noche), el boton tiene que decir la verdad. */
+    try {
+      var mq = window.matchMedia('(prefers-color-scheme: dark)');
+      var alCambiar = function () {
+        if (!document.documentElement.getAttribute('data-theme')) pintarBotonTema();
+      };
+      if (mq.addEventListener) mq.addEventListener('change', alCambiar);
+      else if (mq.addListener) mq.addListener(alCambiar);
+    } catch (e) { /* navegador viejo: no pasa nada */ }
+  }
+
   function arrancar() {
     $('pie').textContent = 'Publicado el ' +
       new Date().toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
+    engancharTema();
     $('formAcceso').addEventListener('submit', entrar);
     $('btnSalir').addEventListener('click', salir);
 

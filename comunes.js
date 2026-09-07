@@ -88,6 +88,90 @@
   };
 
   /* ---------------------------------------------------------------
+     Períodos: el día, la semana y el mes
+
+     La farmacia está en Venezuela y el día que cuenta es el día de
+     Venezuela. `new Date().toISOString()` da la fecha en UTC, y a las
+     8 de la noche de Charallave en UTC ya es mañana: un reporte "de
+     hoy" hecho de noche saldría vacío y las entregas caerían en el día
+     siguiente. Por eso la fecha de hoy se pide siempre en la zona
+     horaria de Caracas, no en la del aparato ni en UTC.
+  --------------------------------------------------------------- */
+  var ZONA = 'America/Caracas';
+
+  F.hoyCaracas = function (ahora) {
+    var d = ahora == null ? new Date() : new Date(ahora);
+    try {
+      // 'en-CA' da justo AAAA-MM-DD.
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: ZONA, year: 'numeric', month: '2-digit', day: '2-digit'
+      }).format(d);
+    } catch (e) {
+      // Sin Intl (navegador viejo): Venezuela es UTC-4 todo el año.
+      var v = new Date(d.getTime() - 4 * 3600 * 1000);
+      return v.getUTCFullYear() + '-' + dos(v.getUTCMonth() + 1) + '-' + dos(v.getUTCDate());
+    }
+  };
+
+  function dos(n) { return String(n).padStart(2, '0'); }
+  function aDia(iso) {
+    var p = String(iso).slice(0, 10).split('-');
+    return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
+  }
+  function deDia(d) {
+    return d.getUTCFullYear() + '-' + dos(d.getUTCMonth() + 1) + '-' + dos(d.getUTCDate());
+  }
+  function suma(iso, dias) {
+    var d = aDia(iso); d.setUTCDate(d.getUTCDate() + dias); return deDia(d);
+  }
+  F.sumaDias = suma;
+
+  /* La semana empieza el LUNES, como se cuenta aquí. */
+  F.periodo = function (cual, hoy) {
+    var h = hoy || F.hoyCaracas();
+    if (cual === 'semana') {
+      var d = aDia(h);
+      var atras = (d.getUTCDay() + 6) % 7;          // lunes = 0
+      var lun = suma(h, -atras);
+      return { desde: lun, hasta: suma(lun, 6) };
+    }
+    if (cual === 'mes') {
+      var p = h.split('-');
+      var pri = p[0] + '-' + p[1] + '-01';
+      var ult = new Date(Date.UTC(+p[0], +p[1], 0));  // día 0 del mes siguiente
+      return { desde: pri, hasta: deDia(ult) };
+    }
+    return { desde: h, hasta: h };                    // 'hoy'
+  };
+
+  var MESES_L = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
+                 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  var DIAS_L = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+
+  /* El rótulo que se lee arriba del tablero. Se escribe con letras
+     porque "del 01/09 al 07/09" no dice de un vistazo qué semana es. */
+  F.rotuloPeriodo = function (desde, hasta, hoy) {
+    if (!desde || !hasta) return '';
+    var a = aDia(desde), b = aDia(hasta);
+    var dia = function (d) { return DIAS_L[d.getUTCDay()] + ' ' + d.getUTCDate(); };
+    var mesAno = function (d) { return MESES_L[d.getUTCMonth()] + ' de ' + d.getUTCFullYear(); };
+
+    if (desde === hasta) {
+      return (hoy && desde === hoy ? 'Hoy, ' : '') + dia(a) + ' de ' + mesAno(a);
+    }
+    if (a.getUTCMonth() === b.getUTCMonth() && a.getUTCFullYear() === b.getUTCFullYear()) {
+      var primero = a.getUTCDate() === 1;
+      var ultimo = b.getUTCDate() === new Date(Date.UTC(b.getUTCFullYear(), b.getUTCMonth() + 1, 0)).getUTCDate();
+      if (primero && ultimo) {
+        return MESES_L[a.getUTCMonth()].charAt(0).toUpperCase() +
+               MESES_L[a.getUTCMonth()].slice(1) + ' de ' + a.getUTCFullYear() + ' completo';
+      }
+      return 'Del ' + dia(a) + ' al ' + dia(b) + ' de ' + mesAno(b);
+    }
+    return 'Del ' + dia(a) + ' de ' + mesAno(a) + ' al ' + dia(b) + ' de ' + mesAno(b);
+  };
+
+  /* ---------------------------------------------------------------
      Cédulas
   --------------------------------------------------------------- */
 

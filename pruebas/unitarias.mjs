@@ -159,6 +159,68 @@ prueba('clave mala',
   F.traduceError({ message: 'Invalid login credentials' }).includes('contraseña'), true);
 
 /* ================================================================
+   PERÍODOS DEL TABLERO DE ENTREGAS
+
+   El día que cuenta es el de VENEZUELA. El servidor de la base corre en
+   UTC y el aparato puede estar en cualquier zona: a las 8 de la noche de
+   Charallave, en UTC ya es mañana. Un reporte "de hoy" hecho de noche
+   salía vacío.
+================================================================ */
+grupo('El día de hoy en Venezuela');
+// 2026-09-07 a las 23:30 de Charallave = 2026-09-08 03:30 UTC
+prueba('de noche sigue siendo el mismo día',
+  F.hoyCaracas(Date.UTC(2026, 8, 8, 3, 30)), '2026-09-07');
+prueba('pasada la medianoche ya es el siguiente',
+  F.hoyCaracas(Date.UTC(2026, 8, 8, 4, 30)), '2026-09-08');
+prueba('a mediodía, lo obvio',
+  F.hoyCaracas(Date.UTC(2026, 8, 7, 16, 0)), '2026-09-07');
+prueba('fin de año de madrugada',
+  F.hoyCaracas(Date.UTC(2027, 0, 1, 2, 0)), '2026-12-31');
+
+grupo('La semana empieza el lunes');
+prueba('un lunes',    F.periodo('semana', '2026-09-07'), { desde: '2026-09-07', hasta: '2026-09-13' });
+prueba('un miércoles', F.periodo('semana', '2026-09-09'), { desde: '2026-09-07', hasta: '2026-09-13' });
+prueba('un domingo (cierra la semana, no la abre)',
+  F.periodo('semana', '2026-09-13'), { desde: '2026-09-07', hasta: '2026-09-13' });
+prueba('semana a caballo entre dos meses',
+  F.periodo('semana', '2026-10-01'), { desde: '2026-09-28', hasta: '2026-10-04' });
+prueba('semana a caballo entre dos años',
+  F.periodo('semana', '2027-01-01'), { desde: '2026-12-28', hasta: '2027-01-03' });
+
+grupo('El mes, entero');
+prueba('septiembre tiene 30',  F.periodo('mes', '2026-09-07'), { desde: '2026-09-01', hasta: '2026-09-30' });
+prueba('diciembre tiene 31',   F.periodo('mes', '2026-12-24'), { desde: '2026-12-01', hasta: '2026-12-31' });
+prueba('febrero normal',       F.periodo('mes', '2026-02-10'), { desde: '2026-02-01', hasta: '2026-02-28' });
+prueba('febrero bisiesto',     F.periodo('mes', '2028-02-10'), { desde: '2028-02-01', hasta: '2028-02-29' });
+prueba('el primero del mes',   F.periodo('mes', '2026-11-01'), { desde: '2026-11-01', hasta: '2026-11-30' });
+
+grupo('Hoy');
+prueba('un solo día', F.periodo('hoy', '2026-09-07'), { desde: '2026-09-07', hasta: '2026-09-07' });
+
+grupo('Cómo se lee el período');
+prueba('el día de hoy se dice "hoy"',
+  F.rotuloPeriodo('2026-09-07', '2026-09-07', '2026-09-07'),
+  'Hoy, lunes 7 de septiembre de 2026');
+prueba('otro día NO dice hoy',
+  F.rotuloPeriodo('2026-09-05', '2026-09-05', '2026-09-07'),
+  'sábado 5 de septiembre de 2026');
+prueba('una semana',
+  F.rotuloPeriodo('2026-09-07', '2026-09-13', '2026-09-07'),
+  'Del lunes 7 al domingo 13 de septiembre de 2026');
+prueba('un mes completo se dice por su nombre',
+  F.rotuloPeriodo('2026-09-01', '2026-09-30', '2026-09-07'),
+  'Septiembre de 2026 completo');
+prueba('un rango que cruza dos meses los nombra los dos',
+  F.rotuloPeriodo('2026-08-28', '2026-09-03', '2026-09-07'),
+  'Del viernes 28 de agosto de 2026 al jueves 3 de septiembre de 2026');
+prueba('sin fechas no revienta', F.rotuloPeriodo(null, null, '2026-09-07'), '');
+
+grupo('Sumar días');
+prueba('cruza el fin de mes', F.sumaDias('2026-08-31', 1), '2026-09-01');
+prueba('hacia atrás',         F.sumaDias('2026-09-01', -1), '2026-08-31');
+prueba('cruza el bisiesto',   F.sumaDias('2028-02-28', 1), '2028-02-29');
+
+/* ================================================================
    ESCAPADO — datos de pacientes reales van a la pantalla.
 ================================================================ */
 grupo('Escapado');

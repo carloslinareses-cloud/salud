@@ -39,6 +39,9 @@
 }
 
 *{box-sizing:border-box}
+:root{color-scheme:light dark}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
 html,body{margin:0}
 body{
   background:var(--paper); color:var(--ink); min-height:100dvh;
@@ -70,6 +73,16 @@ button.salir{min-height:40px; font:inherit;font-size:13px;font-weight:700;cursor
   background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
   padding:6px 13px;border-radius:99px}
 button.salir:hover{background:rgba(255,255,255,.22)}
+button.tema{display:inline-flex; align-items:center; gap:6px; min-height:40px; font:inherit;
+  font-size:13px; font-weight:700; cursor:pointer; color:#cdd8ee;
+  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
+  padding:6px 13px; border-radius:99px; white-space:nowrap}
+button.tema:hover{background:rgba(255,255,255,.20); color:#fff}
+/* En el telefono se queda solo el simbolo: la barra de arriba no da para mas. */
+@media (max-width:560px){
+  button.tema{padding:6px 10px}
+  button.tema .tema-txt{display:none}
+}
 
 /* ---------- tarjetas ---------- */
 main{padding:26px 0 70px}
@@ -378,6 +391,19 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 
 .mal{color:var(--bad-ink); font-weight:750}
 
+/* ---------- el tablero de entregas ---------- */
+.rango-fechas{display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px;
+  margin:12px 0 4px; padding:14px; border:1px solid var(--line); border-radius:11px;
+  background:var(--rail)}
+.rango-fechas .rf-campo{flex:1 1 150px; min-width:0}
+.rango-fechas label{margin-top:0; margin-bottom:5px}
+.rango-fechas input{margin:0}
+.rango-fechas button{margin:0; flex:none; width:auto; padding:12px 20px; min-height:46px}
+.periodo-t{margin:14px 0 0; font-size:15px; font-weight:800; letter-spacing:-.01em;
+  color:var(--ink)}
+.sin-cant{color:var(--ink-soft); font-style:italic}
+.descarga-nota{align-self:center; font-size:12px; font-weight:650; color:var(--ink-faint)}
+
 /* ---------- la hoja de conteo en el telefono ----------
    En una pantalla de 375 px la tabla no cabe y la casilla editable queda
    fuera, obligando a arrastrar en cada renglon. Ahi se convierte en
@@ -483,6 +509,48 @@ button.deshacer:disabled{opacity:.6; cursor:not-allowed}
 .tm-nom em{font-style:normal; font-weight:600; opacity:.8}
 .tm-hay{font-size:11px; font-weight:650; opacity:.85}
 
+/* Cada medicina va con su boton de quitar pegado, para que quitar la de
+   al lado por error no sea tan facil. */
+.trat-par{display:inline-flex; align-items:stretch; gap:0}
+.trat-par .trat-med{border-top-right-radius:0; border-bottom-right-radius:0}
+.trat-quita{flex:none; width:38px; min-height:46px; font:inherit; font-size:14px;
+  font-weight:700; cursor:pointer; color:var(--ink-faint); background:var(--card);
+  border:1px solid var(--line); border-left:0;
+  border-radius:0 10px 10px 0; line-height:1}
+.trat-quita:hover{color:var(--bad-ink); border-color:var(--bad-line); background:var(--bad-bg)}
+.trat-texto{display:flex; align-items:center; padding:9px 13px; min-height:46px;
+  font-size:13.5px; font-weight:700; line-height:1.2; color:var(--ink-soft);
+  border:1px dashed var(--line); border-right:0; border-radius:10px 0 0 10px;
+  background:var(--card)}
+.trat-texto.del-catalogo{border-style:solid; border-color:var(--ok-line);
+  background:var(--ok-bg); color:var(--ok-ink)}
+.trat-texto em{font-style:normal; font-weight:600; opacity:.8; margin-left:5px}
+.trat-texto em.a-mano{font-size:11px; letter-spacing:.03em; text-transform:uppercase;
+  opacity:.65}
+.trat-sueltos{margin-top:10px; display:flex; flex-wrap:wrap; gap:7px}
+.ts-lbl{flex:1 1 100%; font-size:11px; font-weight:800; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--ink-faint)}
+.trat-mas{display:inline-block; margin-top:11px; width:auto; font:inherit; font-size:13px;
+  font-weight:750; cursor:pointer; padding:10px 15px; min-height:44px; border-radius:10px;
+  border:1px dashed var(--navy-2); background:transparent; color:var(--navy-2)}
+.trat-mas:hover{background:var(--rail); border-style:solid}
+.picker-med{margin-top:12px; padding:13px; border:1px solid var(--line);
+  border-radius:11px; background:var(--card)}
+.picker-med label{margin-top:0}
+.picker-med input{margin-bottom:2px}
+.picker-med .fichas{max-height:340px; overflow-y:auto}
+.picker-med .vacio{margin-top:10px}
+.trat-pend{margin-top:12px; padding:12px 13px; border:1px solid var(--warn-line);
+  border-radius:10px; background:var(--warn-bg)}
+.trat-pend .tp-lbl{display:block; font-size:11px; font-weight:800; letter-spacing:.05em;
+  text-transform:uppercase; color:var(--warn-ink)}
+.trat-pend .tp-lista{display:block; margin-top:5px; font-size:13.5px; font-weight:700;
+  color:var(--warn-ink)}
+.trat-pend .trat-mas{border-color:var(--warn-ink); color:var(--warn-ink); margin-right:10px}
+.trat-pend .enlace{color:var(--warn-ink); opacity:.8}
+.ficha-mano{border-style:dashed}
+.ficha-mano .ficha-nom b{font-weight:750}
+
 /* ---------- las tres areas del administrador ---------- */
 .areas{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 16px}
 .areas button{flex:1 1 auto; min-width:120px; min-height:46px; font:inherit; font-size:15px;
@@ -540,7 +608,66 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
   main{padding:18px 0 50px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- lo que se toca con el dedo ----------
+   Esto va AL FINAL a proposito. Una regla dentro de una media query no gana
+   por estar ahi: con la misma especificidad gana la que viene despues en el
+   archivo. La regla de los 44 px estaba arriba y la pisaban los estilos
+   normales de mas abajo, asi que en el telefono habia botones de descarga de
+   42 px y de 38 px. Debajo de todo, ya no la pisa nadie. */
+@media (max-width:640px){
+  .descargas button,
+  .barra-lista .descargas button,
+  .chips button,
+  .paginador button,
+  .volver,
+  .trat-quita,
+  .rango-fechas button{min-height:44px}
+}
+@media (max-width:480px){
+  /* El rango de fechas se apila: en 375 px, dos fechas y un boton en una
+     misma fila dejan las casillas demasiado estrechas para tocarlas. */
+  .rango-fechas{flex-direction:column; align-items:stretch}
+  .rango-fechas button{width:100%}
+  /* Cada medicina del tratamiento ocupa el ancho entero, con su boton de
+     quitar al final: en columna estrecha, dos por fila no se leen. */
+  .trat-par{display:flex; width:100%}
+  .trat-par .trat-med,.trat-par .trat-texto{flex:1; min-width:0}
+  .trat-mas{width:100%; text-align:center}
+}
 </style>
+<script>
+/* El modo claro u oscuro. Se aplica aqui mismo, antes de que se pinte
+   nada: si se hiciera mas abajo la pagina saldria un instante con el
+   color equivocado. Sin eleccion guardada se respeta el del telefono. */
+(function () {
+  var LLAVE = 'farmacia_tema';
+  var guardado = null;
+  try { guardado = localStorage.getItem(LLAVE); } catch (e) { guardado = null; }
+  if (guardado === 'claro' || guardado === 'oscuro') {
+    document.documentElement.setAttribute('data-theme', guardado === 'claro' ? 'light' : 'dark');
+  }
+  window.FARMTEMA = {
+    llave: LLAVE,
+    /* Que se esta viendo AHORA, haya elegido la persona o no. */
+    actual: function () {
+      var e = document.documentElement.getAttribute('data-theme');
+      if (e === 'light') return 'claro';
+      if (e === 'dark') return 'oscuro';
+      try {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'oscuro' : 'claro';
+      } catch (x) { return 'claro'; }
+    },
+    poner: function (cual) {
+      document.documentElement.setAttribute('data-theme', cual === 'claro' ? 'light' : 'dark');
+      try { localStorage.setItem(LLAVE, cual); } catch (e) { /* modo privado */ }
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', cual === 'claro' ? '#0a2351' : '#0b1220');
+    }
+  };
+})();
+</script>
 </head>
 <body>
 <div class="tricolor"><i></i><i></i><i></i></div>
@@ -555,6 +682,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
       </span>
     </div>
     <div class="der">
+      <button class="tema" id="btnTema" type="button" aria-live="polite"><span aria-hidden="true">☀</span><span class="tema-txt">Modo claro</span></button>
       <span class="chip-user" id="chipUsuario" hidden></span>
       <button class="salir" id="btnSalir" type="button" hidden>Salir</button>
     </div>
@@ -645,6 +773,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="logos-base64.js"></script>
 <script src="pdf-header.js"></script>
 <script src="reportes.js"></script>
+<script src="tablero-entregas.js"></script>
 <script src="despacho.js"></script>
 <script src="inventario.js"></script>
 <script src="admin.js"></script>

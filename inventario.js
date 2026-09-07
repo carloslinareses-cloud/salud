@@ -84,6 +84,7 @@
           '<button type="button" data-p="cargar">Registrar lo que llega</button>' +
           '<button type="button" data-p="catalogo">Catálogo</button>' +
           '<button type="button" data-p="alertas">Alertas</button>' +
+          '<button type="button" data-p="entregas">Lo entregado</button>' +
           '<button type="button" data-p="conteo">Corregir existencia</button>' +
         '</div>' +
         '<div id="zonaInv"></div>' +
@@ -99,7 +100,21 @@
     if (pestana === 'cargar') verCargar();
     else if (pestana === 'alertas') verAlertas();
     else if (pestana === 'catalogo') verCatalogo();
+    else if (pestana === 'entregas') verEntregas();
     else verConteo();
+  }
+
+  /* El tablero de lo que salió. Es el mismo módulo que usa el panel del
+     administrador; aquí se monta con su propio prefijo porque las dos
+     copias conviven en la página y los identificadores chocarían. */
+  function verEntregas() {
+    var z = document.getElementById('zonaInv');
+    if (typeof window.TABLERO_ENTREGAS !== 'function') {
+      z.innerHTML = '<div class="aviso warn">El tablero de entregas todavía se está cargando. ' +
+                    'Vuelve a entrar en unos segundos.</div>';
+      return;
+    }
+    window.TABLERO_ENTREGAS(sb, z, { prefijo: 'inv' });
   }
 
   /* ================================================================
@@ -295,7 +310,7 @@
     iVen.addEventListener('change', function () {
       var av = document.getElementById('rAvisoV');
       if (!iVen.value) { av.innerHTML = ''; return; }
-      av.innerHTML = iVen.value < new Date().toISOString().slice(0, 10)
+      av.innerHTML = iVen.value < (window.FARM && window.FARM.hoyCaracas ? window.FARM.hoyCaracas() : new Date().toISOString().slice(0, 10))
         ? '<span class="mal">Esa fecha ya pasó: entraría vencido y no se podrá entregar.</span>'
         : '';
     });
@@ -843,7 +858,7 @@
     iVen.addEventListener('change', function () {
       var av = document.getElementById('lAvisoV');
       if (!iVen.value) { av.innerHTML = ''; return; }
-      var hoy = new Date().toISOString().slice(0, 10);
+      var hoy = (window.FARM && window.FARM.hoyCaracas ? window.FARM.hoyCaracas() : new Date().toISOString().slice(0, 10));
       av.innerHTML = iVen.value < hoy
         ? '<span class="mal">Esa fecha ya pasó: entraría vencido y no se podrá entregar.</span>'
         : '';

@@ -66,6 +66,21 @@
   var POR_PAGINA = 20;
   var bus = { busca: '', pagina: 0, total: 0, filas: [], cargando: false };
 
+  /* Las medicinas que se le van anotando a una persona nueva mientras se
+     llena su ficha. Se guardan cuando se guarda la persona: antes no
+     existe todavia a quien colgarselas. */
+  var tratNuevo = [];
+  var tratAbierto = false;      // el buscador de medicinas esta desplegado
+  var tratBusca = '';
+
+  /* Estas tres viven lo que dure la pagina: el area de Entregar se esconde
+     al cambiar de pantalla, no se destruye. Si no se limpian al cambiar de
+     persona, el buscador aparece abierto y con lo que se escribio para
+     OTRO paciente, y un toque se lo anota a quien no era. */
+  function olvidaTratamiento() {
+    tratNuevo = []; tratAbierto = false; tratBusca = '';
+  }
+
   var TIPOS_CENTRO = ['CDI', 'Ambulatorio', 'Consultorio Popular',
                       'Base de Misiones', 'Hospital', 'Otro'];
 
@@ -92,12 +107,27 @@
           '<input id="recibeCedula" type="text" inputmode="numeric" placeholder="Solo números">' : '');
 
       document.getElementById('cambiarDestino').addEventListener('click', function () {
-        destino = null; bus.pagina = 0; pintarDestino();
+        destino = null; bus.pagina = 0; olvidaTratamiento(); pintarDestino();
       });
       var conProd = (destino.tratamiento || []).filter(function (x) { return x.producto_id; });
       z.querySelectorAll('[data-trat]').forEach(function (b) {
         b.addEventListener('click', function () { agregarDelTratamiento(conProd[+b.dataset.trat]); });
       });
+      z.querySelectorAll('[data-quita]').forEach(function (b) {
+        b.addEventListener('click', function () { quitarMedicina(b.dataset.quita); });
+      });
+      var pend = document.getElementById('tratPend');
+      if (pend) pend.addEventListener('click', function () { anotarPendientes(); });
+      var tira = document.getElementById('tratTira');
+      if (tira) tira.addEventListener('click', function () {
+        tratNuevo = []; pintarDestino();
+      });
+      var mas = document.getElementById('tratMas');
+      if (mas) mas.addEventListener('click', function () {
+        tratAbierto = true; tratBusca = ''; pintarDestino();
+        var c = document.getElementById('tratBusca'); if (c) c.focus();
+      });
+      if (tratAbierto) engancharBuscador(anotarMedicina);
       return;
     }
 
@@ -273,11 +303,14 @@
                   detalle: det.join(' · ') || null };
       pintarDestino(); pintarRenglones();
       sb.from('v_tratamiento_paciente')
-        .select('producto_id,producto,dosificacion,texto_original,disponible,situacion')
+        .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,disponible,situacion')
         .eq('paciente_id', x.id)
         .then(function (r) {
           if (!destino || destino.id !== x.id) return;   // ya cambió de paciente
-          destino.tratamiento = r.data || [];
+          /* Un error aquí no significa que no tome nada: significa que no
+             se pudo preguntar. La diferencia importa en una ficha médica. */
+          destino.tratamiento = r.error ? null : (r.data || []);
+          destino.tratamientoFallo = r.error ? r.error.message : null;
           pintarDestino();
         });
     } else {
@@ -339,6 +372,12 @@
       '<label for="nDireccion">Dirección <span class="opc">(opcional)</span></label>' +
       '<input id="nDireccion" type="text" autocomplete="off" placeholder="Sector, calle, casa…">' +
 
+      '<h2 class="sub-t">Qué medicinas necesita <span class="opc">(opcional)</span></h2>' +
+      '<p class="sub">Quedan guardadas en su ficha. La próxima vez que venga salen ' +
+      'aquí mismo, con lo que hay en existencia, y se entregan de un toque.</p>' +
+      '<div id="tratElegidos"></div>' +
+      buscadorMedicinas('Buscar la medicina') +
+
       '<div class="botonera">' +
         '<button type="button" class="principal" id="guardarPac">Registrar y continuar</button>' +
         '<button type="button" class="secundario" id="cancelarPac">Cancelar</button>' +
@@ -346,6 +385,13 @@
       '<div id="errPac" class="aviso bad" hidden></div>';
 
     chips('nNac'); chips('nSexo');
+    tratNuevo = []; tratBusca = '';
+    pintarTratNuevo();
+    engancharBuscador(function (x) {
+      if (yaLoTiene(tratNuevo, x)) return;
+      tratNuevo.push(x);
+      pintarTratNuevo();
+    });
     document.getElementById('cancelarPac').addEventListener('click', function () {
       pintarDestino();
     });
@@ -354,6 +400,35 @@
       if (ev.key === 'Enter') { ev.preventDefault(); consultarCne(); }
     });
     document.getElementById('guardarPac').addEventListener('click', guardarPaciente);
+  }
+
+  /* Lo que se le lleva anotado a la persona nueva. Se ve arriba del
+     buscador para que no haya que recordar qué se puso. */
+  function pintarTratNuevo() {
+    var z = document.getElementById('tratElegidos');
+    if (!z) return;
+    if (!tratNuevo.length) {
+      z.innerHTML = '<p class="sub chico">Todavía no has anotado ninguna. ' +
+        'Se puede registrar la persona sin esto y anotarlas después.</p>';
+      return;
+    }
+    z.innerHTML = '<div class="trat-lista">' + tratNuevo.map(function (x, i) {
+      return '<span class="trat-par"><span class="trat-texto' +
+        (x.producto_id ? ' del-catalogo' : '') + '">' + esc(x.producto) +
+        (x.dosificacion ? ' <em>' + esc(x.dosificacion) + '</em>' : '') +
+        (x.producto_id ? '' : ' <em class="a-mano">a mano</em>') + '</span>' +
+        '<button type="button" class="trat-quita" data-saca="' + i + '" ' +
+        'aria-label="Quitar ' + esc(x.producto) + '">&#10005;</button></span>';
+    }).join('') + '</div>' +
+    '<p class="sub chico">' + tratNuevo.length +
+      (tratNuevo.length === 1 ? ' medicina anotada' : ' medicinas anotadas') + '.</p>';
+
+    z.querySelectorAll('[data-saca]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        tratNuevo.splice(+b.dataset.saca, 1);
+        pintarTratNuevo();
+      });
+    });
   }
 
   /* Marca el botón elegido dentro de un grupo de opciones. */
@@ -437,7 +512,7 @@
 
     if (nom.length < 4) { err.textContent = 'Escribe el nombre y el apellido completos.'; err.hidden = false; return; }
     if (!/^\d{6,9}$/.test(ced)) { err.textContent = 'La cédula debe tener entre 6 y 9 números.'; err.hidden = false; return; }
-    if (fnac && fnac > new Date().toISOString().slice(0, 10)) {
+    if (fnac && fnac > (window.FARM && window.FARM.hoyCaracas ? window.FARM.hoyCaracas() : new Date().toISOString().slice(0, 10))) {
       err.textContent = 'La fecha de nacimiento no puede ser futura.'; err.hidden = false; return;
     }
     err.hidden = true;
@@ -453,7 +528,11 @@
         btn.disabled = false; btn.textContent = 'Registrar y continuar';
         if (r.error.code === '23505') {
           err.innerHTML = 'Esa cédula ya está registrada. ' +
-            '<button type="button" class="enlace" id="verYa">Buscarla en la lista</button>';
+            '<button type="button" class="enlace" id="verYa">Buscarla en la lista</button>' +
+            (tratNuevo.length
+              ? '<br><span class="chico">Las ' + tratNuevo.length + ' medicinas que anotaste ' +
+                'no se pierden: al abrir su ficha te ofrezco ponérselas.</span>'
+              : '');
           err.hidden = false;
           document.getElementById('verYa').addEventListener('click', function () {
             bus.busca = ced; bus.pagina = 0; pintarDestino();
@@ -463,11 +542,34 @@
         err.textContent = 'No se pudo guardar. ' + r.error.message; err.hidden = false;
         return;
       }
-      /* Se vuelve a leer de la ficha, para que traiga la edad calculada. */
-      sb.from('v_pacientes_ficha')
-        .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,estado,medicamentos,entregas,ultima_entrega')
-        .eq('id', r.data.id).single()
-        .then(function (f) { elegirDestino(f.data || r.data); });
+      /* Las medicinas que necesita, si se anotaron. Si esto fallara, la
+         persona YA está registrada: se avisa y se sigue, pero no se
+         miente diciendo que quedaron guardadas. */
+      var medicinas = tratNuevo.map(function (x) {
+        var fila = { paciente_id: r.data.id, activo: true };
+        if (x.producto_id) fila.producto_id = x.producto_id;
+        else fila.texto_original = x.texto_original;
+        return fila;
+      });
+      var guardaTrat = medicinas.length
+        ? sb.from('tratamientos_paciente').insert(medicinas)
+        : Promise.resolve({ error: null });
+
+      guardaTrat.then(function (tr) {
+        var falloTrat = tr && tr.error ? tr.error.message : null;
+        tratNuevo = []; tratBusca = ''; tratAbierto = false;
+        /* Se vuelve a leer de la ficha, para que traiga la edad calculada. */
+        sb.from('v_pacientes_ficha')
+          .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,estado,medicamentos,entregas,ultima_entrega')
+          .eq('id', r.data.id).single()
+          .then(function (f) {
+            elegirDestino(f.data || r.data);
+            if (falloTrat) {
+              aviso('warn', 'La persona quedó registrada, pero sus medicinas NO se guardaron: ' +
+                            falloTrat + '. Anótalas otra vez desde su ficha.');
+            }
+          });
+      });
     });
   }
 
@@ -548,42 +650,344 @@
     });
   }
 
-  /* El tratamiento del paciente: cada medicamento con su existencia y un
-     botón para agregarlo de una vez. Los que no tienen se ven apagados y
-     dicen por qué, en vez de dejar buscar en vano. */
+  /* ================================================================
+     QUÉ MEDICINAS NECESITA  (el tratamiento del paciente)
+
+     Es lo que hace rápido atender a alguien: se abre su ficha y ahí
+     están las medicinas que toma, con su existencia al lado y un toque
+     para agregarlas a lo que se le va a entregar. Se anotan al registrar
+     a la persona y se pueden corregir después, porque un tratamiento
+     cambia.
+
+     Se puede anotar una medicina que TODAVÍA NO está en el catálogo: el
+     catálogo se está cargando a mano y que no esté no significa que la
+     persona no la necesite. Esas quedan guardadas como texto, tal cual
+     se escribieron, y aparecen aparte para no confundirlas con las que
+     sí están enlazadas.
+  ================================================================ */
+
   function pintarTratamiento() {
     if (destino.tipo !== 'paciente') return '';
     var t = destino.tratamiento;
     if (t === undefined) return '<div class="trat"><span class="lbl">Su tratamiento</span>' +
       '<span class="sub chico">Buscando…</span></div>';
-    if (!t || !t.length) return '';
+    /* Nulo NO es lo mismo que vacio: vacio es "no toma nada", nulo es "no
+       se pudo preguntar". Decir lo primero cuando es lo segundo es mentir
+       sobre la ficha de una persona. */
+    if (t === null) return '<div class="trat"><span class="lbl">Su tratamiento</span>' +
+      '<div class="aviso bad">No se pudo leer su tratamiento' +
+      (destino.tratamientoFallo ? ': ' + esc(destino.tratamientoFallo) : '') +
+      '. No quiere decir que no tome nada. Vuelve a abrir su ficha.</div></div>';
 
     /* Los renglones que no se pudieron enlazar con un medicamento del
-       catálogo se muestran como vinieron del Excel: son un dato real. */
-    var conProd = t.filter(function (x) { return x.producto_id; });
-    var sueltos = t.filter(function (x) { return !x.producto_id && x.texto_original; });
+       catálogo se muestran como vinieron escritos: son un dato real. */
+    var conProd = (t || []).filter(function (x) { return x.producto_id; });
+    var sueltos = (t || []).filter(function (x) { return !x.producto_id && x.texto_original; });
+    var cuantos = conProd.length + sueltos.length;
 
     return '<div class="trat">' +
-      '<span class="lbl">Su tratamiento · ' + t.length +
-        (t.length === 1 ? ' medicamento' : ' medicamentos') + '</span>' +
+      '<span class="lbl">' + (cuantos
+        ? 'Su tratamiento · ' + cuantos + (cuantos === 1 ? ' medicamento' : ' medicamentos')
+        : 'Su tratamiento') + '</span>' +
+
+      (cuantos === 0
+        ? '<span class="sub chico">Todavía no tiene medicinas anotadas. ' +
+          'Anótalas y la próxima vez que venga aparecen aquí de una vez.</span>'
+        : '') +
+
       (conProd.length
         ? '<div class="trat-lista">' + conProd.map(function (x, i) {
             var hay = Number(x.disponible) || 0;
-            return '<button type="button" class="trat-med' + (hay > 0 ? '' : ' sin') + '" ' +
+            return '<span class="trat-par">' +
+              '<button type="button" class="trat-med' + (hay > 0 ? '' : ' sin') + '" ' +
               'data-trat="' + i + '"' + (hay > 0 ? '' : ' disabled') + '>' +
               '<span class="tm-nom">' + esc(x.producto) +
                 (x.dosificacion ? ' <em>' + esc(x.dosificacion) + '</em>' : '') + '</span>' +
               '<span class="tm-hay">' + (hay > 0
                 ? hay + ' disponibles'
                 : (x.situacion === 'solo_vencido' ? 'solo vencido' : 'sin existencia')) + '</span>' +
-            '</button>';
+              '</button>' +
+              (x.tratamiento_id
+                ? '<button type="button" class="trat-quita" data-quita="' + esc(x.tratamiento_id) + '" ' +
+                  'aria-label="Quitar ' + esc(x.producto) + ' de su tratamiento">&#10005;</button>'
+                : '') +
+            '</span>';
           }).join('') + '</div>'
         : '') +
+
       (sueltos.length
-        ? '<span class="sub chico">Además, del Excel: ' +
-          esc(sueltos.map(function (x) { return x.texto_original; }).join(' · ')) + '</span>'
+        ? '<div class="trat-sueltos">' +
+          '<span class="ts-lbl">Anotado a mano, todavía sin enlazar al catálogo</span>' +
+          sueltos.map(function (x) {
+            return '<span class="trat-par"><span class="trat-texto">' + esc(x.texto_original) + '</span>' +
+              (x.tratamiento_id
+                ? '<button type="button" class="trat-quita" data-quita="' + esc(x.tratamiento_id) + '" ' +
+                  'aria-label="Quitar ' + esc(x.texto_original) + ' de su tratamiento">&#10005;</button>'
+                : '') + '</span>';
+          }).join('') + '</div>'
         : '') +
+
+      /* Lo que se habia anotado en un formulario que no llego a guardarse
+         (la cedula ya existia). No se tira: se ofrece ponerselo aqui. */
+      (tratNuevo.length
+        ? '<div class="trat-pend"><span class="tp-lbl">Habías anotado ' + tratNuevo.length +
+          (tratNuevo.length === 1 ? ' medicina' : ' medicinas') + ' antes de saber que ya estaba registrada</span>' +
+          '<span class="tp-lista">' +
+          esc(tratNuevo.map(function (x) { return x.producto; }).join(' · ')) + '</span>' +
+          '<button type="button" class="trat-mas" id="tratPend">Ponérselas a ' +
+          esc(String(destino.titulo).split(' ')[0]) + '</button>' +
+          '<button type="button" class="enlace" id="tratTira">Descartarlas</button></div>'
+        : '') +
+
+      (tratAbierto
+        ? buscadorMedicinas('Busca la medicina que necesita')
+        : '<button type="button" class="trat-mas" id="tratMas">+ Anotar una medicina que necesita</button>') +
+      '<div id="tratAviso"></div>' +
     '</div>';
+  }
+
+  /* El buscador de medicinas del catálogo. Es el mismo en los dos sitios:
+     al registrar a la persona y al corregir su tratamiento después. */
+  function buscadorMedicinas(rotulo) {
+    return '<div class="picker-med" id="tratPicker">' +
+      '<label for="tratBusca">' + esc(rotulo) + '</label>' +
+      '<input id="tratBusca" type="search" autocomplete="off" ' +
+        'placeholder="Escribe el nombre del medicamento…" value="' + esc(tratBusca) + '">' +
+      '<div id="tratRes"></div>' +
+    '</div>';
+  }
+
+  /* Engancha el buscador. `alElegir` recibe {producto_id, producto,
+     dosificacion, presentacion} o, si no está en el catálogo,
+     {producto_id: null, texto_original, producto}. */
+  function engancharBuscador(alElegir) {
+    var caja = document.getElementById('tratBusca');
+    if (!caja) return;
+    /* En cuanto se toca una tecla, la lista de abajo deja de valer: es de
+       lo que se escribio ANTES. Se apaga de inmediato, sin esperar al
+       retardo, porque si no el boton de "anotar tal como lo escribi" se
+       queda ahi con el texto viejo y anota la medicina equivocada. */
+    caja.addEventListener('input', function () {
+      var z = document.getElementById('tratRes');
+      if (z && caja.value.trim() !== tratBusca) {
+        z.innerHTML = '<div class="cargando">Buscando en el catálogo…</div>';
+      }
+    });
+    caja.addEventListener('input', retardo(function () {
+      tratBusca = caja.value.trim();
+      buscarParaTratamiento(tratBusca, alElegir);
+    }, 280));
+    caja.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') ev.preventDefault();
+    });
+    buscarParaTratamiento(tratBusca, alElegir);
+  }
+
+  var tratPedido = 0;
+
+  function buscarParaTratamiento(q, alElegir) {
+    var z = document.getElementById('tratRes');
+    if (!z) return;
+    z.innerHTML = '<div class="cargando">Buscando en el catálogo…</div>';
+
+    /* Se busca en el CATÁLOGO, no en lo que hay disponible: una persona
+       puede necesitar algo que hoy está agotado, y eso es justo lo que
+       hay que dejar anotado. */
+    var p = sb.from('v_catalogo')
+      .select('producto_id,producto,dosificacion,presentacion,disponible,situacion',
+              { count: 'exact' });
+    if (q.length >= 2) p = p.ilike('producto', '*' + q.replace(/[%,()]/g, '') + '*');
+
+    /* Cada busqueda lleva su numero. Con internet lento salian dos en
+       vuelo a la vez y la que tardaba mas pintaba encima de la nueva. */
+    var mio = ++tratPedido;
+    p.order('producto').limit(20).then(function (r) {
+      if (mio !== tratPedido) return;
+      var zz = document.getElementById('tratRes');
+      if (!zz) return;
+      if (r.error) { zz.innerHTML = '<div class="aviso bad">' + esc(r.error.message) + '</div>'; return; }
+      var f = r.data || [];
+
+      /* Lo escrito a mano siempre se puede anotar: si el catálogo todavía
+         no tiene ese medicamento, el dato de la persona no se pierde. */
+      var aMano = q.length >= 3
+        ? '<button type="button" class="ficha ficha-mano" id="tratAMano">' +
+            '<div class="ficha-nom"><b>Anotar «' + esc(q) + '» tal como lo escribí</b>' +
+            '<span class="ficha-pres">No hace falta que esté en el catálogo.</span></div>' +
+          '</button>'
+        : '';
+
+      if (!f.length) {
+        zz.innerHTML = aMano
+          ? '<div class="fichas">' + aMano + '</div>'
+          : '<div class="vacio"><b>' +
+            (q ? 'No hay «' + esc(q) + '» en el catálogo.' : 'El catálogo todavía está vacío.') +
+            '</b><span>Escribe al menos tres letras y se puede anotar igual, ' +
+            'tal como lo dice la receta.</span></div>';
+      } else {
+        var total = r.count == null ? f.length : r.count;
+        zz.innerHTML =
+          '<p class="conteo">' + (total > f.length
+            ? 'Los ' + f.length + ' primeros de ' + total +
+              '. Escribe más letras para acotar.'
+            : total + (total === 1 ? ' medicamento' : ' medicamentos')) + '</p>' +
+          '<div class="fichas">' + f.map(function (x, i) {
+          var hay = Math.round(Number(x.disponible) || 0);
+          return '<button type="button" class="ficha" data-cat="' + i + '">' +
+            '<div class="ficha-nom"><b>' + esc(x.producto) + '</b>' +
+              '<span class="ficha-pres">' +
+              esc([x.dosificacion, x.presentacion].filter(Boolean).join(' · ') || 'sin presentación') +
+              '</span></div>' +
+            '<div class="ficha-datos"><span class="ficha-cant' + (hay ? '' : ' cero') + '">' +
+              hay + '<em>' + (hay === 1 ? 'disponible' : 'disponibles') + '</em></span></div>' +
+          '</button>';
+        }).join('') + aMano + '</div>';
+      }
+
+      zz.querySelectorAll('[data-cat]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var x = f[+b.dataset.cat];
+          alElegir({ producto_id: x.producto_id, producto: x.producto,
+                     dosificacion: x.dosificacion, presentacion: x.presentacion });
+        });
+      });
+      var m = document.getElementById('tratAMano');
+      if (m) m.addEventListener('click', function () {
+        alElegir({ producto_id: null, texto_original: q, producto: q });
+      });
+    });
+  }
+
+  /* ---- corregir el tratamiento de alguien que YA está registrado ---- */
+  function avisoTrat(clase, txt) {
+    var z = document.getElementById('tratAviso');
+    if (!z) return;
+    z.innerHTML = '<div class="aviso ' + clase + '" role="status">' + esc(txt) + '</div>';
+    /* En el telefono el aviso cae por debajo del borde y parece que no
+       paso nada. Se lleva la vista hasta el. */
+    if (z.scrollIntoView) z.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* Compara sin acentos ni mayusculas, y CRUZADO: lo escrito a mano contra
+     el nombre del catalogo y al reves. Si no, anotar "losartan" a mano
+     cuando ya tenia LOSARTAN del catalogo lo dejaba dos veces. */
+  function yaLoTiene(lista, x) {
+    var igual = function (a, b) {
+      a = a == null ? '' : String(a); b = b == null ? '' : String(b);
+      if (!a || !b) return false;
+      return (window.FARM ? window.FARM.sinAcentos(a) : a.toLowerCase().trim()) ===
+             (window.FARM ? window.FARM.sinAcentos(b) : b.toLowerCase().trim());
+    };
+    return (lista || []).some(function (t) {
+      if (x.producto_id && t.producto_id) return t.producto_id === x.producto_id;
+      var suyo  = t.producto || t.texto_original;
+      var nuevo = x.producto || x.texto_original;
+      return igual(suyo, nuevo) ||
+             igual(t.texto_original, x.producto) ||
+             igual(t.producto, x.texto_original);
+    });
+  }
+
+  function anotarMedicina(x) {
+    if (!destino || destino.tipo !== 'paciente') return;
+    var pid = destino.id;
+
+    if (yaLoTiene(destino.tratamiento, x)) {
+      avisoTrat('warn', x.producto + ' ya estaba en su tratamiento.');
+      return;
+    }
+    var fila = { paciente_id: pid, activo: true };
+    if (x.producto_id) fila.producto_id = x.producto_id;
+    else fila.texto_original = x.texto_original;
+
+    sb.from('tratamientos_paciente').insert(fila).select().single().then(function (r) {
+      if (r.error) { avisoTrat('bad', 'No se pudo anotar: ' + r.error.message); return; }
+      tratBusca = '';
+      recargarTratamiento(pid, function () {
+        avisoTrat('ok', x.producto + ' quedó anotado en su tratamiento.');
+      });
+    });
+  }
+
+  /* Guarda de golpe lo que quedo anotado en el formulario que no llego a
+     guardarse. Se salta las que la persona ya tiene. */
+  function anotarPendientes() {
+    if (!destino || destino.tipo !== 'paciente' || !tratNuevo.length) return;
+    var pid = destino.id;
+    var nuevas = tratNuevo.filter(function (x) { return !yaLoTiene(destino.tratamiento, x); });
+    var repes = tratNuevo.length - nuevas.length;
+    if (!nuevas.length) {
+      tratNuevo = []; pintarDestino();
+      avisoTrat('warn', 'Ya las tenía todas anotadas.');
+      return;
+    }
+    sb.from('tratamientos_paciente').insert(nuevas.map(function (x) {
+      var fila = { paciente_id: pid, activo: true };
+      if (x.producto_id) fila.producto_id = x.producto_id;
+      else fila.texto_original = x.texto_original;
+      return fila;
+    })).then(function (r) {
+      if (r.error) { avisoTrat('bad', 'No se pudieron anotar: ' + r.error.message); return; }
+      var n = nuevas.length;
+      tratNuevo = [];
+      recargarTratamiento(pid, function () {
+        avisoTrat('ok', 'Quedaron anotadas ' + n + (n === 1 ? ' medicina' : ' medicinas') +
+          (repes ? ' (' + repes + ' ya la' + (repes === 1 ? '' : 's') + ' tenía)' : '') + '.');
+      });
+    });
+  }
+
+  function quitarMedicina(tratamientoId) {
+    if (!destino || destino.tipo !== 'paciente') return;
+    var pid = destino.id;
+
+    /* Un renglón del Excel puede traer varios medicamentos en un mismo
+       texto ("LOSARTAN/METFORMINA"). Se ven separados, pero en la base
+       son UNA fila: quitar uno los quita todos. Se dice antes. */
+    var mismos = (destino.tratamiento || []).filter(function (t) {
+      return t.tratamiento_id === tratamientoId;
+    });
+    var nombres = mismos.map(function (t) { return t.producto || t.texto_original; });
+    var pregunta = mismos.length > 1
+      ? '¿Quitar de su tratamiento las ' + mismos.length + ' medicinas de este renglón?\n\n' +
+        nombres.join('\n') + '\n\nVienen escritas juntas en el mismo renglón, así que ' +
+        'salen todas. Queda registrado con tu nombre.'
+      : '¿Quitar ' + (nombres[0] || 'esta medicina') + ' de su tratamiento?\n\n' +
+        'Queda registrado con tu nombre y se puede volver a anotar.';
+    if (!window.confirm(pregunta)) return;
+
+    /* No se borra: se marca inactiva. La ficha de una persona es un
+       historial, y la bitácora deja constancia de quién la cambió. */
+    sb.from('tratamientos_paciente').update({ activo: false }).eq('id', tratamientoId)
+      .then(function (r) {
+        if (r.error) { avisoTrat('bad', 'No se pudo quitar: ' + r.error.message); return; }
+        recargarTratamiento(pid, function () {
+          avisoTrat('ok', mismos.length > 1
+            ? 'Se quitaron ' + mismos.length + ' medicinas de su tratamiento.'
+            : 'Se quitó ' + (nombres[0] || 'la medicina') + ' de su tratamiento.');
+        });
+      });
+  }
+
+  function recargarTratamiento(pacienteId, luego) {
+    sb.from('v_tratamiento_paciente')
+      .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,disponible,situacion')
+      .eq('paciente_id', pacienteId)
+      .then(function (r) {
+        if (!destino || destino.id !== pacienteId) return;
+        /* Si la consulta falla NO se puede decir que la persona no toma
+           nada: es su ficha clinica. Se deja lo que ya se sabia y se
+           avisa de que no se pudo comprobar. */
+        if (r.error) {
+          pintarDestino();
+          avisoTrat('bad', 'No se pudo volver a leer su tratamiento (' + r.error.message +
+                           '). Lo que se ve puede estar desactualizado: vuelve a abrir su ficha.');
+          return;
+        }
+        destino.tratamiento = r.data || [];
+        pintarDestino();
+        if (luego) luego();
+      });
   }
 
   /* Al tocar un medicamento del tratamiento se busca su lote: el que vence
@@ -848,7 +1252,11 @@
       /* Se guarda copia de lo entregado ANTES de vaciar la cesta, para
          poder imprimir el acta o el comprobante después. */
       var papel = {
-        fecha: new Date().toISOString().slice(0, 10),
+        /* La misma fecha que guarda la base: la de Venezuela. Con
+           toISOString el papel salia con el dia de mañana a partir de las
+           ocho de la noche. */
+        fecha: (window.FARM && window.FARM.hoyCaracas)
+          ? window.FARM.hoyCaracas() : new Date().toISOString().slice(0, 10),
         tipo: destino.tipo,
         centro: destino.titulo,
         centroTipo: (destino.sub || '').split(' · ')[0],
@@ -866,7 +1274,7 @@
       aviso('ok', 'Entrega registrada para ' + destino.titulo + ': ' +
                   res.n + (res.n === 1 ? ' medicamento' : ' medicamentos') +
                   '. Ya quedó descontado del inventario.');
-      destino = null; cesta = [];
+      destino = null; cesta = []; olvidaTratamiento();
       pintarDestino(); pintarCesta();
       ofrecerPapel(papel);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -916,6 +1324,7 @@
   window.PANTALLA_DESPACHO = function (cliente, contenedor, usuario) {
     sb = cliente; ancla = contenedor; yo = usuario || null;
     cesta = []; destino = null; modo = 'paciente';
+    olvidaTratamiento();
     bus = { busca: '', pagina: 0, total: 0, filas: [], cargando: false };
     pintar();
   };

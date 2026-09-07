@@ -30,6 +30,7 @@
       '<div class="tarjeta">' +
         '<div class="conmuta">' +
           '<button type="button" data-p="tablero">Tablero</button>' +
+          '<button type="button" data-p="entregas">Entregas</button>' +
           '<button type="button" data-p="bitacora">Bitácora</button>' +
           '<button type="button" data-p="usuarios">Usuarios</button>' +
           '<button type="button" data-p="historial">Historial</button>' +
@@ -42,15 +43,33 @@
       b.addEventListener('click', function () { pestana = b.dataset.p; pintar(); });
       b.classList.toggle('on', b.dataset.p === pestana);
     });
-    ({ tablero: verTablero, bitacora: verBitacora, historial: verHistorial,
-       usuarios: verUsuarios, revisar: verRevisar })[pestana]();
+    ({ tablero: verTablero, entregas: verEntregas, bitacora: verBitacora,
+       historial: verHistorial, usuarios: verUsuarios, revisar: verRevisar })[pestana]();
+  }
+
+  /* ------------------------------------------------------- lo que se entregó
+     El mismo tablero que hay en Mercancía. Se monta con otro prefijo:
+     las dos copias viven a la vez en la página —las áreas se esconden,
+     no se destruyen— y con los mismos identificadores una escribiría
+     encima de la otra. */
+  function verEntregas() {
+    var z = document.getElementById('zonaAdm');
+    if (typeof window.TABLERO_ENTREGAS !== 'function') {
+      z.innerHTML = '<div class="aviso warn">El tablero de entregas todavía se está cargando. ' +
+                    'Vuelve a entrar en unos segundos.</div>';
+      return;
+    }
+    window.TABLERO_ENTREGAS(sb, z, { prefijo: 'adm' });
   }
 
   /* ---------------------------------------------------------------- tablero */
   function verTablero() {
     var z = document.getElementById('zonaAdm');
     z.innerHTML = '<div class="cargando">Cargando el tablero…</div>';
-    var hoy = new Date().toISOString().slice(0, 10);
+    /* El dia que cuenta es el de Venezuela, que es el que guarda la base.
+       Con la fecha de UTC, a partir de las ocho de la noche esto contaba
+       las entregas de MAÑANA y decia 0. */
+    var hoy = (window.FARM && window.FARM.hoyCaracas ? window.FARM.hoyCaracas() : new Date().toISOString().slice(0, 10));
 
     Promise.all([
       sb.from('entregas').select('id', { count: 'exact', head: true }).eq('fecha', hoy).eq('anulada', false),
