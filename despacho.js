@@ -83,7 +83,7 @@
         (destino.detalle ? '<p class="sub chico">' + esc(destino.detalle) + '</p>' : '') +
         pintarTratamiento() +
         (modo === 'institucion' ?
-          '<h3 class="sub-t">Quién recibe</h3>' +
+          '<h2 class="sub-t">Quién recibe</h2>' +
           '<p class="sub">Hace falta para el acta de entrega-recepción.</p>' +
           '<label for="recibeNombre">Nombre y apellido de quien firma</label>' +
           '<input id="recibeNombre" type="text" autocomplete="off"' +
@@ -219,8 +219,14 @@
   }
 
   function fichaPersona(x, i) {
-    var ced = x.cedula ? (x.nacionalidad || 'V') + '-' + x.cedula
-                       : (x.cedula_cruda ? esc(x.cedula_cruda) : 'sin cédula');
+    /* Algunos pacientes traen en la celda de la cedula lo que se colo del
+       Excel: a veces la lista de medicamentos entera. Se muestra recortado
+       y completo en el title, para que no empuje la pantalla. */
+    var crudo = x.cedula_cruda || '';
+    var ced = x.cedula
+      ? (x.nacionalidad || 'V') + '-' + x.cedula
+      : (crudo ? esc(crudo.length > 22 ? crudo.slice(0, 20) + '…' : crudo) : 'sin cédula');
+    var tituloCed = !x.cedula && crudo.length > 22 ? ' title="' + esc(crudo) + '"' : '';
     var linea2 = [];
     if (x.edad != null) linea2.push(x.edad + ' años');
     if (x.sexo) linea2.push(x.sexo === 'F' ? 'Femenino' : x.sexo === 'M' ? 'Masculino' : x.sexo);
@@ -235,7 +241,7 @@
         (linea2.length ? '<span class="ficha-pres">' + esc(linea2.join(' · ')) + '</span>' : '') +
         (linea3.length ? '<span class="ficha-pres">' + esc(linea3.join(' · ')) + '</span>' : '') +
       '</div>' +
-      '<div class="ficha-datos"><span class="ficha-ced">' + ced + '</span></div>' +
+      '<div class="ficha-datos"><span class="ficha-ced"' + tituloCed + '>' + ced + '</span></div>' +
       (x.estado === 'por_revisar' ? '<span class="sit ojo">Revisar sus datos</span>' : '') +
     '</button>';
   }
@@ -265,7 +271,7 @@
       if (x.direccion) det.push(x.direccion);
       destino = { tipo: 'paciente', id: x.id, titulo: x.nombre, sub: ced,
                   detalle: det.join(' · ') || null };
-      pintarDestino();
+      pintarDestino(); pintarRenglones();
       sb.from('v_tratamiento_paciente')
         .select('producto_id,producto,dosificacion,texto_original,disponible,situacion')
         .eq('paciente_id', x.id)
@@ -278,7 +284,7 @@
       destino = { tipo: 'institucion', id: x.id, titulo: x.nombre,
                   sub: (x.tipo || 'Centro de salud') + (x.direccion ? ' · ' + x.direccion : ''),
                   detalle: x.telefono || null, responsable: x.responsable || '' };
-      pintarDestino();
+      pintarDestino(); pintarRenglones();
     }
   }
 
@@ -295,7 +301,7 @@
     document.getElementById('resultados').innerHTML = '';
 
     z.innerHTML =
-      '<h3 class="sub-t">Registrar una persona nueva</h3>' +
+      '<h2 class="sub-t">Registrar una persona nueva</h2>' +
       '<p class="sub">Escribe la cédula y pulsa <b>Buscar en el registro</b>: trae el nombre y la ' +
       'fecha de nacimiento. Lo demás se completa a mano.</p>' +
 
@@ -473,7 +479,7 @@
     document.getElementById('resultados').innerHTML = '';
 
     z.innerHTML =
-      '<h3 class="sub-t">Registrar un centro de salud</h3>' +
+      '<h2 class="sub-t">Registrar un centro de salud</h2>' +
       '<p class="sub">Los centros a los que se despacha: CDI, ambulatorios, consultorios ' +
       'populares. Se registran una vez y quedan para las siguientes entregas.</p>' +
 
@@ -603,18 +609,17 @@
     var z = document.getElementById('zonaCesta');
     z.innerHTML =
       '<h2>Qué se entrega</h2>' +
-      '<label for="buscaMed">Buscar el medicamento</label>' +
-      '<input id="buscaMed" type="search" autocomplete="off" placeholder="Nombre del medicamento…">' +
-      '<div id="resMed" class="lista"></div>' +
+      /* Lo que llevas va PRIMERO, con el botón pegado: antes estaba
+         debajo de la lista de treinta lotes y había que bajar hasta
+         el fondo para ver lo que habías agregado. */
       '<div id="renglones"></div>' +
-      '<div class="botonera">' +
-        '<button type="button" class="principal" id="btnRegistrar"' +
-        (cesta.length && destino ? '' : ' disabled') + '>Registrar la entrega</button>' +
-      '</div>';
+      '<h2 class="sub-t">Agregar un medicamento</h2>' +
+      '<input id="buscaMed" type="search" autocomplete="off" ' +
+        'aria-label="Buscar el medicamento" placeholder="Escribe para acotar la lista…">' +
+      '<div id="resMed"></div>';
 
     var caja = document.getElementById('buscaMed');
     caja.addEventListener('input', retardo(function () { buscarMed(caja.value.trim()); }, 280));
-    document.getElementById('btnRegistrar').addEventListener('click', registrar);
     pintarRenglones();
     /* Se muestra de entrada lo que hay, sin obligar a escribir: así se ve
        qué se puede entregar hoy en vez de adivinar nombres. */
@@ -685,37 +690,101 @@
     pintarRenglones(); refrescarBoton();
     var caja = document.getElementById('buscaMed');
     buscarMed(caja ? caja.value.trim() : '');
+    /* Se lleva la vista a lo que acaba de agregarse: si no, en el teléfono
+       queda abajo en la lista y no se ve que pasó nada. */
+    var cst = document.getElementById('renglones');
+    if (cst && cst.scrollIntoView) cst.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function pintarRenglones() {
     var z = document.getElementById('renglones');
     if (!z) return;
-    if (!cesta.length) { z.innerHTML = ''; return; }
-    z.innerHTML = '<div class="renglones">' + cesta.map(function (c, i) {
-      return '<div class="renglon">' +
-        '<div class="que"><b>' + esc(c.producto) + '</b>' +
-        '<span>lote ' + esc(c.lote || 'sin número') + ' · vence ' + fecha(c.vence) +
-        ' · quedan ' + Math.round(c.disponible) + '</span></div>' +
-        '<input class="cant" type="number" min="1" max="' + Math.round(c.disponible) + '" ' +
-          'value="' + c.cantidad + '" data-i="' + i + '" inputmode="numeric" aria-label="Cantidad">' +
-        '<button type="button" class="quitar" data-q="' + i + '" aria-label="Quitar">✕</button>' +
-      '</div>';
-    }).join('') + '</div>';
 
+    if (!cesta.length) {
+      z.innerHTML =
+        '<div class="vacio"><b>Todavía no has agregado nada.</b>' +
+        '<span>' + (destino && destino.tipo === 'paciente'
+          ? 'Toca un medicamento de su tratamiento, arriba, o búscalo en la lista de abajo.'
+          : 'Búscalo en la lista de abajo.') + '</span></div>';
+      return;
+    }
+
+    var unidades = cesta.reduce(function (s, c) { return s + Number(c.cantidad || 0); }, 0);
+
+    z.innerHTML =
+      '<p class="conteo">' + cesta.length +
+        (cesta.length === 1 ? ' medicamento' : ' medicamentos') + ' · ' +
+        unidades + (unidades === 1 ? ' unidad' : ' unidades') + '</p>' +
+      '<div class="cesta">' + cesta.map(function (c, i) {
+        var max = Math.round(c.disponible);
+        return '<div class="cesta-item">' +
+          '<div class="ci-nom"><b>' + esc(c.producto) + '</b>' +
+            '<span>lote ' + esc(c.lote || 'sin número') + ' · vence ' + fecha(c.vence) + '</span>' +
+          '</div>' +
+          '<div class="ci-cant">' +
+            '<button type="button" class="paso" data-menos="' + i + '" aria-label="Una menos"' +
+              (c.cantidad <= 1 ? ' disabled' : '') + '>−</button>' +
+            '<input class="cant" type="number" min="1" max="' + max + '" value="' + c.cantidad + '" ' +
+              'data-i="' + i + '" inputmode="numeric" aria-label="Cuántas unidades de ' +
+              esc(c.producto) + '">' +
+            '<button type="button" class="paso" data-mas="' + i + '" aria-label="Una más"' +
+              (c.cantidad >= max ? ' disabled' : '') + '>+</button>' +
+            '<span class="ci-tope">de ' + max + '</span>' +
+          '</div>' +
+          '<button type="button" class="ci-quitar" data-q="' + i + '" ' +
+            'aria-label="Quitar ' + esc(c.producto) + ' de la entrega">✕</button>' +
+        '</div>';
+      }).join('') + '</div>' +
+      '<div class="botonera">' +
+        '<button type="button" class="principal" id="btnRegistrar"' +
+        (destino ? '' : ' disabled') + '>Registrar la entrega' +
+        (destino ? ' · ' + unidades + (unidades === 1 ? ' unidad' : ' unidades') : '') +
+        '</button>' +
+      '</div>' +
+      (destino ? '' : '<p class="sub chico">Falta elegir a quién se le entrega, arriba.</p>');
+
+    document.getElementById('btnRegistrar').addEventListener('click', registrar);
+
+    function pon(i, valor) {
+      var max = Math.round(cesta[i].disponible);
+      cesta[i].cantidad = Math.max(1, Math.min(valor, max));
+      pintarRenglones();
+      /* La lista de abajo marca lo que ya está en la entrega. */
+      var caja = document.getElementById('buscaMed');
+      if (caja) buscarMed(caja.value.trim());
+    }
+
+    z.querySelectorAll('[data-menos]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var i = +b.dataset.menos; pon(i, cesta[i].cantidad - 1);
+      });
+    });
+    z.querySelectorAll('[data-mas]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var i = +b.dataset.mas; pon(i, cesta[i].cantidad + 1);
+      });
+    });
     z.querySelectorAll('.cant').forEach(function (inp) {
       inp.addEventListener('input', function () {
         var i = +inp.dataset.i, v = parseInt(inp.value, 10);
         cesta[i].cantidad = isNaN(v) || v < 1 ? 1 : Math.min(v, Math.round(cesta[i].disponible));
         refrescarBoton();
       });
+      inp.addEventListener('blur', function () { pintarRenglones(); });
+      inp.addEventListener('focus', function () { inp.select(); });
     });
-    z.querySelectorAll('.quitar').forEach(function (b) {
+    z.querySelectorAll('.ci-quitar').forEach(function (b) {
       b.addEventListener('click', function () {
-        cesta.splice(+b.dataset.q, 1); pintarRenglones(); refrescarBoton();
+        cesta.splice(+b.dataset.q, 1);
+        pintarRenglones();
+        var caja = document.getElementById('buscaMed');
+        if (caja) buscarMed(caja.value.trim());
       });
     });
   }
 
+  /* Se llama desde fuera cuando cambia el destino: el botón depende de que
+     haya alguien a quien entregarle. */
   function refrescarBoton() {
     var b = document.getElementById('btnRegistrar');
     if (b) b.disabled = !(cesta.length && destino);

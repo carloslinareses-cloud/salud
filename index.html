@@ -66,7 +66,7 @@ header.top .wrap{display:flex; align-items:center; gap:12px}
 .top .der{margin-left:auto; display:flex; align-items:center; gap:8px}
 .chip-user{font-size:12.5px; color:#cdd8ee; background:rgba(255,255,255,.10);
   border:1px solid rgba(255,255,255,.16); padding:5px 11px; border-radius:99px; white-space:nowrap}
-button.salir{font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:#fff;
+button.salir{min-height:40px; font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:#fff;
   background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
   padding:6px 13px;border-radius:99px}
 button.salir:hover{background:rgba(255,255,255,.22)}
@@ -91,10 +91,19 @@ p{margin:0} p + p{margin-top:10px}
 .chico{display:inline-block;margin-top:5px;font-size:12px;color:var(--ink-faint);line-height:1.4}
 label{display:block; font-size:12.5px; font-weight:750; letter-spacing:.03em;
   text-transform:uppercase; color:var(--ink-soft); margin:14px 0 5px}
-input[type=email],input[type=password],input[type=text],input[type=number],select{
+input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=range]),
+select,textarea{
   width:100%; font:inherit; font-size:16px; padding:12px 13px; min-height:46px;
   border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink)}
-input:focus,select:focus{outline:2px solid var(--navy-2); outline-offset:1px; border-color:transparent}
+input[type=search]::-webkit-search-cancel-button{
+  -webkit-appearance:none; height:16px; width:16px; cursor:pointer;
+  background:var(--ink-faint); border-radius:50%;
+  mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4 4l8 8M12 4l-8 8' stroke='black' stroke-width='2'/></svg>") center/contain no-repeat;
+  -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4 4l8 8M12 4l-8 8' stroke='black' stroke-width='2'/></svg>") center/contain no-repeat}
+input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer; opacity:.65}
+input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
+
+input:focus,select:focus,textarea:focus{outline:2px solid var(--navy-2); outline-offset:1px; border-color:transparent}
 button.principal{width:100%; margin-top:20px; font:inherit; font-size:15px; font-weight:800;
   min-height:48px; cursor:pointer; color:#fff; background:var(--navy); border:0;
   border-radius:10px; box-shadow:0 1px 2px rgba(10,35,81,.3)}
@@ -146,7 +155,7 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .elegido b{display:block;font-size:15px;font-weight:800}
 .elegido span{display:block;font-size:12.5px;color:var(--ink-soft);margin-top:1px}
 .quitar{margin-left:auto;font:inherit;font-size:13px;font-weight:700;cursor:pointer;
-  padding:7px 12px;min-height:38px;border:1px solid var(--line);border-radius:8px;
+  padding:9px 13px;min-height:42px;border:1px solid var(--line);border-radius:8px;
   background:var(--card);color:var(--ink-soft);flex:none}
 .quitar:hover{border-color:var(--bad-line);color:var(--bad-ink)}
 
@@ -158,7 +167,7 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .renglones{margin-top:14px;display:flex;flex-direction:column;gap:8px}
 .renglon{display:flex;align-items:center;gap:10px;padding:11px;border:1px solid var(--line);
   border-radius:10px;background:var(--rail)}
-.renglon .que{min-width:0;flex:1}
+.renglon .que{min-width:0;flex:1;overflow-wrap:anywhere}
 .renglon .que b{display:block;font-size:14px;font-weight:750;line-height:1.25}
 .renglon .que span{display:block;font-size:12px;color:var(--ink-soft);margin-top:2px}
 .renglon .cant{width:78px;flex:none;text-align:center;font-weight:800;padding:9px 6px;min-height:44px}
@@ -177,6 +186,15 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   .acciones-u{width:100%; justify-content:flex-start}
   .acciones-u button{flex:1 1 auto; min-height:44px; font-size:13px}
   .fila-clave button{min-height:44px}
+  /* En el telefono nada que se toque baja de 44 px: es el minimo
+     para acertar con el dedo sin fallar. */
+  .chips button,.acciones-u button,button.deshacer,.volver,.descargas button,
+  .paginador button,.ci-quitar,.paso{min-height:44px}
+  .cesta-item{flex-wrap:wrap; gap:9px}
+  .ci-nom{flex:1 1 100%}
+  .ci-cant{flex:1}
+  .ci-quitar{margin-left:auto}
+  .ficha-ced{max-width:100%}
   .busca-fila > button{flex:1 1 100%}
   .ficha{flex-wrap:wrap; gap:10px}
   .ficha-nom{flex:1 1 100%}
@@ -199,8 +217,8 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 
 /* ---------- botones de filtro ---------- */
 .chips{display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 4px}
-.chips button{font:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:8px 14px;
-  min-height:38px; border-radius:999px; border:1px solid var(--line);
+.chips button{font:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:9px 15px;
+  min-height:42px; border-radius:999px; border:1px solid var(--line);
   background:var(--card); color:var(--ink-soft)}
 .chips button:hover{border-color:var(--ink-faint); color:var(--ink)}
 .chips button.on{background:var(--navy); border-color:var(--navy); color:#fff}
@@ -220,7 +238,7 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   cursor:pointer; padding:13px 15px; border:1px solid var(--line); border-radius:11px;
   background:var(--card); color:var(--ink)}
 .ficha:hover{border-color:var(--navy-2); background:var(--rail)}
-.ficha-nom{flex:1; min-width:0}
+.ficha-nom{flex:1; min-width:0; overflow-wrap:anywhere}
 .ficha-nom b{display:block; font-size:15px; font-weight:750; line-height:1.25}
 .ficha-pres{display:block; font-size:12px; color:var(--ink-faint); margin-top:2px}
 .ficha-datos{flex:none; text-align:right; min-width:112px}
@@ -234,7 +252,7 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 
 /* ---------- cabecera de un medicamento ---------- */
 .cabecera-prod{margin:10px 0 4px}
-.volver{font:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:8px 12px;
+.volver{font:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:10px 14px; min-height:40px;
   border-radius:9px; border:1px solid var(--line); background:var(--rail); color:var(--ink-soft)}
 .volver:hover{color:var(--ink); border-color:var(--ink-faint)}
 .prod-nom{margin-top:12px}
@@ -259,7 +277,7 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 
 /* ---------- la hoja de conteo ---------- */
 .tabla.hoja td{padding:7px 12px}
-.celda{width:104px; margin:0; padding:8px 10px; min-height:40px; text-align:right;
+.celda{width:104px; margin:0; padding:9px 10px; min-height:42px; text-align:right;
   font-variant-numeric:tabular-nums; font-weight:750}
 .celda-txt{width:130px; text-align:left; font-variant-numeric:normal; font-weight:650}
 .celda-fecha{width:148px; text-align:left; font-variant-numeric:normal; font-weight:650}
@@ -321,6 +339,27 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   .tabla.hoja td.c-celda{padding-top:8px}
 }
 
+/* ---------- lo que va en la entrega ---------- */
+.cesta{display:flex; flex-direction:column; gap:8px; margin-top:6px}
+.cesta-item{display:flex; align-items:center; gap:12px; padding:12px 14px;
+  border:1px solid var(--navy-2); border-radius:11px; background:var(--rail)}
+.ci-nom{flex:1; min-width:0}
+.ci-nom b{display:block; font-size:14.5px; font-weight:750; line-height:1.25}
+.ci-nom span{display:block; font-size:12px; color:var(--ink-soft); margin-top:2px}
+.ci-cant{flex:none; display:flex; align-items:center; gap:6px}
+.ci-cant .cant{width:62px; margin:0; padding:8px 4px; min-height:42px; text-align:center;
+  font-size:16px; font-weight:800; font-variant-numeric:tabular-nums}
+.paso{flex:none; width:42px; height:42px; font:inherit; font-size:20px; font-weight:800;
+  line-height:1; cursor:pointer; border-radius:10px; border:1px solid var(--line);
+  background:var(--card); color:var(--ink)}
+.paso:hover:not(:disabled){border-color:var(--navy-2); background:var(--rail)}
+.paso:disabled{opacity:.35; cursor:not-allowed}
+.ci-tope{font-size:11.5px; color:var(--ink-faint); font-weight:650; white-space:nowrap}
+.ci-quitar{flex:none; width:38px; height:38px; font:inherit; font-size:15px; cursor:pointer;
+  border-radius:9px; border:1px solid var(--bad-line); background:var(--bad-bg);
+  color:var(--bad-ink)}
+.ci-quitar:hover{filter:brightness(1.06)}
+
 /* ---------- botones de descarga ---------- */
 .descargas{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 4px}
 .descargas button{font:inherit; font-size:13px; font-weight:700; cursor:pointer;
@@ -330,8 +369,8 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .descargas button:disabled{opacity:.5; cursor:not-allowed}
 
 /* ---------- deshacer algo recien creado ---------- */
-button.deshacer{flex:none; font:inherit; font-size:12px; font-weight:700; cursor:pointer;
-  padding:6px 12px; min-height:32px; border-radius:8px; white-space:nowrap;
+button.deshacer{flex:none; font:inherit; font-size:12.5px; font-weight:700; cursor:pointer;
+  padding:9px 14px; min-height:40px; border-radius:8px; white-space:nowrap;
   border:1px solid var(--bad-line); background:var(--bad-bg); color:var(--bad-ink)}
 button.deshacer:hover:not(:disabled){filter:brightness(1.06)}
 button.deshacer:disabled{opacity:.6; cursor:not-allowed}
@@ -342,8 +381,9 @@ button.deshacer:disabled{opacity:.6; cursor:not-allowed}
 .busca-campo label{margin-top:0}
 .busca-campo input{margin-bottom:0}
 .busca-fila > button{flex:none; margin:0; min-height:46px; padding:12px 16px; width:auto}
-.ficha-ced{display:block; font-size:14px; font-weight:800; letter-spacing:-.01em;
-  font-variant-numeric:tabular-nums; white-space:nowrap}
+.ficha-ced{display:block; max-width:180px; font-size:14px; font-weight:800;
+  letter-spacing:-.01em; font-variant-numeric:tabular-nums;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .ok-txt{color:var(--ok-ink); font-weight:700}
 
 /* ---------- el tratamiento del paciente, para tocarlo ---------- */
@@ -378,7 +418,7 @@ button.deshacer:disabled{opacity:.6; cursor:not-allowed}
 
 /* ---------- gestion de usuarios ---------- */
 .acciones-u{display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end}
-.acciones-u button{font-size:12px; padding:6px 10px; min-height:32px; white-space:nowrap}
+.acciones-u button{font-size:12.5px; padding:9px 13px; min-height:40px; white-space:nowrap}
 button.suave{background:var(--rail); color:var(--ink); border:1px solid var(--line);
   border-radius:8px; font-weight:650; cursor:pointer}
 button.suave:hover{background:var(--line)}
@@ -401,6 +441,7 @@ button.peligro{background:var(--bad-bg); color:var(--bad-ink); border:1px solid 
 .filtros select,.filtros input{flex:1;min-width:150px;margin:0}
 .cedfix{width:120px;flex:none;margin:0;min-height:44px;text-align:center}
 .renglon .meds{display:block;font-size:12px;color:var(--ink);margin-top:5px;line-height:1.45;
+  overflow-wrap:anywhere;
   padding-top:5px;border-top:1px dashed var(--line)}
 .renglon.rev{flex-wrap:wrap}
 .renglon.rev .que{flex:1 1 100%;margin-bottom:8px}

@@ -168,7 +168,7 @@
 
   function bloque(titulo, filas, conBaja) {
     if (!filas.length) return '';
-    return '<h3 class="sub-t">' + titulo + '</h3>' +
+    return '<h2 class="sub-t">' + titulo + '</h2>' +
       '<div class="renglones">' + filas.map(function (x) {
         return '<div class="renglon">' +
           '<div class="que"><b>' + esc(x.producto) + (x.dosificacion ? ' ' + esc(x.dosificacion) : '') + '</b>' +
@@ -209,7 +209,7 @@
   function verCatalogo() {
     var z = document.getElementById('zonaInv');
     z.innerHTML =
-      '<h3 class="sub-t">Registrar mercancía que llega</h3>' +
+      '<h2 class="sub-t">Registrar mercancía que llega</h2>' +
       '<p class="sub">Busca el medicamento en el catálogo y verás cuánto hay antes de elegir. ' +
       'Puedes sumar a un lote que ya existe o abrir uno nuevo.</p>' +
       '<div class="chips" id="catFiltros">' + FILTROS_CAT.map(function (f) {
@@ -425,7 +425,7 @@
           '</div>' +
 
           (lotes.length
-            ? '<h3 class="sub-t">Lotes que ya tiene</h3>' +
+            ? '<h2 class="sub-t">Lotes que ya tiene</h2>' +
               '<p class="sub">Si lo que llegó es de un lote que ya está aquí, súmaselo. ' +
               'Así no se parte la existencia en dos.</p>' +
               '<div class="tabla-caja"><table class="tabla"><thead><tr>' +
@@ -444,7 +444,7 @@
             : '<div class="vacio"><b>Todavía no tiene ningún lote.</b>' +
               '<span>Registra el primero abajo.</span></div>') +
 
-          '<h3 class="sub-t">Registrar un lote nuevo</h3>' +
+          '<h2 class="sub-t">Registrar un lote nuevo</h2>' +
           '<div id="catForm"></div>';
 
         document.getElementById('catVolver').addEventListener('click', function () {
@@ -594,7 +594,7 @@
     limpiaAviso();
 
     z.innerHTML =
-      '<h3 class="sub-t">Registrar un medicamento o insumo</h3>' +
+      '<h2 class="sub-t">Registrar un medicamento o insumo</h2>' +
       '<p class="sub">Lo que se escriba aquí es lo que verá quien despacha. ' +
       'La dosificación es lo que distingue una presentación de otra.</p>' +
 
@@ -716,7 +716,7 @@
   function verConteo() {
     var z = document.getElementById('zonaInv');
     z.innerHTML =
-      '<h3 class="sub-t">Corregir existencia tras un conteo</h3>' +
+      '<h2 class="sub-t">Corregir existencia tras un conteo</h2>' +
       '<p class="sub">Se puede corregir <b>todo</b> de cada lote: lo que contaste, ' +
       'el número de lote y la fecha de vencimiento. Muchos lotes vinieron del Excel sin ' +
       'número y sin fecha, y sin fecha el sistema no puede avisar cuándo se vencen. ' +

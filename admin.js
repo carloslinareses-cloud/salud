@@ -81,14 +81,14 @@
           cif(porRev, 'pacientes por revisar', porRev ? 'alerta' : '') +
         '</div>' +
         (Object.keys(porUsuario).length
-          ? '<h3 class="sub-t">Entregas de hoy, por persona</h3><div class="renglones">' +
+          ? '<h2 class="sub-t">Entregas de hoy, por persona</h2><div class="renglones">' +
             Object.keys(porUsuario).sort(function (a, b) { return porUsuario[b] - porUsuario[a]; })
               .map(function (n) {
                 return '<div class="renglon"><div class="que"><b>' + esc(n) + '</b></div>' +
                        '<span class="pill">' + porUsuario[n] + '</span></div>';
               }).join('') + '</div>'
           : '') +
-        '<h3 class="sub-t">Lo último que pasó</h3>' +
+        '<h2 class="sub-t">Lo último que pasó</h2>' +
         (act.length ? '<p class="sub">Lo que se creó por equivocación y todavía no tiene ' +
                       'historial se puede quitar desde aquí.</p>' +
                       '<div class="feed">' + act.map(linea).join('') + '</div>'
@@ -199,18 +199,18 @@
   function verBitacora() {
     var z = document.getElementById('zonaAdm');
     z.innerHTML =
-      '<h3 class="sub-t">Buscar en la bitácora</h3>' +
+      '<h2 class="sub-t">Buscar en la bitácora</h2>' +
       '<p class="sub">Todo lo que se hace queda aquí. Nadie la puede editar ni borrar, ' +
       'ni siquiera tú: es lo que la hace servir como prueba.</p>' +
       '<div class="filtros">' +
-        '<select id="fTabla"><option value="">Todo</option>' +
+        '<select id="fTabla" aria-label="Filtrar por tipo de acción"><option value="">Todo</option>' +
           '<option value="entregas">Entregas</option>' +
           '<option value="movimientos">Movimientos de inventario</option>' +
           '<option value="pacientes">Pacientes</option>' +
           '<option value="productos">Catálogo</option>' +
           '<option value="lotes">Lotes</option>' +
           '<option value="perfiles">Usuarios</option></select>' +
-        '<input id="fUsuario" type="search" placeholder="Nombre de la persona…">' +
+        '<input id="fUsuario" type="search" aria-label="Filtrar por persona" placeholder="Nombre de la persona…">' +
       '</div>' +
       '<div class="descargas">' +
         '<button type="button" id="bitExcel">Descargar la bitácora en Excel</button>' +
@@ -328,7 +328,7 @@
       var admins = f.filter(function (u) { return u.rol === 'admin' && u.activo; }).length;
 
       z.innerHTML =
-        '<h3 class="sub-t">Quién puede entrar</h3>' +
+        '<h2 class="sub-t">Quién puede entrar</h2>' +
         '<div class="renglones">' + f.map(function (u) {
           var soyYo = u.id === yo.id;
           return '<div class="renglon">' +
@@ -348,7 +348,7 @@
           '</div>';
         }).join('') + '</div>' +
 
-        '<h3 class="sub-t">Crear un usuario</h3>' +
+        '<h2 class="sub-t">Crear un usuario</h2>' +
         '<p class="sub">Le pones aquí todo y ya puede entrar. No tiene que registrarse. ' +
         'La contraseña que le pongas es provisional: el sistema le va a pedir cambiarla ' +
         'la primera vez que entre.</p>' +
@@ -551,12 +551,12 @@
   function verHistorial() {
     var z = document.getElementById('zonaAdm');
     z.innerHTML =
-      '<h3 class="sub-t">Historial de entregas</h3>' +
+      '<h2 class="sub-t">Historial de entregas</h2>' +
       '<p class="sub">Las 4.999 entregas que venían de los Excel, más las que se ' +
       'registran ahora. Las del Excel <b>no descuentan del inventario</b>: el 87% ' +
       'no anotaba la cantidad, así que descontarlas sería inventar números.</p>' +
       '<div class="filtros">' +
-        '<input id="hBusca" type="search" placeholder="Cédula o nombre del paciente…">' +
+        '<input id="hBusca" type="search" aria-label="Buscar por cédula o nombre" placeholder="Cédula o nombre del paciente…">' +
       '</div>' +
       '<div class="descargas">' +
         '<button type="button" id="hisExcel">Descargar el historial en Excel</button>' +
@@ -607,7 +607,7 @@
         if (r.error) { z.innerHTML = '<div class="aviso bad">' + esc(r.error.message) + '</div>'; return; }
         var f = r.data || [];
         z.innerHTML =
-          '<h3 class="sub-t">Pacientes que hay que revisar (' + f.length + ')</h3>' +
+          '<h2 class="sub-t">Pacientes que hay que revisar (' + f.length + ')</h2>' +
           '<p class="sub">Vinieron así del Excel. <b>No se corrigieron solos a propósito:</b> ' +
           'adivinar la cédula de una persona real es justo lo que no se debe hacer. ' +
           'Escribe la correcta y el paciente pasa a activo.</p>' +
@@ -616,7 +616,8 @@
               '<div class="que"><b>' + esc(p.nombre) + '</b>' +
               '<span>venía como: <i>' + esc(p.cedula_cruda || 'vacío') + '</i> · ' +
               esc(p.motivo_revision || '') + '</span></div>' +
-              '<input class="cedfix" type="text" inputmode="numeric" placeholder="Cédula" data-i="' + i + '">' +
+              '<input class="cedfix" type="text" inputmode="numeric" placeholder="Cédula" ' +
+                'aria-label="Cédula de ' + esc(p.nombre || 'este paciente') + '" data-i="' + i + '">' +
               '<button type="button" class="quitar" data-fix="' + i + '">Guardar</button>' +
             '</div>';
           }).join('') + '</div>';
