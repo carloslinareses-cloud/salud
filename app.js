@@ -139,7 +139,7 @@
     { id: 'despacho',   boton: 'Entregar',
       titulo: 'Entrega de medicamentos', sub: 'Buscar al paciente o al centro y registrar lo que se entrega',
       hay: function () { return typeof window.PANTALLA_DESPACHO === 'function'; },
-      abre: function (z) { window.PANTALLA_DESPACHO(sb, z); } },
+      abre: function (z, u) { window.PANTALLA_DESPACHO(sb, z, u); } },
     { id: 'inventario', boton: 'Mercancía',
       titulo: 'Entrada de mercancía', sub: 'Registrar lo que llega, alertas de vencimiento, ajustes y bajas',
       hay: function () { return typeof window.PANTALLA_INVENTARIO === 'function'; },

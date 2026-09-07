@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  var sb = null, ancla = null, cesta = [], destino = null, modo = 'paciente';
+  var sb = null, ancla = null, cesta = [], destino = null, modo = 'paciente', yo = null;
 
   function esc(t) {
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
@@ -759,11 +759,30 @@
         return { id: idEnt, n: (d.data || []).length };
       });
     }).then(function (res) {
+      /* Se guarda copia de lo entregado ANTES de vaciar la cesta, para
+         poder imprimir el acta o el comprobante después. */
+      var papel = {
+        fecha: new Date().toISOString().slice(0, 10),
+        tipo: destino.tipo,
+        centro: destino.titulo,
+        centroTipo: (destino.sub || '').split(' · ')[0],
+        paciente: destino.titulo,
+        cedula: destino.sub,
+        recibeNombre: cab.recibe_nombre || '',
+        recibeCedula: cab.recibe_cedula || '',
+        entregaNombre: (yo && yo.nombre) || '',
+        entregaCedula: '',
+        renglones: cesta.map(function (c) {
+          return { producto: c.producto, lote: c.lote, vence: c.vence, cantidad: c.cantidad };
+        })
+      };
+
       aviso('ok', 'Entrega registrada para ' + destino.titulo + ': ' +
                   res.n + (res.n === 1 ? ' medicamento' : ' medicamentos') +
                   '. Ya quedó descontado del inventario.');
       destino = null; cesta = [];
       pintarDestino(); pintarCesta();
+      ofrecerPapel(papel);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }).catch(function (err) {
       // Nunca decimos "guardado" si el servidor no confirmó.
@@ -783,14 +802,33 @@
     return 'No se pudo registrar: ' + m;
   }
 
+  /* Al terminar una entrega se ofrece el documento: el acta que firma el
+     centro de salud, o el comprobante de la persona. Se ofrece, no se
+     descarga solo: no siempre hace falta imprimirlo. */
+  function ofrecerPapel(papel) {
+    var z = document.getElementById('zonaAviso');
+    if (!z || !window.FARMREP) return;
+    var esCentro = papel.tipo === 'institucion';
+    var caja = document.createElement('div');
+    caja.className = 'descargas';
+    caja.innerHTML = '<button type="button" id="btnPapel">' +
+      (esCentro ? 'Descargar el acta de entrega-recepción' : 'Descargar el comprobante') +
+      '</button>';
+    z.appendChild(caja);
+    document.getElementById('btnPapel').addEventListener('click', function () {
+      if (esCentro) window.FARMREP.acta(papel);
+      else window.FARMREP.comprobante(papel);
+    });
+  }
+
   function aviso(clase, texto) {
     document.getElementById('zonaAviso').innerHTML =
       '<div class="aviso ' + clase + '">' + esc(texto) + '</div>';
   }
 
   /* ---------------------------------------------------------------- entrada */
-  window.PANTALLA_DESPACHO = function (cliente, contenedor) {
-    sb = cliente; ancla = contenedor;
+  window.PANTALLA_DESPACHO = function (cliente, contenedor, usuario) {
+    sb = cliente; ancla = contenedor; yo = usuario || null;
     cesta = []; destino = null; modo = 'paciente';
     bus = { busca: '', pagina: 0, total: 0, filas: [], cargando: false };
     pintar();

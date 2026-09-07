@@ -212,8 +212,14 @@
           '<option value="perfiles">Usuarios</option></select>' +
         '<input id="fUsuario" type="search" placeholder="Nombre de la persona…">' +
       '</div>' +
+      '<div class="descargas">' +
+        '<button type="button" id="bitExcel">Descargar la bitácora en Excel</button>' +
+      '</div>' +
       '<div id="resBit"><div class="cargando">Cargando…</div></div>';
 
+    document.getElementById('bitExcel').addEventListener('click', function () {
+      bajarBitacora(this);
+    });
     document.getElementById('fTabla').addEventListener('change', cargarBit);
     document.getElementById('fUsuario').addEventListener('input', function () {
       clearTimeout(window._tb); window._tb = setTimeout(cargarBit, 300);
@@ -451,6 +457,96 @@
     });
   }
 
+  /* Se trae TODO lo que cumple el filtro, no solo lo que se ve en pantalla:
+     cuando se pide un listado, se pide completo. El servidor no manda más
+     de mil filas por vez, así que se pide por tandas. */
+  function porTandas(hazConsulta, tope) {
+    var todo = [];
+    function tanda(desde) {
+      return hazConsulta(desde).then(function (r) {
+        if (r.error) throw r.error;
+        var f = r.data || [];
+        todo = todo.concat(f);
+        if (f.length === 1000 && todo.length < (tope || 20000)) return tanda(desde + 1000);
+      });
+    }
+    return tanda(0).then(function () { return todo; });
+  }
+
+  function bajarBitacora(btn) {
+    var texto = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Preparando…';
+    var tabla = document.getElementById('fTabla').value;
+    var usu = document.getElementById('fUsuario').value.trim();
+
+    porTandas(function (desde) {
+      var q = sb.from('bitacora')
+        .select('momento,usuario_nombre,usuario_rol,tabla,operacion,campos,nota')
+        .order('momento', { ascending: false }).range(desde, desde + 999);
+      if (tabla) q = q.eq('tabla', tabla);
+      if (usu) q = q.ilike('usuario_nombre', '*' + usu.replace(/[%,()]/g, '') + '*');
+      return q;
+    }, 20000).then(function (todo) {
+      var QUE = { INSERT: 'Creó', UPDATE: 'Cambió', DELETE: 'Borró',
+                  INTENTO_SUPLANTACION: 'Intento de suplantación' };
+      var filas = todo.map(function (b) {
+        var d = new Date(b.momento);
+        return [d.toLocaleDateString('es-VE'), d.toLocaleTimeString('es-VE'),
+                b.usuario_nombre || 'El sistema (carga de datos)',
+                b.usuario_rol || '', QUE[b.operacion] || b.operacion, b.tabla,
+                Array.isArray(b.campos) ? b.campos.join(', ') : (b.campos || ''),
+                b.nota || ''];
+      });
+      window.FARMREP.excel('Bitacora - Farmacia Municipal', [{
+        nombre: 'Bitácora',
+        titulo: 'Bitácora de la Farmacia Municipal' + (tabla ? ' · ' + tabla : '') +
+                (usu ? ' · ' + usu : ''),
+        encabezados: ['Fecha', 'Hora', 'Quién', 'Puesto', 'Qué hizo', 'Dónde',
+                      'Campos que cambiaron', 'Nota'],
+        filas: filas,
+        anchos: [12, 11, 26, 12, 14, 18, 30, 34]
+      }]);
+      btn.disabled = false; btn.textContent = texto;
+    }).catch(function (e) {
+      btn.disabled = false; btn.textContent = texto;
+      aviso('bad', 'No se pudo preparar la descarga: ' + (e.message || e));
+    });
+  }
+
+  function bajarHistorial(btn) {
+    var texto = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Preparando…';
+    var q = document.getElementById('hBusca').value.trim().replace(/[%,()]/g, '');
+
+    porTandas(function (desde) {
+      var c = sb.from('v_historial_entregas')
+        .select('fecha,fecha_original,paciente,nacionalidad,cedula,entregado_por,lo_entregado,origen,anulada')
+        .order('fecha', { ascending: false, nullsFirst: false }).range(desde, desde + 999);
+      if (q) c = c.or('cedula.ilike.*' + q + '*,paciente.ilike.*' + q + '*');
+      return c;
+    }, 20000).then(function (todo) {
+      var filas = todo.map(function (x) {
+        return [x.fecha ? window.FARMREP.fechaCorta(x.fecha) : (x.fecha_original || 'sin fecha'),
+                x.paciente || '', x.cedula ? (x.nacionalidad || 'V') + '-' + x.cedula : '',
+                x.lo_entregado || '', x.entregado_por || '',
+                x.origen === 'migracion_excel' ? 'Del Excel' : 'Del sistema',
+                x.anulada ? 'Anulada' : ''];
+      });
+      window.FARMREP.excel('Historial de entregas - Farmacia Municipal', [{
+        nombre: 'Entregas',
+        titulo: 'Historial de entregas · Farmacia Municipal' + (q ? ' · «' + q + '»' : ''),
+        encabezados: ['Fecha', 'Paciente', 'Cédula', 'Lo que se entregó',
+                      'Quién entregó', 'De dónde viene', 'Estado'],
+        filas: filas,
+        anchos: [12, 34, 14, 46, 24, 15, 10]
+      }]);
+      btn.disabled = false; btn.textContent = texto;
+    }).catch(function (e) {
+      btn.disabled = false; btn.textContent = texto;
+      aviso('bad', 'No se pudo preparar la descarga: ' + (e.message || e));
+    });
+  }
+
   /* --------------------------------------------------------------- historial */
   function verHistorial() {
     var z = document.getElementById('zonaAdm');
@@ -462,9 +558,15 @@
       '<div class="filtros">' +
         '<input id="hBusca" type="search" placeholder="Cédula o nombre del paciente…">' +
       '</div>' +
+      '<div class="descargas">' +
+        '<button type="button" id="hisExcel">Descargar el historial en Excel</button>' +
+      '</div>' +
       '<div id="resHist"><div class="cargando">Cargando…</div></div>';
     document.getElementById('hBusca').addEventListener('input', function () {
       clearTimeout(window._th); window._th = setTimeout(cargarHist, 320);
+    });
+    document.getElementById('hisExcel').addEventListener('click', function () {
+      bajarHistorial(this);
     });
     cargarHist();
   }

@@ -321,6 +321,14 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   .tabla.hoja td.c-celda{padding-top:8px}
 }
 
+/* ---------- botones de descarga ---------- */
+.descargas{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 4px}
+.descargas button{font:inherit; font-size:13px; font-weight:700; cursor:pointer;
+  padding:10px 15px; min-height:42px; border-radius:10px; border:1px solid var(--line);
+  background:var(--card); color:var(--ink-soft)}
+.descargas button:hover{border-color:var(--navy-2); color:var(--ink); background:var(--rail)}
+.descargas button:disabled{opacity:.5; cursor:not-allowed}
+
 /* ---------- deshacer algo recien creado ---------- */
 button.deshacer{flex:none; font:inherit; font-size:12px; font-weight:700; cursor:pointer;
   padding:6px 12px; min-height:32px; border-radius:8px; white-space:nowrap;
@@ -500,8 +508,17 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
   </div>
 </footer>
 
+<!-- Para los reportes en Excel y en PDF. Se cargan de la misma red de
+     distribucion que usan los demas sistemas del municipio. -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
 <script src="config.js"></script>
 <script src="comunes.js"></script>
+<script src="logos-base64.js"></script>
+<script src="pdf-header.js"></script>
+<script src="reportes.js"></script>
 <script src="despacho.js"></script>
 <script src="inventario.js"></script>
 <script src="admin.js"></script>

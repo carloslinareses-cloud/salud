@@ -113,6 +113,9 @@
       var suma = function (a) { return a.reduce(function (s, x) { return s + Number(x.existencia || 0); }, 0); };
 
       z.innerHTML =
+        (f.length ? '<div class="descargas">' +
+          '<button type="button" id="alExcel">Descargar las alertas en Excel</button>' +
+          '<button type="button" id="alPdf">Descargar en PDF</button></div>' : '') +
         '<div class="cifras">' +
           tarjeta(venc.length, 'Lotes vencidos', 'alerta') +
           tarjeta(num(suma(venc)), 'Unidades vencidas', 'alerta') +
@@ -126,6 +129,34 @@
       z.querySelectorAll('[data-baja]').forEach(function (b) {
         b.addEventListener('click', function () {
           darDeBaja(b.dataset.baja, b.dataset.nombre, b.dataset.cant);
+        });
+      });
+
+      var comoEs = { vencido: 'Vencido', por_vencer_30: 'Vence en 30 días',
+                     por_vencer_90: 'Vence en 90 días' };
+      var enc = ['Situación', 'Medicamento', 'Dosificación', 'Lote', 'Vence', 'Unidades'];
+      var filas = f.map(function (x) {
+        return [comoEs[x.tipo] || x.tipo, x.producto, x.dosificacion || '',
+                x.lote || 'sin número', window.FARMREP.fechaCorta(x.vence),
+                Math.round(Number(x.existencia) || 0)];
+      });
+      var bE = document.getElementById('alExcel');
+      if (bE) bE.addEventListener('click', function () {
+        window.FARMREP.excel('Alertas de vencimiento - Farmacia Municipal',
+          [{ nombre: 'Alertas', titulo: 'Alertas de vencimiento · Farmacia Municipal',
+             encabezados: enc, filas: filas, anchos: [18, 40, 16, 16, 14, 12] }]);
+      });
+      var bP = document.getElementById('alPdf');
+      if (bP) bP.addEventListener('click', function () {
+        window.FARMREP.pdfTabla({
+          titulo: 'Alertas de Vencimiento',
+          subtitulo: venc.length + ' lotes vencidos · ' + p30.length + ' vencen en 30 días · ' +
+                     p90.length + ' vencen en 90 días',
+          encabezados: enc, filas: filas, horizontal: false,
+          archivo: 'Alertas de vencimiento - Farmacia Municipal',
+          columnas: { 0: { cellWidth: 26 }, 1: { cellWidth: 64 }, 2: { cellWidth: 24 },
+                      3: { cellWidth: 26 }, 4: { cellWidth: 22, halign: 'center' },
+                      5: { cellWidth: 20, halign: 'right' } }
         });
       });
     });
@@ -265,6 +296,9 @@
 
     z.innerHTML =
       contador(cat, 'medicamento', 'medicamentos') +
+      '<div class="descargas"><button type="button" id="catExcel">Descargar en Excel ' +
+        '<span class="opc">(' + cat.total + ')</span></button>' +
+        '<button type="button" id="catPdf">Descargar en PDF</button></div>' +
       '<div class="fichas">' + cat.filas.map(function (x, i) {
         var hay = Number(x.disponible) || 0;
         return '<button type="button" class="ficha" data-i="' + i + '">' +
@@ -288,7 +322,77 @@
     z.querySelectorAll('.ficha').forEach(function (b) {
       b.addEventListener('click', function () { verProducto(cat.filas[+b.dataset.i]); });
     });
+    document.getElementById('catExcel').addEventListener('click', function () {
+      bajarCatalogo(this, 'excel');
+    });
+    document.getElementById('catPdf').addEventListener('click', function () {
+      bajarCatalogo(this, 'pdf');
+    });
     engancharPaginador(z, cat, cargarCatalogo);
+  }
+
+  /* Se descarga TODO lo que cumple el filtro, no solo la página que se ve:
+     cuando se pide un listado se quiere completo. Se trae de 1000 en 1000
+     porque el servidor no manda más de mil por vez. */
+  function bajarCatalogo(btn, formato) {
+    var texto = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Preparando…';
+
+    var todo = [];
+    function trae(desde) {
+      var q = sb.from('v_catalogo')
+        .select('producto,dosificacion,presentacion,categoria,unidad,disponible,vencido,lotes,vence_primero,situacion');
+      if (cat.filtro === 'con')     q = q.gt('disponible', 0);
+      if (cat.filtro === 'sin')     q = q.lte('disponible', 0);
+      if (cat.filtro === 'vence')   q = q.in('situacion', ['por_vencer_30', 'por_vencer_90']);
+      if (cat.filtro === 'vencido') q = q.eq('situacion', 'solo_vencido');
+      if (cat.busca.length >= 2) q = q.ilike('busqueda', '*' + sinAcentos(cat.busca).replace(/[%,()]/g, '') + '*');
+      return q.order('producto').range(desde, desde + 999).then(function (r) {
+        if (r.error) throw r.error;
+        todo = todo.concat(r.data || []);
+        if ((r.data || []).length === 1000) return trae(desde + 1000);
+      });
+    }
+
+    trae(0).then(function () {
+      var comoEsta = { bien: 'Con existencia', sin_existencia: 'Sin existencia',
+                       solo_vencido: 'Solo vencido', por_vencer_30: 'Vence en 30 días',
+                       por_vencer_90: 'Vence en 90 días', bajo_minimo: 'Bajo el mínimo' };
+      var filas = todo.map(function (x) {
+        return [x.producto, x.dosificacion || '', x.presentacion || '', x.categoria,
+                x.unidad || '', Math.round(Number(x.disponible) || 0),
+                Math.round(Number(x.vencido) || 0), x.lotes,
+                x.vence_primero ? window.FARMREP.fechaCorta(x.vence_primero) : '',
+                comoEsta[x.situacion] || x.situacion];
+      });
+      var enc = ['Medicamento o insumo', 'Dosificación', 'Presentación', 'Qué es', 'Se cuenta en',
+                 'Disponibles', 'Vencidas', 'Lotes', 'Vence primero', 'Situación'];
+      var cual = FILTROS_CAT.filter(function (f) { return f.id === cat.filtro; })[0];
+      var titulo = 'Catálogo de la Farmacia Municipal' +
+                   (cat.filtro !== 'todos' ? ' · ' + cual.txt : '') +
+                   (cat.busca ? ' · «' + cat.busca + '»' : '');
+
+      if (formato === 'excel') {
+        window.FARMREP.excel(titulo, [{ nombre: 'Catálogo', titulo: titulo,
+          encabezados: enc, filas: filas,
+          anchos: [38, 16, 20, 14, 12, 12, 10, 8, 14, 18] }]);
+      } else {
+        window.FARMREP.pdfTabla({
+          titulo: 'Catálogo de la Farmacia Municipal',
+          subtitulo: (cat.filtro !== 'todos' ? cual.txt + ' · ' : '') + todo.length + ' renglones',
+          encabezados: enc, filas: filas, horizontal: true, archivo: titulo,
+          columnas: { 0: { cellWidth: 62 }, 1: { cellWidth: 22 }, 2: { cellWidth: 30 },
+                      3: { cellWidth: 20 }, 4: { cellWidth: 18 },
+                      5: { cellWidth: 20, halign: 'right' }, 6: { cellWidth: 18, halign: 'right' },
+                      7: { cellWidth: 13, halign: 'right' }, 8: { cellWidth: 20, halign: 'center' },
+                      9: { cellWidth: 25 } }
+        });
+      }
+      btn.disabled = false; btn.textContent = texto;
+    }).catch(function (e) {
+      btn.disabled = false; btn.textContent = texto;
+      aviso('bad', 'No se pudo preparar la descarga: ' + (e.message || e));
+    });
   }
 
   /* ---------- un medicamento y sus lotes ---------- */

@@ -237,8 +237,12 @@ CUERPO = """
 
   <ol class="pasos">
     <li><b>Busca a la persona</b>
-      <span>Escribe su c&eacute;dula o parte de su nombre. Con tres letras basta.</span></li>
+      <span>La lista se ve sin escribir nada, de 20 en 20. Cada rengl&oacute;n dice su edad,
+      su tel&eacute;fono, cu&aacute;ntos medicamentos toma, cu&aacute;ntas veces ha retirado y
+      cu&aacute;ndo fue la &uacute;ltima vez. Con dos personas del mismo nombre, eso es lo que
+      las distingue. Escribir sirve para acotar: por c&eacute;dula o por nombre.</span></li>
   </ol>
+  __FIG_BUSCAPER__
 
   <ol class="pasos" style="margin-top:16px">
     <li><b>El&iacute;gela de la lista</b>
@@ -265,6 +269,29 @@ CUERPO = """
   </ol>
   __FIG_ENTREGA__
 
+  <h3>Si la persona no est&aacute; registrada</h3>
+  <p>El bot&oacute;n <b>Registrar persona</b> est&aacute; siempre arriba, al lado del buscador:
+  no hay que buscar primero para que aparezca. Pide todos los datos de la ficha, no solo el
+  nombre.</p>
+  <ol class="pasos">
+    <li><b>Escribe la c&eacute;dula y pulsa &laquo;Buscar en el registro&raquo;</b>
+      <span>El sistema consulta el registro electoral y trae el nombre y la fecha de
+      nacimiento. Se teclea menos y no se cometen erratas en el nombre.</span></li>
+    <li><b>Completa lo dem&aacute;s</b>
+      <span>Sexo, tel&eacute;fono y direcci&oacute;n. Lo que no se sepa se deja vac&iacute;o.</span></li>
+  </ol>
+  __FIG_REGPER__
+  <div class="aviso warn">
+    <b>Del registro electoral se toma solo el nombre</b>
+    Ese registro tambi&eacute;n dice d&oacute;nde vota la persona, pero eso <b>no</b> dice
+    d&oacute;nde vive y suele estar desactualizado. Por eso el sistema no lo usa.
+  </div>
+  <div class="aviso ok">
+    <b>Si la c&eacute;dula ya est&aacute; registrada</b>
+    El sistema lo dice antes de crear nada y ofrece usar esa ficha, para no tener a la misma
+    persona dos veces con historiales separados.
+  </div>
+
   <div class="aviso ok">
     <b>Si la persona no est&aacute; registrada</b>
     Aparece el bot&oacute;n &laquo;Registrar persona nueva&raquo;. Con el nombre y la c&eacute;dula
@@ -289,6 +316,12 @@ CUERPO = """
       <span>Medicamento, lote y cantidad, igual que con una persona.</span></li>
   </ol>
   __FIG_CDI__
+
+  <h3>Si el centro no est&aacute; registrado</h3>
+  <p>Se registra desde la misma pantalla con el bot&oacute;n <b>Registrar centro</b>: nombre,
+  qu&eacute; tipo de centro es, direcci&oacute;n, responsable y tel&eacute;fono. Queda guardado
+  para las siguientes entregas, y el responsable se propone solo como quien recibe.</p>
+  __FIG_REGCEN__
 </section>
 
 <section>
@@ -313,6 +346,20 @@ CUERPO = """
       <span>Quedan disponibles de inmediato para quien despacha.</span></li>
   </ol>
   __FIG_RECIBIR__
+
+  <h3>Registrar un medicamento nuevo</h3>
+  <p>El bot&oacute;n <b>Registrar medicamento</b> est&aacute; siempre al lado del buscador.
+  Pide todo lo que distingue una presentaci&oacute;n de otra:</p>
+  <ul>
+    <li><b>Qu&eacute; es</b> &mdash; medicamento o insumo.</li>
+    <li><b>Nombre</b> &mdash; mientras se escribe, avisa si ya hay uno parecido en el
+    cat&aacute;logo. Tener el mismo medicamento dos veces parte su existencia en dos.</li>
+    <li><b>Dosificaci&oacute;n</b> &mdash; la fuerza: 50 mg, 500 mg/5 ml. Es lo que separa un
+    LOSARTAN 50 mg de uno de 100 mg, y confundirlos es un error de medicaci&oacute;n.</li>
+    <li><b>Presentaci&oacute;n</b> &mdash; c&oacute;mo viene: caja de 30, jarabe, ampolla.</li>
+    <li><b>C&oacute;mo se cuenta</b> y <b>desde cu&aacute;ndo avisar</b> de que queda poco.</li>
+  </ul>
+  __FIG_REGMED__
 
   <h3>Sumar a un lote que ya existe</h3>
   <p>Al abrir un medicamento se ven <b>todos sus lotes</b>, con lo que queda en cada uno y su
@@ -415,6 +462,45 @@ CUERPO = """
 </section>
 
 <section>
+  <p class="eyebrow">Papeles y listados</p>
+  <h2>Lo que se imprime y lo que se descarga</h2>
+  <div class="regla"></div>
+  <p class="sub">Todos los documentos llevan el cintillo institucional de la Alcald&iacute;a, el
+  mismo de los dem&aacute;s sistemas del municipio.</p>
+
+  <h3>Acta de entrega-recepci&oacute;n</h3>
+  <p>Cuando se despacha a un centro de salud, al terminar aparece el bot&oacute;n para
+  descargar el <b>acta</b>. Es el documento que respalda la salida del inventario y el que
+  firman las dos partes: sale con el centro, el detalle de lo entregado con su lote y su
+  vencimiento, el total de unidades y los dos espacios de firma con nombre y c&eacute;dula.</p>
+  __FIG_ACTA__
+
+  <h3>Comprobante de entrega</h3>
+  <p>Cuando se despacha a una persona, el mismo bot&oacute;n descarga su <b>comprobante</b>,
+  con lo que retir&oacute; y su firma. Se ofrece, no se descarga solo: no siempre hace falta
+  imprimirlo.</p>
+
+  <h3>Listados en Excel</h3>
+  <p>Bajan <b>completos</b>, no solo lo que se ve en pantalla, y respetan el filtro que
+  est&eacute; puesto. Traen el t&iacute;tulo, la fecha en que se generaron, filtro en los
+  encabezados y la primera fila congelada.</p>
+  <table>
+    <thead><tr><th>Listado</th><th>D&oacute;nde est&aacute;</th><th>Qu&eacute; trae</th></tr></thead>
+    <tbody>
+      <tr><td><b>Cat&aacute;logo</b></td><td>Mercanc&iacute;a &rarr; Registrar lo que llega</td>
+          <td>Cada medicamento con su dosificaci&oacute;n, existencia, vencidas, lotes y
+          cu&aacute;ndo vence el primero. Tambi&eacute;n en PDF.</td></tr>
+      <tr><td><b>Alertas</b></td><td>Mercanc&iacute;a &rarr; Alertas</td>
+          <td>Todo lo vencido y lo que vence en 30 y 90 d&iacute;as. Tambi&eacute;n en PDF.</td></tr>
+      <tr><td><b>Historial de entregas</b></td><td>Administraci&oacute;n &rarr; Historial</td>
+          <td>Todas las entregas: fecha, paciente, qu&eacute; se entreg&oacute; y qui&eacute;n.</td></tr>
+      <tr><td><b>Bit&aacute;cora</b></td><td>Administraci&oacute;n &rarr; Bit&aacute;cora</td>
+          <td>Todo lo que se ha hecho en el sistema, con qui&eacute;n y cu&aacute;ndo.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
   <p class="eyebrow">Reglas del sistema</p>
   <h2>Lo que el sistema no permite</h2>
   <div class="regla"></div>
@@ -505,6 +591,11 @@ FIGURAS = [
     ('__FIG_USUARIOS__', '11-usuarios.jpg',       'El administrador crea la cuenta completa: nombre, correo, puesto y contrase&ntilde;a.'),
     ('__FIG_REVISAR__',  '12-por-revisar.jpg',    'Pacientes cuyo registro hay que completar.'),
     ('__FIG_AREAS__',    '13-areas.jpg',          'Los tres botones del administrador. El t&iacute;tulo cambia con la parte elegida.'),
+    ('__FIG_BUSCAPER__', '15-buscar-persona.jpg', 'La lista de personas: edad, tel&eacute;fono, qu&eacute; toma y cu&aacute;ndo retir&oacute; por &uacute;ltima vez.'),
+    ('__FIG_REGPER__',   '16-registrar-persona.jpg','Registrar una persona, con la consulta al registro electoral.'),
+    ('__FIG_REGCEN__',   '17-registrar-centro.jpg','Registrar un centro de salud al que se despacha.'),
+    ('__FIG_REGMED__',   '18-registrar-medicamento.jpg','Registrar un medicamento con todos sus datos.'),
+    ('__FIG_ACTA__',     '19-acta.jpg',           'El acta de entrega-recepci&oacute;n que firman las dos partes.'),
 ]
 
 cuerpo = CUERPO

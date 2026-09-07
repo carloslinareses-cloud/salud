@@ -7,3 +7,5 @@ manual/pag*.png
 node_modules/
 package-lock.json
 perfil-chrome/
+bajadas-prueba/
+papeles/
