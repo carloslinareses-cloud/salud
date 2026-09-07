@@ -186,6 +186,9 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   .acciones-u{width:100%; justify-content:flex-start}
   .acciones-u button{flex:1 1 auto; min-height:44px; font-size:13px}
   .fila-clave button{min-height:44px}
+  .herr-der{flex:1 1 100%; min-width:0}
+  .dos-columnas{grid-template-columns:1fr}
+  .cifra-linea{flex:1 1 45%}
   /* En el telefono nada que se toque baja de 44 px: es el minimo
      para acertar con el dedo sin fallar. */
   .chips button,.acciones-u button,button.deshacer,.volver,.descargas button,
@@ -216,7 +219,7 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .cifra.alerta b{color:var(--bad-ink)}
 
 /* ---------- botones de filtro ---------- */
-.chips{display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 4px}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 4px}
 .chips button{font:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:9px 15px;
   min-height:42px; border-radius:999px; border:1px solid var(--line);
   background:var(--card); color:var(--ink-soft)}
@@ -231,6 +234,60 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .sit.ojo{background:var(--warn-bg); color:var(--warn-ink); border-color:var(--warn-line)}
 .sit.mal{background:var(--bad-bg); color:var(--bad-ink); border-color:var(--bad-line)}
 .sit.gris{background:var(--rail); color:var(--ink-faint); border-color:var(--line)}
+
+/* ---------- carga rapida del inventario ---------- */
+.dos-columnas{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.dos-columnas label{margin-top:16px}
+.ultimo-cargado{margin-top:18px; padding:14px 16px; border:1px solid var(--ok-line);
+  background:var(--ok-bg); border-radius:12px}
+.ultimo-cargado .lbl{display:block; font-size:11px; font-weight:800; letter-spacing:.06em;
+  text-transform:uppercase; color:var(--ok-ink); opacity:.8}
+.ultimo-cargado b{display:block; font-size:15px; font-weight:800; margin-top:4px;
+  color:var(--ok-ink)}
+.ultimo-cargado > span{display:block; font-size:12.5px; color:var(--ok-ink); opacity:.9;
+  margin-top:2px}
+.ultimo-cargado button{margin-top:11px; width:auto}
+
+/* ---------- barra de herramientas de una lista ---------- */
+.herramientas{display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:16px 0 4px}
+.herramientas .chips{margin:0; flex:1 1 auto}
+.herr-der{display:flex; gap:8px; margin:16px 0 0}
+.herr-der input{margin:0; flex:1; min-width:0}
+.herr-der button{margin:0; flex:none; width:auto; padding:12px 18px; min-height:46px;
+  white-space:nowrap}
+
+/* ---------- cifras en linea, que ademas filtran ---------- */
+.cifras-linea{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 2px}
+.cifra-linea{flex:1 1 130px; text-align:left; font:inherit; cursor:pointer;
+  padding:11px 14px; border-radius:11px; border:1px solid var(--line);
+  background:var(--card); color:var(--ink)}
+.cifra-linea:hover{border-color:var(--navy-2); background:var(--rail)}
+.cifra-linea b{display:block; font-size:22px; font-weight:850; letter-spacing:-.03em;
+  line-height:1; font-variant-numeric:tabular-nums}
+.cifra-linea span{display:block; font-size:11.5px; font-weight:650; color:var(--ink-soft);
+  margin-top:5px}
+.cifra-linea.ok b{color:var(--ok-ink)}
+.cifra-linea.mal b{color:var(--bad-ink)}
+.cifra-linea.ojo b{color:var(--warn-ink)}
+.cifra-linea.gris b{color:var(--ink-faint)}
+
+/* ---------- la barra sobre la lista ---------- */
+.barra-lista{display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:10px; margin-top:14px}
+.barra-lista .conteo{margin:0}
+.barra-lista .descargas{margin:0}
+.barra-lista .descargas button{padding:8px 14px; min-height:38px; font-size:12.5px}
+
+/* ---------- tabla de datos ---------- */
+.tabla.datos tr.clic{cursor:pointer}
+.tabla.datos tr.clic:focus-visible{outline:2px solid var(--navy-2); outline-offset:-2px}
+.tabla.datos td b{font-weight:800}
+.tabla.datos td b.cero{color:var(--ink-faint); font-weight:700}
+.tabla.datos .chico{display:block; margin-top:2px; font-size:11px; font-weight:650;
+  color:var(--ink-faint)}
+.tabla.datos .chico.mal{color:var(--bad-ink)}
+.tabla.datos .num .chico{color:var(--navy-2)}
+.tabla.datos .c-med b{font-size:14px}
 
 /* ---------- fichas del catalogo ---------- */
 .fichas{display:flex; flex-direction:column; gap:8px; margin-top:6px}
@@ -249,6 +306,13 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   color:var(--ink-faint); letter-spacing:0; margin-top:3px}
 .ficha-lotes{display:block; font-size:11.5px; color:var(--ink-soft); margin-top:5px}
 .ficha-vence{display:block; font-size:11.5px; color:var(--ink-faint); margin-top:1px}
+
+.ficha-cajas{display:block; font-size:11.5px; font-weight:700; color:var(--navy-2);
+  margin-top:3px}
+.pc-cajas{font-style:normal; font-size:12.5px; font-weight:700; color:var(--ink-faint)}
+.tabla .num .chico{display:block; margin-top:2px; font-weight:600}
+.ci-tope em{display:block; font-style:normal; font-size:10.5px; font-weight:700;
+  color:var(--navy-2); margin-top:2px}
 
 /* ---------- cabecera de un medicamento ---------- */
 .cabecera-prod{margin:10px 0 4px}
@@ -317,6 +381,24 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
    fuera, obligando a arrastrar en cada renglon. Ahi se convierte en
    tarjetas, con la casilla siempre a la vista. */
 @media (max-width:640px){
+  /* Las tablas se vuelven tarjetas: en 375 px una tabla no cabe y obliga
+     a arrastrar de lado en cada renglon. */
+  .tabla.datos{min-width:0; display:block}
+  .tabla.datos thead{display:none}
+  .tabla.datos tbody,.tabla.datos tr{display:block}
+  .tabla-caja:has(.datos){overflow-x:visible; border:0}
+  .tabla.datos tr{border:1px solid var(--line); border-radius:11px; padding:12px;
+    margin-bottom:9px; background:var(--card)}
+  .tabla.datos td{display:flex; align-items:baseline; justify-content:space-between;
+    gap:12px; padding:4px 0; border:0; text-align:left}
+  .tabla.datos td::before{content:attr(data-col); font-size:11px; font-weight:800;
+    letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint); flex:none}
+  .tabla.datos td.c-med{display:block; padding:0 0 8px; border-bottom:1px solid var(--line);
+    margin-bottom:6px}
+  .tabla.datos td.c-med::before{content:none}
+  .tabla.datos td.der{text-align:right}
+  .tabla.datos .chico{display:inline-block; margin:0 0 0 8px}
+
   .tabla.hoja{min-width:0; display:block}
   .tabla.hoja thead{display:none}
   .tabla.hoja tbody,.tabla.hoja tr{display:block}

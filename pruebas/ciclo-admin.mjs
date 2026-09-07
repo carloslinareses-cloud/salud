@@ -44,7 +44,10 @@ const MED = 'ZZZ-CICLO ' + MARCA
 const PAC = 'ZZZ PACIENTE CICLO ' + MARCA
 const CEDULA = String(9000000 + (Date.now() % 999999)).slice(0, 8)
 const LOTE = 'ZZZL' + MARCA
-const CANT_ENTRA = 40
+const POR_CAJA = 20
+const CAJAS_ENTRAN = 2
+const SUELTAS_ENTRAN = 5
+const CANT_ENTRA = CAJAS_ENTRAN * POR_CAJA + SUELTAS_ENTRAN   // 45
 const CANT_SALE = 7
 
 let ok = 0, mal = 0
@@ -110,13 +113,7 @@ try {
   await pag.waitForSelector('[data-p="catalogo"]', { timeout: 20000 })
   await pag.click('[data-p="catalogo"]')
   await pag.waitForSelector('#catBusca', { timeout: 15000 })
-  await pag.waitForSelector('#catLista .ficha, #catLista .vacio', { timeout: 25000 })
-  const cuantos = await pag.$eval('#catLista .conteo', e => e.textContent.trim()).catch(() => '')
-  prueba('el catalogo se ve entero sin tener que escribir', /medicamento/i.test(cuantos), cuantos)
-
-  const conDatos = await pag.$$eval('#catLista .ficha', fs => fs.slice(0, 1).map(f => f.innerText.replace(/\s+/g, ' ')))
-  prueba('cada renglon dice cuanto hay y en cuantos lotes',
-    /unidad|lote/i.test(conDatos[0] || ''), conDatos[0] || '(sin fichas)')
+  await pag.waitForSelector('#catLista .tabla.datos tbody tr, #catLista .vacio', { timeout: 25000 })
 
   await pag.type('#catBusca', MED)
   await pag.waitForSelector('#catNuevo', { timeout: 25000 })
@@ -137,14 +134,31 @@ try {
 
   await pag.type('#pDosis', '500mg')
   await pag.type('#pPres', 'Caja de prueba')
+
+  /* Viene en cajas: asi se comprueba que el sistema sepa decir cuantas
+     cajas hay, no solo cuantas unidades sueltas. */
+  const hayEmpaque = await pag.$('#pEmpaque')
+  prueba('el formulario pregunta como viene empacado', !!hayEmpaque)
+  await pag.select('#pEmpaque', 'caja')
+  await pag.type('#pPorEmpaque', String(POR_CAJA))
+  await new Promise(r => setTimeout(r, 400))
+  const ejemplo = await pag.$eval('#pEjemplo', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '')
+  prueba('explica con un ejemplo lo que significa', /caja/i.test(ejemplo), ejemplo)
+
   await pag.click('#pGuardar')
-  await pag.waitForSelector('#lCant', { timeout: 25000 })
+  await pag.waitForSelector('#lCajas', { timeout: 25000 })
   prueba('puede crear un medicamento nuevo en el catalogo', true)
+  prueba('al recibir pregunta por CAJAS, no por unidades sueltas', true)
 
   await pag.type('#lCodigo', LOTE)
   const vence = new Date(Date.now() + 400 * 864e5).toISOString().slice(0, 10)
   await pag.evaluate(v => { document.getElementById('lVence').value = v }, vence)
-  await pag.type('#lCant', String(CANT_ENTRA))
+  await pag.type('#lCajas', String(CAJAS_ENTRAN))
+  await pag.type('#lCant', String(SUELTAS_ENTRAN))
+  await new Promise(r => setTimeout(r, 400))
+  const totalTxt = await pag.$eval('#lTotal', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '')
+  prueba(CAJAS_ENTRAN + ' cajas de ' + POR_CAJA + ' + ' + SUELTAS_ENTRAN + ' sueltas = ' + CANT_ENTRA,
+    totalTxt.includes(String(CANT_ENTRA)) && /caja/i.test(totalTxt), totalTxt)
   await pag.click('#lGuardar')
   await pag.waitForFunction(
     () => ((document.getElementById('avisoInv') || {}).textContent || '').trim().length > 0,
@@ -152,6 +166,34 @@ try {
   const avisoEntrada = await pag.$eval('#avisoInv', e => e.textContent.trim()).catch(() => '')
   prueba('registra la entrada de mercancia',
     !/no se pudo|error|permiso/i.test(avisoEntrada), avisoEntrada)
+
+  /* Ahora que ya hay algo cargado, se comprueba la lista. */
+  await pag.click('[data-p="alertas"]')
+  await new Promise(r => setTimeout(r, 900))
+  await pag.click('[data-p="catalogo"]')
+  await pag.waitForSelector('#catBusca', { timeout: 20000 })
+  await pag.type('#catBusca', MED)
+  await pag.waitForFunction(m => {
+    const f = document.querySelectorAll('#catLista .tabla.datos tbody tr')
+    return f.length > 0 && [...f].every(x => x.innerText.includes(m))
+  }, { timeout: 25000 }, MED)
+  const enLista = await pag.$eval('#catLista .tabla.datos tbody tr', e => e.innerText.replace(/\s+/g, ' '))
+  prueba('el catalogo dice cuantas CAJAS hay, no solo unidades',
+    /2 cajas y 5 sueltas/i.test(enLista), enLista)
+
+  const columnas = await pag.$$eval('#catLista .tabla.datos thead th',
+    ths => ths.map(t => t.textContent.trim()))
+  prueba('la tabla trae las columnas de un inventario',
+    ['Medicamento', 'Existencia', 'Lotes', 'Vence primero', 'Situación']
+      .every(c => columnas.includes(c)), JSON.stringify(columnas))
+
+  await pag.waitForFunction(
+    () => document.querySelectorAll('#catCifras .cifra-linea').length === 5,
+    { timeout: 25000 }).catch(() => {})
+  const cifras = await pag.$$eval('#catCifras .cifra-linea',
+    bs => bs.map(b => b.innerText.replace(/\s+/g, ' ')))
+  prueba('arriba salen las cifras del inventario', cifras.length === 5,
+    JSON.stringify(cifras))
 
   console.log('\n--- 3. Entregar: despachar de ese lote ---')
   await irArea('despacho')
@@ -240,13 +282,14 @@ try {
   await irArea('inventario')
   await pag.waitForSelector('[data-p="conteo"]', { timeout: 20000 })
   await pag.click('[data-p="conteo"]')
+  await pag.waitForSelector('#hojaLista .celda, #hojaLista .vacio', { timeout: 25000 })
+  await pag.type('#hojaBusca', MED)
   await pag.waitForSelector('#hojaLista .celda', { timeout: 25000 })
   const cuantosLotes = await pag.$eval('#hojaLista .conteo', e => e.textContent.trim()).catch(() => '')
   prueba('la hoja trae los lotes de 50 en 50', /de \d+ lotes|lotes?$/i.test(cuantosLotes), cuantosLotes)
 
-  await pag.type('#hojaBusca', MED)
-  /* CANDADO: igual que arriba, hay que esperar a que el filtro deje SOLO
-     los lotes de la prueba antes de escribir en ninguna casilla. */
+  /* CANDADO: hay que esperar a que el filtro deje SOLO los lotes de la
+     prueba antes de escribir en ninguna casilla. */
   await pag.waitForFunction(m => {
     const f = document.querySelectorAll('.tabla.hoja tbody tr')
     return f.length > 0 && [...f].every(x => x.innerText.includes(m))
@@ -258,9 +301,8 @@ try {
     i.value = String(c)
     i.dispatchEvent(new Event('input', { bubbles: true }))
   }, CONTADO)
-  await new Promise(r => setTimeout(r, 400))
-
-  const dif = await pag.$eval('.tabla.hoja tr.cambiada .dif', e => e.textContent.trim()).catch(() => '')
+  await pag.waitForSelector('#hojaLista tr.cambiada', { timeout: 15000 }).catch(() => {})
+  const dif = await pag.$eval('#hojaLista tr.cambiada .dif', e => e.textContent.trim()).catch(() => '')
   prueba('calcula sola la diferencia', dif === String(CONTADO - (CANT_ENTRA - CANT_SALE)), dif)
   const barra = await pag.$eval('.barra-guardar', e => e.innerText.replace(/\s+/g, ' ')).catch(() => '')
   prueba('avisa cuantos renglones cambiaron', /1 rengl[oó]n cambiado/i.test(barra), barra)

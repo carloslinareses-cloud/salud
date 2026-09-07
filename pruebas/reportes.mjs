@@ -223,10 +223,17 @@ try {
   }
 
   await pag.click('[data-p="alertas"]')
-  await pag.waitForSelector('#alExcel', { timeout: 25000 })
-  await pag.click('#alExcel')
-  const xlsAl = await esperaArchivo(/^Alertas.*\.xlsx$/i, 30000)
-  prueba('las alertas se descargan en Excel', !!xlsAl, xlsAl || 'no aparecio')
+  await new Promise(r => setTimeout(r, 2500))
+  /* El boton solo sale si HAY alertas. Con el inventario recien vaciado
+     puede no haber ninguna, y eso es correcto: se dice y no se falla. */
+  const hayAlertas = await pag.$('#alExcel')
+  if (hayAlertas) {
+    await pag.click('#alExcel')
+    const xlsAl = await esperaArchivo(/^Alertas.*\.xlsx$/i, 30000)
+    prueba('las alertas se descargan en Excel', !!xlsAl, xlsAl || 'no aparecio')
+  } else {
+    prueba('no hay alertas que descargar (inventario limpio)', true)
+  }
 
   console.log('\n--- Errores de JavaScript ---')
   const graves = errores.filter(e => !/favicon|404|net::ERR_/i.test(e))

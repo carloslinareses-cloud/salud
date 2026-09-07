@@ -591,7 +591,8 @@
   function agregarDelTratamiento(x) {
     var av = document.getElementById('zonaAviso');
     sb.from('v_lotes_para_despachar')
-      .select('lote_id,producto_id,producto,lote,vence,existencia,situacion')
+      .select('lote_id,producto_id,producto,lote,vence,existencia,en_cajas,'+
+              'empaque,unidades_por_empaque,situacion')
       .eq('producto_id', x.producto_id).limit(1)
       .then(function (r) {
         var l = r.data && r.data[0];
@@ -641,8 +642,8 @@
     /* La vista ya viene ordenada por el que vence primero (FEFO) y sin
        vencidos: lo primero de la lista es lo que hay que sacar. */
     var p = sb.from('v_lotes_para_despachar')
-      .select('lote_id,producto_id,producto,dosificacion,lote,vence,existencia,situacion',
-              { count: 'exact' });
+      .select('lote_id,producto_id,producto,dosificacion,lote,vence,existencia,' +
+              'en_cajas,empaque,unidades_por_empaque,situacion', { count: 'exact' });
     if (q.length >= 2) p = p.ilike('producto', '*' + q.replace(/[%,()]/g, '') + '*');
 
     p.limit(30).then(function (r) {
@@ -671,6 +672,7 @@
               ' · vence ' + fecha(x.vence) + '</span></div>' +
             '<div class="ficha-datos">' +
               '<span class="ficha-cant">' + Math.round(x.existencia) + '<em>quedan</em></span>' +
+              (x.en_cajas ? '<span class="ficha-cajas">' + esc(x.en_cajas) + '</span>' : '') +
             '</div>' +
             (yaEsta ? '<span class="sit ok">Ya está</span>'
                     : '<span class="sit ' + m.c + '">' + m.t + '</span>') +
@@ -686,7 +688,8 @@
   function agregar(l) {
     if (cesta.some(function (c) { return c.lote_id === l.lote_id; })) return;
     cesta.push({ lote_id: l.lote_id, producto: l.producto, lote: l.lote,
-                 vence: l.vence, disponible: l.existencia, cantidad: 1 });
+                 vence: l.vence, disponible: l.existencia, cantidad: 1,
+                 empaque: l.empaque, porEmpaque: l.unidades_por_empaque });
     pintarRenglones(); refrescarBoton();
     var caja = document.getElementById('buscaMed');
     buscarMed(caja ? caja.value.trim() : '');
@@ -694,6 +697,18 @@
        queda abajo en la lista y no se ve que pasó nada. */
     var cst = document.getElementById('renglones');
     if (cst && cst.scrollIntoView) cst.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* Lo mismo dicho en cajas, cuando el medicamento viene empacado. */
+  function enCajas(unidades, c) {
+    var n = c && c.porEmpaque;
+    if (!(n > 1) || !(unidades > 0)) return '';
+    var emp = c.empaque || 'caja';
+    var cajas = Math.floor(unidades / n), sueltas = unidades % n;
+    var t = [];
+    if (cajas) t.push(cajas + ' ' + emp + (cajas === 1 ? '' : 's'));
+    if (sueltas) t.push(sueltas + ' suelta' + (sueltas === 1 ? '' : 's'));
+    return t.join(' y ');
   }
 
   function pintarRenglones() {
@@ -729,7 +744,9 @@
               esc(c.producto) + '">' +
             '<button type="button" class="paso" data-mas="' + i + '" aria-label="Una más"' +
               (c.cantidad >= max ? ' disabled' : '') + '>+</button>' +
-            '<span class="ci-tope">de ' + max + '</span>' +
+            '<span class="ci-tope">de ' + max +
+              (enCajas(c.cantidad, c) ? '<em>' + esc(enCajas(c.cantidad, c)) + '</em>' : '') +
+            '</span>' +
           '</div>' +
           '<button type="button" class="ci-quitar" data-q="' + i + '" ' +
             'aria-label="Quitar ' + esc(c.producto) + ' de la entrega">✕</button>' +
