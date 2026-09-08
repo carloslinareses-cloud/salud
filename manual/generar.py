@@ -99,7 +99,10 @@ ul.lista li::marker{color:var(--gold)}
 .dato{font-family:"IBM Plex Mono",monospace;font-size:10pt}
 
 figure{margin:14px 0 0;break-inside:avoid-page;page-break-inside:avoid}
-figure img{width:100%;height:auto;max-height:112mm;object-fit:contain;object-position:top;
+/* max-width y no width: una captura chica (el boton del tema mide 230 px)
+   estirada a todo el ancho se ve pixelada y ridicula. Que cada una salga
+   a su tamano, sin pasarse del ancho de la pagina. */
+figure img{max-width:100%;height:auto;max-height:112mm;object-fit:contain;object-position:top;
   display:block;border:1px solid var(--line);border-radius:8px;background:#fff}
 figcaption{margin-top:5px;font-size:8.8pt;color:var(--faint);font-style:italic}
 footer{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);
@@ -126,24 +129,37 @@ CUERPO = """
   <div class="regla"></div>
 
   <p>Lleva el control completo de la farmacia municipal: <b>lo que entra, lo que sale y lo que
-  queda</b>. Todo el personal trabaja sobre una sola herramienta, cada uno con lo que le
+  queda</b>. Y lleva tambi&eacute;n la ficha de cada persona y de cada centro de salud a los que
+  se despacha. Todo el personal trabaja sobre una sola herramienta, cada uno con lo que le
   corresponde seg&uacute;n su perfil.</p>
 
   <p>Funciona desde el tel&eacute;fono o desde la computadora, con cualquier navegador.
   No hay que instalar nada.</p>
 
+  <div class="caja">
+    <h4>Sobre las fotos de este manual</h4>
+    <p>Todo lo que aparece en las im&aacute;genes es <b>inventado</b>: la persona, el centro y
+    los medicamentos que empiezan por &laquo;EJEMPLO&raquo; no existen. Se hizo as&iacute; a
+    prop&oacute;sito, porque este manual se imprime y se pasa de mano en mano, y no puede llevar
+    el nombre, la c&eacute;dula ni el tel&eacute;fono de un paciente de verdad.</p>
+  </div>
+
   <h3>Lo que aporta</h3>
   <ul class="lista">
     <li><b>El inventario siempre cuadra.</b> La existencia se calcula sola a partir de los
-      movimientos registrados.</li>
+      movimientos registrados. No se escribe a mano en ninguna parte.</li>
     <li><b>No se entregan medicamentos vencidos.</b> Al despachar, el sistema propone siempre
-      el lote que vence primero.</li>
+      el lote que vence primero, y la base rechaza un lote vencido.</li>
+    <li><b>Cada persona tiene su ficha:</b> sus patolog&iacute;as y las medicinas que necesita.
+      Cuando vuelve, sale todo en pantalla y se entrega de un toque.</li>
+    <li><b>Cada centro tiene su lista de insumos</b>, con cu&aacute;nto suele pedir. El pedido
+      se arma solo.</li>
     <li><b>Queda constancia de qui&eacute;n entreg&oacute; qu&eacute;, a qui&eacute;n y
-      cu&aacute;ndo.</b></li>
+      cu&aacute;ndo.</b> Eso no se puede borrar.</li>
     <li><b>Avisa antes de que algo se venza</b>, con 30 y 90 d&iacute;as de anticipaci&oacute;n.</li>
   </ul>
 
-  <h3>Las tres piezas</h3>
+  <h3>Las tres piezas del inventario</h3>
   <table>
     <thead><tr><th>Pieza</th><th>Qu&eacute; es</th><th>Ejemplo</th></tr></thead>
     <tbody>
@@ -169,364 +185,375 @@ CUERPO = """
     <p class="dato">salud.alcaldiadecharallave.com</p>
   </div>
 
+  <p>Se entra con el <b>correo</b> y la <b>contrase&ntilde;a</b> que da el administrador. Nadie
+  se registra solo: al personal lo crea el administrador desde su panel.</p>
+
+  <p>La primera vez que alguien entra, el sistema le <b>obliga a cambiar la
+  contrase&ntilde;a</b>. La que dio el administrador es provisional y solo sirve para esa
+  primera vez.</p>
+
   __FIG_ENTRAR__
-
-  <ol class="pasos">
-    <li><b>Reg&iacute;strate la primera vez</b>
-      <span>Escribe tu correo y la contrase&ntilde;a que quieras, y pulsa
-      &laquo;Reg&iacute;strate aqu&iacute;&raquo;.</span></li>
-    <li><b>El administrador te asigna tu perfil</b>
-      <span>&Eacute;l define qu&eacute; vas a hacer: entregar medicamentos, recibir mercanc&iacute;a
-      o administrar.</span></li>
-    <li><b>Cambia tu contrase&ntilde;a al entrar</b>
-      <span>El sistema te la pide la primera vez, para que tu clave sea solo tuya.</span></li>
-  </ol>
-
-  <div class="aviso warn">
-    <b>Si olvidas tu contrase&ntilde;a</b>
-    El administrador te la restablece, y el sistema te pedir&aacute; elegir una nueva al entrar.
-  </div>
 
   <h3>Los tres perfiles</h3>
   <table>
-    <thead><tr><th>Perfil</th><th>Puede hacer</th><th>No puede</th></tr></thead>
+    <thead><tr><th>Perfil</th><th>Qu&eacute; ve</th><th>Qu&eacute; puede hacer</th></tr></thead>
     <tbody>
-      <tr><td><b>Despacho</b><br><span class="sub">3 personas</span></td>
-          <td>Entregar medicamentos a pacientes y a centros de salud. Consultar existencias.
-              Registrar un paciente nuevo.</td>
-          <td>Recibir mercanc&iacute;a, crear medicamentos, corregir existencias.</td></tr>
-      <tr><td><b>Inventario</b><br><span class="sub">1 persona</span></td>
-          <td>Registrar lo que llega, crear medicamentos y lotes, dar de baja vencidos,
-              corregir existencias tras un conteo.</td>
-          <td>Entregar medicamentos.</td></tr>
-      <tr><td><b>Administrador</b><br><span class="sub">1 persona</span></td>
-          <td>Todo lo anterior, m&aacute;s crear, desactivar y retirar usuarios, ver la actividad de todos
-              y consultar la bit&aacute;cora.</td>
-          <td>Modificar la bit&aacute;cora.</td></tr>
+      <tr><td><b>Despacho</b></td><td>Solo la pantalla de Entregar</td>
+          <td>Entregar a personas y a centros. Registrar a alguien nuevo en el momento.
+              <b>No carga mercanc&iacute;a.</b></td></tr>
+      <tr><td><b>Inventario</b></td><td>Solo la pantalla de Mercanc&iacute;a</td>
+          <td>Registrar lo que llega, el cat&aacute;logo, las alertas, las fichas de personas y
+              centros, el tablero de entregas y la correcci&oacute;n de existencia.
+              <b>No despacha.</b></td></tr>
+      <tr><td><b>Administrador</b></td><td>Las tres &aacute;reas</td>
+          <td>Todo lo anterior, m&aacute;s los usuarios, la bit&aacute;cora y el historial.</td></tr>
     </tbody>
   </table>
 
-  <h3>El administrador tiene el ciclo completo</h3>
-  <p>Al entrar como administrador aparecen tres botones arriba. Con ellos se pasa de una parte
-  del trabajo a otra sin salir ni volver a entrar:</p>
-  <ul>
-    <li><b>Entregar</b> &mdash; la misma pantalla del perfil de despacho: buscar al paciente o al
-    centro, elegir el lote y registrar la entrega.</li>
-    <li><b>Mercanc&iacute;a</b> &mdash; la misma pantalla del perfil de inventario: registrar lo que
-    llega, ver alertas de vencimiento, dar de baja y corregir existencias.</li>
-    <li><b>Administraci&oacute;n</b> &mdash; el tablero, la bit&aacute;cora, los usuarios y los
-    pacientes por completar.</li>
-  </ul>
-  __FIG_AREAS__
-  <p>Lo que se est&eacute; haciendo no se pierde al cambiar de bot&oacute;n: se puede dejar una
-  entrega a medio armar, ir a mirar la existencia y volver, y sigue ah&iacute;. El sistema
-  recuerda tambi&eacute;n en qu&eacute; parte se estaba, para volver ah&iacute; al entrar de nuevo.</p>
-  <div class="aviso warn">
-    <b>Queda registrado igual</b>
-    Cuando el administrador entrega o recibe mercanc&iacute;a, la bit&aacute;cora lo anota con su
-    nombre, exactamente igual que a cualquier otra persona. Nadie queda fuera del registro.
+  <div class="caja">
+    <h4>Por qu&eacute; despacho e inventario est&aacute;n separados</h4>
+    <p>Quien <b>carga</b> la mercanc&iacute;a no es quien la <b>saca</b>. Si la misma persona
+    hiciera las dos cosas, nadie podr&iacute;a cuadrar el inventario contra ella. No es solo la
+    pantalla: la base de datos tambi&eacute;n lo impide, as&iacute; que no hay forma de saltarlo.</p>
   </div>
+
+  <h3>El administrador ve tres botones arriba</h3>
+  __FIG_AREAS__
+  <p class="sub">Cambia entre ellos sin perder lo que estaba haciendo: si arma una entrega, va a
+  mirar la existencia y vuelve, su entrega sigue ah&iacute;.</p>
+
+  <h3>Modo claro y modo oscuro</h3>
+  __FIG_TEMA__
+  <p>El bot&oacute;n de arriba a la derecha cambia entre los dos y se acuerda de lo que elija
+  cada quien. Si no se toca, respeta el modo que tenga el tel&eacute;fono. Sirve para la calle:
+  con sol, el modo claro se lee mucho mejor.</p>
 </section>
 
 <section>
-  <p class="eyebrow">Perfil despacho</p>
+  <p class="eyebrow">Entregar</p>
   <h2>Entregar a una persona</h2>
   <div class="regla"></div>
-  <p class="sub">Es la pantalla que m&aacute;s se usa. Est&aacute; pensada para atender
-  r&aacute;pido, desde el tel&eacute;fono, con la persona esperando.</p>
 
-  <ol class="pasos">
-    <li><b>Busca a la persona</b>
-      <span>La lista se ve sin escribir nada, de 20 en 20. Cada rengl&oacute;n dice su edad,
-      su tel&eacute;fono, cu&aacute;ntos medicamentos toma, cu&aacute;ntas veces ha retirado y
-      cu&aacute;ndo fue la &uacute;ltima vez. Con dos personas del mismo nombre, eso es lo que
-      las distingue. Escribir sirve para acotar: por c&eacute;dula o por nombre.</span></li>
-  </ol>
-  __FIG_BUSCAPER__
+  <p>Es la pantalla que m&aacute;s se usa. Van cuatro pasos: <b>buscar a la persona</b>,
+  <b>agregar lo que se lleva</b>, <b>registrar</b> e <b>imprimir el comprobante</b>.</p>
 
-  <ol class="pasos" style="margin-top:16px">
-    <li><b>El&iacute;gela de la lista</b>
-      <span>Debajo de su nombre aparece <b>su tratamiento</b>: cada medicamento que toma, con las
-      unidades que hay de cada uno. En verde los que s&iacute; hay; apagados los que est&aacute;n
-      agotados o solo tienen existencia vencida. Se toca uno y se agrega solo, con el lote que
-      vence primero ya elegido.</span></li>
-  </ol>
-  __FIG_BUSCAR2__
+  <h3>1. Buscar a la persona</h3>
+  <p>Se busca por <b>c&eacute;dula o por nombre</b>. La lista sale sin escribir nada, y cada
+  rengl&oacute;n dice la edad, el tel&eacute;fono, cu&aacute;ntas medicinas necesita y
+  cu&aacute;ndo retir&oacute; por &uacute;ltima vez: con dos personas del mismo nombre, eso es lo
+  que las distingue.</p>
+  __FIG_BUSCARPER__
 
-  <ol class="pasos" style="margin-top:16px">
-    <li><b>O b&uacute;scalo en la lista</b>
-      <span>Sin escribir nada aparece todo lo que hay disponible hoy, ordenado por el que vence
-      primero, con su lote, su fecha y cu&aacute;ntas unidades quedan. Escribir solo sirve para
-      acotar. Lo que ya est&aacute; en la entrega se marca &laquo;Ya est&aacute;&raquo;.</span></li>
-  </ol>
-  __FIG_LOTE__
-
-  <ol class="pasos" style="margin-top:16px">
-    <li><b>Elige el lote y pon la cantidad</b>
-      <span>Se pueden agregar varios medicamentos a la misma entrega.</span></li>
-    <li><b>Pulsa &laquo;Registrar la entrega&raquo;</b>
-      <span>Se descuenta del inventario y queda registrado con tu nombre.</span></li>
-  </ol>
-  __FIG_ENTREGA__
-
-  <h3>Si la persona no est&aacute; registrada</h3>
-  <p>El bot&oacute;n <b>Registrar persona</b> est&aacute; siempre arriba, al lado del buscador:
-  no hay que buscar primero para que aparezca. Pide todos los datos de la ficha, no solo el
-  nombre.</p>
-  <ol class="pasos">
-    <li><b>Escribe la c&eacute;dula y pulsa &laquo;Buscar en el registro&raquo;</b>
-      <span>El sistema consulta el registro electoral y trae el nombre y la fecha de
-      nacimiento. Se teclea menos y no se cometen erratas en el nombre.</span></li>
-    <li><b>Completa lo dem&aacute;s</b>
-      <span>Sexo, tel&eacute;fono y direcci&oacute;n. Lo que no se sepa se deja vac&iacute;o.</span></li>
-  </ol>
+  <h3>Si no est&aacute; registrada</h3>
+  <p>Con el bot&oacute;n <b>+ Registrar persona</b> se le abre la ficha completa. Escribiendo la
+  c&eacute;dula y pulsando <b>Buscar en el registro</b>, el sistema trae el nombre y la fecha de
+  nacimiento del registro electoral: se teclea menos y se evitan las erratas.</p>
+  <p>Ah&iacute; mismo se le anotan sus <b>patolog&iacute;as</b> y las <b>medicinas que
+  necesita</b>. No hace falta: se puede registrar solo con los datos y anotarlas despu&eacute;s.</p>
   __FIG_REGPER__
-  <div class="aviso warn">
-    <b>Del registro electoral se toma solo el nombre</b>
-    Ese registro tambi&eacute;n dice d&oacute;nde vota la persona, pero eso <b>no</b> dice
-    d&oacute;nde vive y suele estar desactualizado. Por eso el sistema no lo usa.
-  </div>
-  <div class="aviso ok">
-    <b>Si la c&eacute;dula ya est&aacute; registrada</b>
-    El sistema lo dice antes de crear nada y ofrece usar esa ficha, para no tener a la misma
-    persona dos veces con historiales separados.
-  </div>
-
-  <div class="aviso ok">
-    <b>Si la persona no est&aacute; registrada</b>
-    Aparece el bot&oacute;n &laquo;Registrar persona nueva&raquo;. Con el nombre y la c&eacute;dula
-    basta para atenderla en el momento; el tel&eacute;fono es opcional.
-  </div>
-</section>
-
-<section>
-  <p class="eyebrow">Perfil despacho</p>
-  <h2>Entregar a un centro de salud</h2>
-  <div class="regla"></div>
-  <p class="sub">Para los despachos a un CDI, un ambulatorio o un consultorio popular.</p>
-
-  <ol class="pasos">
-    <li><b>Cambia a &laquo;A un centro (CDI)&raquo;</b>
-      <span>Es el bot&oacute;n de arriba de la pantalla.</span></li>
-    <li><b>Busca el centro</b><span>Escribe parte de su nombre.</span></li>
-    <li><b>Anota qui&eacute;n recibe</b>
-      <span>Nombre, apellido y c&eacute;dula de quien firma. Es la constancia del traspaso, y el
-      sistema la exige.</span></li>
-    <li><b>Carga los renglones y registra</b>
-      <span>Medicamento, lote y cantidad, igual que con una persona.</span></li>
-  </ol>
-  __FIG_CDI__
-
-  <h3>Si el centro no est&aacute; registrado</h3>
-  <p>Se registra desde la misma pantalla con el bot&oacute;n <b>Registrar centro</b>: nombre,
-  qu&eacute; tipo de centro es, direcci&oacute;n, responsable y tel&eacute;fono. Queda guardado
-  para las siguientes entregas, y el responsable se propone solo como quien recibe.</p>
-  __FIG_REGCEN__
-</section>
-
-<section>
-  <p class="eyebrow">Perfil inventario</p>
-  <h2>Registrar la mercanc&iacute;a que llega</h2>
-  <div class="regla"></div>
-
-  <ol class="pasos">
-    <li><b>Entra a &laquo;Registrar lo que llega&raquo;</b></li>
-    <li><b>Busca el medicamento</b>
-      <span>El cat&aacute;logo se ve completo sin escribir nada, de 50 en 50, y cada rengl&oacute;n
-      dice cu&aacute;ntas unidades hay, en cu&aacute;ntos lotes y cu&aacute;ndo vence el primero.
-      Se puede filtrar por <i>Con existencia</i>, <i>Sin existencia</i>, <i>Por vencerse</i> o
-      <i>Solo vencido</i>. Si es la primera vez que llega, se crea desde la misma
-      pantalla.</span></li>
-    <li><b>Copia el n&uacute;mero de lote de la caja</b>
-      <span>Tal como viene impreso. Permite rastrear el medicamento si el fabricante lo
-      retira.</span></li>
-    <li><b>Pon la fecha de vencimiento</b>
-      <span>Es lo que permite avisar a tiempo y ordenar por el que vence primero.</span></li>
-    <li><b>Escribe cu&aacute;ntas unidades llegaron y registra</b>
-      <span>Quedan disponibles de inmediato para quien despacha.</span></li>
-  </ol>
-  __FIG_RECIBIR__
-
-  <h3>Registrar un medicamento nuevo</h3>
-  <p>El bot&oacute;n <b>Registrar medicamento</b> est&aacute; siempre al lado del buscador.
-  Pide todo lo que distingue una presentaci&oacute;n de otra:</p>
-  <ul>
-    <li><b>Qu&eacute; es</b> &mdash; medicamento o insumo.</li>
-    <li><b>Nombre</b> &mdash; mientras se escribe, avisa si ya hay uno parecido en el
-    cat&aacute;logo. Tener el mismo medicamento dos veces parte su existencia en dos.</li>
-    <li><b>Dosificaci&oacute;n</b> &mdash; la fuerza: 50 mg, 500 mg/5 ml. Es lo que separa un
-    LOSARTAN 50 mg de uno de 100 mg, y confundirlos es un error de medicaci&oacute;n.</li>
-    <li><b>Presentaci&oacute;n</b> &mdash; c&oacute;mo viene: caja de 30, jarabe, ampolla.</li>
-    <li><b>C&oacute;mo se cuenta</b> y <b>desde cu&aacute;ndo avisar</b> de que queda poco.</li>
-  </ul>
-  __FIG_REGMED__
-
-  <h3>Sumar a un lote que ya existe</h3>
-  <p>Al abrir un medicamento se ven <b>todos sus lotes</b>, con lo que queda en cada uno y su
-  situaci&oacute;n. Si lo que lleg&oacute; es del mismo lote que ya est&aacute; en el anaquel, se
-  le suma con el bot&oacute;n <b>Sumar</b>: as&iacute; no se parte la existencia del mismo lote en
-  dos renglones. Si es un lote distinto, se abre uno nuevo m&aacute;s abajo.</p>
-  __FIG_LOTES__
 
   <div class="caja">
-    <h4>Un mismo medicamento, varios lotes</h4>
-    <p class="sub">Si llegan 200 losartanes en marzo y 300 en agosto, son dos lotes distintos con
-    dos vencimientos distintos. El sistema los maneja por separado y siempre despacha primero el
-    que vence antes.</p>
+    <h4>El sexo no se adivina</h4>
+    <p>Del registro electoral se toman <b>solo el nombre y la fecha de nacimiento</b>. El sexo se
+    pregunta y se elige; si no se sabe, se deja en &laquo;No lo dice&raquo;. Deducirlo del nombre
+    ser&iacute;a inventar un dato de una persona.</p>
+  </div>
+
+  <h3>2. Su ficha: patolog&iacute;as y tratamiento</h3>
+  <p>Al elegirla salen sus <b>patolog&iacute;as</b> y su <b>tratamiento</b>. Cada medicina dice
+  cu&aacute;ntas hay disponibles; <b>se toca y se agrega</b> a la entrega, con el lote que vence
+  primero ya elegido. Las que no tienen existencia salen apagadas y dicen por qu&eacute;.</p>
+  __FIG_FICHAPAC__
+  <p class="sub">El l&aacute;piz corrige el nombre de un rengl&oacute;n y la equis lo quita.
+  Quitar no borra nada: lo marca como inactivo y queda constancia de qui&eacute;n lo hizo.</p>
+
+  <h3>3. Lo que se lleva</h3>
+  <p>Lo agregado aparece arriba, con <b>&minus;</b> y <b>+</b> para ajustar la cantidad. El
+  sistema no deja poner m&aacute;s de lo que hay en ese lote.</p>
+  __FIG_CESTA__
+
+  <h3>4. Registrar</h3>
+  <p>Con <b>Registrar la entrega</b> se descuenta del inventario en el momento y queda anotado a
+  nombre de quien despach&oacute;. Despu&eacute;s se ofrece el <b>comprobante</b> para imprimir.</p>
+
+  <div class="caja">
+    <h4>Nunca dice &laquo;guardado&raquo; si no se guard&oacute;</h4>
+    <p>Si se cae el internet a mitad, el sistema lo dice claro: <i>&laquo;Se cay&oacute; la
+    conexi&oacute;n y NO se registr&oacute; la entrega&raquo;</i>. Hay que volver a intentarlo.
+    Y si se pulsa dos veces el bot&oacute;n, la entrega <b>no</b> se duplica.</p>
   </div>
 </section>
 
 <section>
-  <p class="eyebrow">Perfil inventario</p>
-  <h2>Vencimientos y conteos</h2>
+  <p class="eyebrow">Entregar</p>
+  <h2>Entregar a un centro de salud</h2>
   <div class="regla"></div>
 
-  <h3>Las alertas</h3>
-  <p>Es lo primero que aparece al entrar: lotes vencidos, unidades vencidas, los que vencen en 30
-  d&iacute;as y los que vencen en 90. Debajo, cada uno con su lote, su fecha y sus unidades.</p>
-  __FIG_ALERTAS__
+  <p>Arriba se cambia a <b>A un centro (CDI)</b>. Son los CDI, ambulatorios, consultorios
+  populares y dem&aacute;s sitios a los que la farmacia despacha.</p>
 
-  <div class="aviso ok">
-    <b>C&oacute;mo aprovecharlas</b>
-    Revisar la lista de &laquo;vencen en 30 d&iacute;as&raquo; una vez por semana. Esos son los que
-    hay que sacar primero. Si un medicamento se vence con existencia alta, es se&ntilde;al de que
-    se est&aacute; pidiendo m&aacute;s de lo que se entrega.
+  <p>Al elegir el centro sale <b>lo que ese centro pide</b>: su lista de insumos con la cantidad
+  que suele necesitar y cu&aacute;nto hay hoy de cada uno. Lo que se puede entregar hoy va
+  primero. Con <b>+ Agregar los que hay en existencia</b> se arma el pedido entero de un toque.</p>
+  __FIG_CENTROPED__
+
+  <div class="caja">
+    <h4>Si no alcanza, lo dice</h4>
+    <p>Cuando el centro pide 120 y en la farmacia hay 40, el sistema <b>agrega los 40</b> y avisa
+    de que no alcanz&oacute;. Nunca pone una cantidad que no existe.</p>
   </div>
 
-  <h3>Dar de baja un lote vencido</h3>
-  <ol class="pasos">
-    <li><b>B&uacute;scalo en la lista de vencidos</b>
-      <span>Pulsa &laquo;Dar de baja&raquo; en su rengl&oacute;n.</span></li>
-    <li><b>Confirma</b><span>Queda registrado qui&eacute;n lo hizo y cu&aacute;ndo.</span></li>
-    <li><b>Sep&aacute;ralo f&iacute;sicamente del anaquel</b></li>
-  </ol>
+  <h3>Qui&eacute;n recibe</h3>
+  <p>Para un centro hay que anotar <b>el nombre y la c&eacute;dula de quien recibe</b>. Sin eso
+  el sistema no deja registrar: es lo que respalda el acta.</p>
 
-  <h3>Corregir la existencia tras un conteo</h3>
-  <p>Funciona como una hoja de c&aacute;lculo: los lotes salen en una tabla de 50 en 50 y se
-  escribe directamente sobre ella. No hay que buscar y corregir uno por uno.</p>
-  <ol class="pasos">
-    <li><b>Entra a &laquo;Corregir existencia&raquo;</b>
-      <span>Aparecen los lotes con existencia. Se puede filtrar y buscar.</span></li>
-    <li><b>Escribe en la columna &laquo;Hay de verdad&raquo;</b>
-      <span>Se escribe el <b>total real</b>, no la diferencia: el sistema la calcula solo y la
-      muestra al lado. Con <b>Enter</b> se baja al siguiente rengl&oacute;n.</span></li>
-    <li><b>Corrige todos los que hagan falta</b>
-      <span>Los renglones cambiados se marcan y abajo se lleva la cuenta. Los cambios no se
-      pierden al pasar de p&aacute;gina.</span></li>
-    <li><b>Escribe el motivo y guarda</b>
-      <span>Conteo f&iacute;sico, rotura, derrame. Se guardan <b>todos juntos</b>, con tu nombre y
-      el motivo. O entran todos o no entra ninguno: nunca queda un conteo a medias.</span></li>
-  </ol>
-  __FIG_AJUSTE__
+  <h3>El acta de entrega-recepci&oacute;n</h3>
+  <p>Al terminar se ofrece el <b>acta</b> en PDF, con el cintillo institucional, el detalle de
+  todo lo entregado con sus lotes y vencimientos, el total de unidades y las dos firmas.</p>
+  __FIG_ACTA__
 </section>
 
 <section>
-  <p class="eyebrow">Perfil administrador</p>
-  <h2>El panel de control</h2>
+  <p class="eyebrow">Mercanc&iacute;a</p>
+  <h2>Registrar lo que llega</h2>
+  <div class="regla"></div>
+
+  <p>Es la primera pesta&ntilde;a de Mercanc&iacute;a y la m&aacute;s r&aacute;pida. Pide cinco
+  cosas y nada m&aacute;s:</p>
+
+  <table>
+    <thead><tr><th>Campo</th><th>Qu&eacute; se pone</th></tr></thead>
+    <tbody>
+      <tr><td><b>Insumo</b></td><td>El nombre del medicamento o insumo</td></tr>
+      <tr><td><b>Presentaci&oacute;n y componentes</b></td><td>Caja de 30 tabletas de 500 mg</td></tr>
+      <tr><td><b>Lote</b></td><td>El n&uacute;mero que trae la caja</td></tr>
+      <tr><td><b>Vencimiento</b></td><td>La fecha de la caja</td></tr>
+      <tr><td><b>Cantidad</b></td><td>Cu&aacute;ntas unidades entran</td></tr>
+    </tbody>
+  </table>
+
+  <p style="margin-top:10px">Con <b>Enter</b> se baja al siguiente campo. Si el medicamento ya
+  existe se le suma al que hay; si no, se crea. Si el lote ya existe con la misma fecha, se le
+  suma. Debajo queda a la vista <b>lo &uacute;ltimo que se carg&oacute;</b>, para no dudar.</p>
+  __FIG_REGLLEGA__
+
+  <div class="caja">
+    <h4>Si no pone la fecha de vencimiento</h4>
+    <p>El sistema pregunta antes de guardar. Un lote sin fecha no se puede vigilar: no entra en
+    las alertas y nadie sabr&aacute; cu&aacute;ndo se vence.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Mercanc&iacute;a</p>
+  <h2>El cat&aacute;logo y las alertas</h2>
+  <div class="regla"></div>
+
+  <h3>Cat&aacute;logo</h3>
+  <p>Todo lo que existe, con su existencia al lado. Arriba hay cinco cifras que adem&aacute;s
+  <b>funcionan como filtro</b>: se toca &laquo;Bajo el m&iacute;nimo&raquo; y la lista se acota a
+  esos. Se descarga en Excel y en PDF.</p>
+  __FIG_CATALOGO__
+  <p class="sub">Cuando un medicamento viene en cajas, el sistema dice tambi&eacute;n
+  <b>cu&aacute;ntas cajas son</b>: &laquo;240 unidades &mdash; 8 cajas&raquo;.</p>
+
+  <h3>Alertas de vencimiento</h3>
+  <p>Tres bloques: lo <b>vencido</b>, lo que vence en <b>30 d&iacute;as</b> y lo que vence en
+  <b>90</b>. Desde aqu&iacute; se da de baja un lote vencido, y queda registrado con su motivo y
+  con el nombre de quien lo hizo.</p>
+  __FIG_ALERTAS__
+</section>
+
+<section>
+  <p class="eyebrow">Mercanc&iacute;a</p>
+  <h2>Las fichas de las personas</h2>
+  <div class="regla"></div>
+
+  <p>Entregar tiene su atajo para registrar a alguien en el momento. Esta pantalla es para
+  hacerlo <b>en serio</b>: sentarse a pasar la gente del cuaderno al sistema, con todos sus datos.</p>
+
+  <p>Se busca por <b>c&eacute;dula, nombre o patolog&iacute;a</b>. Cada rengl&oacute;n muestra
+  sus patolog&iacute;as, cu&aacute;ntas medicinas necesita y cu&aacute;ntas veces ha retirado.</p>
+  __FIG_PERSONAS__
+
+  <p>Al abrir a una persona se le corrige todo: sus datos, sus patolog&iacute;as y sus medicinas.</p>
+  __FIG_FICHAPERSONA__
+
+  <div class="caja">
+    <h4>Las patolog&iacute;as se eligen de una lista</h4>
+    <p>No se escriben libres. Si cada quien escribiera lo suyo, la misma cosa entrar&iacute;a como
+    &laquo;HIPERTENSION&raquo;, &laquo;HTA&raquo; y &laquo;TENSION ALTA&raquo;, y despu&eacute;s
+    no habr&iacute;a manera de contar cu&aacute;ntos hipertensos hay. La pantalla ofrece primero
+    <b>las que ya escribi&oacute; alguien</b> &mdash;con cu&aacute;nta gente las tiene&mdash; y
+    luego las m&aacute;s comunes. Si de verdad no est&aacute;, se puede anotar tal cual.</p>
+  </div>
+
+  <div class="caja">
+    <h4>Quitar no borra</h4>
+    <p>Ni una patolog&iacute;a ni una medicina. Se marcan como inactivas y queda constancia en la
+    bit&aacute;cora de qui&eacute;n lo hizo y cu&aacute;ndo. Es la ficha de salud de una persona.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Mercanc&iacute;a</p>
+  <h2>Los centros de salud</h2>
+  <div class="regla"></div>
+
+  <p>Aqu&iacute; se dan de alta los CDI, ambulatorios y consultorios, y se les arma
+  <b>su lista de insumos</b>: qu&eacute; piden y cu&aacute;nto de cada cosa.</p>
+  __FIG_CENTROS__
+
+  <p>Al abrir un centro se ve todo: sus datos, su lista y <b>todo lo que se le ha entregado</b>,
+  resumido por insumo y descargable en Excel y en PDF.</p>
+  __FIG_FICHACENTRO__
+
+  <p>La cantidad de cada insumo se escribe en la casilla y <b>se guarda sola al salir de
+  ella</b>. La columna de la derecha dice si con lo que hay hoy <b>alcanza</b> o <b>no
+  alcanza</b>, y arriba avisa cu&aacute;ntos renglones no se pueden cubrir. Mejor saberlo antes
+  de salir a repartir.</p>
+
+  <div class="caja">
+    <h4>La cantidad no descuenta nada</h4>
+    <p>Es lo que el centro <b>suele</b> necesitar, para proponerlo al armar la entrega. Lo
+    &uacute;nico que descuenta del inventario es el rengl&oacute;n de la entrega.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Mercanc&iacute;a y Administraci&oacute;n</p>
+  <h2>Lo que se entreg&oacute;</h2>
+  <div class="regla"></div>
+
+  <p>Contesta con un toque qu&eacute; sali&oacute; de la farmacia <b>hoy, esta semana, este mes o
+  entre dos fechas cualesquiera</b> (para un solo d&iacute;a, se pone la misma fecha en las dos
+  casillas).</p>
+  __FIG_ENTREGADO__
+
+  <p>Arriba, cinco cifras: entregas, personas atendidas, centros, medicamentos distintos y
+  unidades. Debajo, tres tablas &mdash;<b>qu&eacute; se entreg&oacute;</b>, <b>d&iacute;a por
+  d&iacute;a</b> y <b>qui&eacute;n despach&oacute;</b>&mdash; y el detalle rengl&oacute;n por
+  rengl&oacute;n.</p>
+
+  <p>Todo se descarga en <b>Excel</b> y en <b>PDF</b>. Sale exactamente lo que se est&aacute;
+  viendo: si hay un filtro puesto, el archivo lo lleva y lo dice en el t&iacute;tulo.</p>
+
+  <div class="caja">
+    <h4>Las entregas viejas no se suman en unidades</h4>
+    <p>Las que vinieron de los cuadernos dicen a qui&eacute;n y qu&eacute;, pero <b>no
+    cu&aacute;ntas unidades</b>: el papel casi nunca lo anotaba. Se cuentan como entregas y se
+    listan, pero no entran en el total de unidades, y la pantalla lo explica. Sumarlas
+    ser&iacute;a inventar n&uacute;meros.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Mercanc&iacute;a</p>
+  <h2>Corregir la existencia despu&eacute;s de un conteo</h2>
+  <div class="regla"></div>
+
+  <p>Es una hoja tipo Excel para arreglar muchas existencias de una vez, despu&eacute;s de contar
+  f&iacute;sicamente. Se puede corregir <b>todo</b>: el nombre del medicamento, su
+  presentaci&oacute;n, el n&uacute;mero de lote, el vencimiento y lo que se cont&oacute;.</p>
+  __FIG_CONTEO__
+
+  <p>Se corrigen los renglones que hagan falta, se escribe el motivo y se guardan
+  <b>todos juntos</b>. Con <b>Enter</b> se baja al siguiente, como en una hoja de c&aacute;lculo.</p>
+
+  <div class="caja">
+    <h4>El nombre es del medicamento, no del lote</h4>
+    <p>Si un medicamento tiene tres lotes, cambiarle el nombre en un rengl&oacute;n lo cambia en
+    los tres. La cantidad y el n&uacute;mero de lote s&iacute; son de cada lote por separado.
+    Si por error se le ponen dos nombres distintos al mismo medicamento, <b>no guarda nada</b> y
+    lo dice.</p>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Administraci&oacute;n</p>
+  <h2>El panel del administrador</h2>
   <div class="regla"></div>
 
   <h3>Tablero</h3>
-  <p>Los n&uacute;meros del d&iacute;a: entregas realizadas, lotes vencidos, los que vencen en 30
-  d&iacute;as y los pacientes pendientes de completar. Debajo, cu&aacute;nto entreg&oacute; cada
-  persona y la actividad reciente.</p>
+  <p>Las cifras del d&iacute;a: entregas de hoy, lotes vencidos, lo que vence en 30 d&iacute;as y
+  las personas por revisar. Debajo, <b>lo &uacute;ltimo que pas&oacute;</b> en lenguaje llano:
+  qui&eacute;n hizo qu&eacute; y cu&aacute;ndo.</p>
   __FIG_TABLERO__
+  <p class="sub">Desde ah&iacute; se puede <b>deshacer</b> algo que se cre&oacute; por
+  equivocaci&oacute;n, siempre que no tenga historial todav&iacute;a. Si ya tiene, el sistema no
+  lo deja y explica por qu&eacute;.</p>
 
-  <h3>Bit&aacute;cora</h3>
-  <p>El registro de todo lo que ocurre en el sistema: qui&eacute;n, qu&eacute;, cu&aacute;ndo y
-  qu&eacute; cambi&oacute;. Se filtra por tipo de acci&oacute;n y por persona.</p>
-  __FIG_BITACORA__
+  <h3>Entregas</h3>
+  <p>El mismo tablero de &laquo;Lo que se entreg&oacute;&raquo; que hay en Mercanc&iacute;a, para
+  tenerlo a mano sin cambiar de &aacute;rea.</p>
+  __FIG_ENTREGASADM__
 
   <h3>Usuarios</h3>
-  <p>El administrador crea la cuenta completa desde aqu&iacute;: nombre, correo, puesto y una
-  contrase&ntilde;a provisional. La persona no tiene que registrarse ni hacer ning&uacute;n paso
-  previo &mdash; recibe sus datos y ya puede entrar.</p>
+  <p>Se crea al personal con todo listo: nombre, correo, qu&eacute; va a hacer y una
+  contrase&ntilde;a provisional. <b>Nadie se registra solo.</b> El sistema le obliga a cambiar la
+  contrase&ntilde;a la primera vez que entre.</p>
   __FIG_USUARIOS__
-  <p>Cada usuario se puede desactivar, volver a activar, cambiarle la contrase&ntilde;a si la
-  olvid&oacute;, o retirarlo del sistema.</p>
-  <div class="aviso warn">
-    <b>La contrase&ntilde;a provisional se ve una sola vez</b>
-    Al crear el usuario, la pantalla muestra el correo y la contrase&ntilde;a para
-    entreg&aacute;rselos a la persona. No se guardan en ninguna parte y no se vuelven a mostrar.
-    Si se pierden, el administrador le pone una nueva.
-  </div>
-  <div class="aviso warn">
-    <b>Lo que hizo cada quien no se borra</b>
-    Aunque se retire a una persona del sistema, sus entregas y sus apuntes de la bit&aacute;cora
-    se conservan con su nombre. El historial queda completo.
-  </div>
+  <p class="sub">Tambi&eacute;n se desactiva a quien ya no trabaja, sin borrar lo que hizo.</p>
 
-  <h3>Pacientes por completar</h3>
-  <p>Pacientes cuyo registro necesita que se confirme la c&eacute;dula. Se escribe la correcta y el
-  paciente queda activo.</p>
-  __FIG_REVISAR__
+  <h3>Bit&aacute;cora, historial y por revisar</h3>
+  <ul class="lista">
+    <li><b>Bit&aacute;cora:</b> todo lo que ha pasado en el sistema, con qui&eacute;n lo hizo.
+      <b>No se puede editar ni borrar</b>, ni siquiera por el administrador.</li>
+    <li><b>Historial:</b> las entregas que vinieron de los cuadernos, para consultarlas.</li>
+    <li><b>Por revisar:</b> las fichas que llegaron con algo raro (una c&eacute;dula ilegible,
+      por ejemplo) para que una persona lo corrija a mano.</li>
+  </ul>
 </section>
 
 <section>
   <p class="eyebrow">Papeles y listados</p>
   <h2>Lo que se imprime y lo que se descarga</h2>
   <div class="regla"></div>
-  <p class="sub">Todos los documentos llevan el cintillo institucional de la Alcald&iacute;a, el
-  mismo de los dem&aacute;s sistemas del municipio.</p>
 
-  <h3>Acta de entrega-recepci&oacute;n</h3>
-  <p>Cuando se despacha a un centro de salud, al terminar aparece el bot&oacute;n para
-  descargar el <b>acta</b>. Es el documento que respalda la salida del inventario y el que
-  firman las dos partes: sale con el centro, el detalle de lo entregado con su lote y su
-  vencimiento, el total de unidades y los dos espacios de firma con nombre y c&eacute;dula.</p>
-  __FIG_ACTA__
-
-  <h3>Comprobante de entrega</h3>
-  <p>Cuando se despacha a una persona, el mismo bot&oacute;n descarga su <b>comprobante</b>,
-  con lo que retir&oacute; y su firma. Se ofrece, no se descarga solo: no siempre hace falta
-  imprimirlo.</p>
-
-  <h3>Listados en Excel</h3>
-  <p>Bajan <b>completos</b>, no solo lo que se ve en pantalla, y respetan el filtro que
-  est&eacute; puesto. Traen el t&iacute;tulo, la fecha en que se generaron, filtro en los
-  encabezados y la primera fila congelada.</p>
   <table>
-    <thead><tr><th>Listado</th><th>D&oacute;nde est&aacute;</th><th>Qu&eacute; trae</th></tr></thead>
+    <thead><tr><th>Documento</th><th>D&oacute;nde sale</th><th>Para qu&eacute;</th></tr></thead>
     <tbody>
-      <tr><td><b>Cat&aacute;logo</b></td><td>Mercanc&iacute;a &rarr; Registrar lo que llega</td>
-          <td>Cada medicamento con su dosificaci&oacute;n, existencia, vencidas, lotes y
-          cu&aacute;ndo vence el primero. Tambi&eacute;n en PDF.</td></tr>
+      <tr><td><b>Comprobante</b></td><td>Al terminar una entrega a una persona</td>
+          <td>Lo que se llev&oacute;, con las firmas</td></tr>
+      <tr><td><b>Acta de entrega-recepci&oacute;n</b></td><td>Al terminar una entrega a un centro</td>
+          <td>El documento que firma el centro</td></tr>
+      <tr><td><b>Cat&aacute;logo</b></td><td>Mercanc&iacute;a &rarr; Cat&aacute;logo</td>
+          <td>Excel y PDF de todo lo que hay</td></tr>
       <tr><td><b>Alertas</b></td><td>Mercanc&iacute;a &rarr; Alertas</td>
-          <td>Todo lo vencido y lo que vence en 30 y 90 d&iacute;as. Tambi&eacute;n en PDF.</td></tr>
-      <tr><td><b>Historial de entregas</b></td><td>Administraci&oacute;n &rarr; Historial</td>
-          <td>Todas las entregas: fecha, paciente, qu&eacute; se entreg&oacute; y qui&eacute;n.</td></tr>
-      <tr><td><b>Bit&aacute;cora</b></td><td>Administraci&oacute;n &rarr; Bit&aacute;cora</td>
-          <td>Todo lo que se ha hecho en el sistema, con qui&eacute;n y cu&aacute;ndo.</td></tr>
+          <td>Vencidos y por vencer</td></tr>
+      <tr><td><b>Lo entregado</b></td><td>Mercanc&iacute;a o Administraci&oacute;n</td>
+          <td>Excel de varias hojas y PDF del per&iacute;odo</td></tr>
+      <tr><td><b>Entregas de un centro</b></td><td>Mercanc&iacute;a &rarr; Centros &rarr; ficha</td>
+          <td>Todo lo que ha recibido ese centro</td></tr>
     </tbody>
   </table>
+
+  <p style="margin-top:10px">Todos llevan el cintillo institucional. Las fechas van en letra y en
+  n&uacute;meros para que no haya dudas, y los Excel salen con el t&iacute;tulo, la fecha de
+  generaci&oacute;n y los encabezados congelados.</p>
 </section>
 
 <section>
   <p class="eyebrow">Reglas del sistema</p>
   <h2>Lo que el sistema no permite</h2>
   <div class="regla"></div>
-  <p class="sub">Estas reglas est&aacute;n en la base de datos, no en la pantalla.</p>
 
-  <table>
-    <thead><tr><th>No se permite</th><th>Motivo</th></tr></thead>
-    <tbody>
-      <tr><td><b>Entregar de un lote vencido</b></td>
-          <td>Es medicamento. Ni siquiera aparece en la lista al buscar.</td></tr>
-      <tr><td><b>Dejar la existencia en negativo</b></td>
-          <td>Si se intenta sacar m&aacute;s de lo que hay, el sistema indica cu&aacute;nto queda.</td></tr>
-      <tr><td><b>Borrar un movimiento</b></td>
-          <td>Se corrige registrando el movimiento contrario, para conservar la trazabilidad.</td></tr>
-      <tr><td><b>Registrar una entrega a nombre de otra persona</b></td>
-          <td>El sistema firma con el usuario que est&aacute; en sesi&oacute;n.</td></tr>
-      <tr><td><b>Entregar sin destinatario</b></td>
-          <td>Toda entrega va a una persona o a un centro de salud.</td></tr>
-      <tr><td><b>Que un despachador cree medicamentos o ajuste existencias</b></td>
-          <td>Corresponde al perfil de inventario.</td></tr>
-      <tr><td><b>Cambiarse el perfil uno mismo</b></td>
-          <td>Los perfiles los asigna el administrador.</td></tr>
-      <tr><td><b>Modificar la bit&aacute;cora</b></td>
-          <td>Su valor est&aacute; en que no se puede alterar.</td></tr>
-    </tbody>
-  </table>
+  <p>No son avisos: son candados en la base de datos. No se pueden saltar ni desde la pantalla ni
+  de ninguna otra forma.</p>
+
+  <ul class="lista">
+    <li><b>No se entrega de un lote vencido.</b></li>
+    <li><b>No se deja la existencia en negativo.</b></li>
+    <li><b>Nadie firma una entrega a nombre de otro.</b> El sistema pone siempre a quien
+      est&aacute; conectado, y si alguien lo intenta queda anotado el intento.</li>
+    <li><b>La bit&aacute;cora no se edita ni se borra.</b></li>
+    <li><b>Una entrega es a una persona o a un centro</b>, nunca a los dos ni a ninguno.</li>
+    <li><b>A un centro no se le entrega sin anotar qui&eacute;n recibe.</b></li>
+    <li><b>Solo se borra lo que no tiene historial.</b> Un medicamento que ya tuvo lotes o
+      entregas no se borra: se desactiva.</li>
+    <li><b>El d&iacute;a es el de Venezuela</b>, no el del servidor. Una entrega hecha a las
+      nueve de la noche cuenta para el d&iacute;a de hoy.</li>
+  </ul>
 </section>
 
 <section>
@@ -534,68 +561,87 @@ CUERPO = """
   <h2>Si algo no funciona</h2>
   <div class="regla"></div>
 
-  <table>
-    <thead><tr><th>Mensaje</th><th>Qu&eacute; hacer</th></tr></thead>
-    <tbody>
-      <tr><td>&laquo;El correo o la contrase&ntilde;a no son correctos&raquo;</td>
-          <td>Revisar may&uacute;sculas. Si persiste, pedir al administrador que restablezca la
-              contrase&ntilde;a.</td></tr>
-      <tr><td>&laquo;Tu usuario est&aacute; desactivado&raquo;</td>
-          <td>Solicitar al administrador que lo active.</td></tr>
-      <tr><td>&laquo;No hay conexi&oacute;n con el servidor&raquo;</td>
-          <td>Es la conexi&oacute;n a internet. La operaci&oacute;n no se guard&oacute;: hay que
-              repetirla.</td></tr>
-      <tr><td>&laquo;Ese lote est&aacute; vencido&raquo;</td>
-          <td>Buscar otro lote del mismo medicamento o consultar con inventario.</td></tr>
-      <tr><td>&laquo;No hay suficiente. Quedan X&raquo;</td>
-          <td>Si en el anaquel hay m&aacute;s unidades, corresponde una correcci&oacute;n por
-              conteo.</td></tr>
-      <tr><td>No aparece el medicamento</td>
-          <td>Puede estar agotado o vencido. Consultar con inventario.</td></tr>
-      <tr><td>No aparece el paciente</td>
-          <td>Buscar con menos letras o por c&eacute;dula. Si no est&aacute;, registrarlo.</td></tr>
-      <tr><td>Una entrega qued&oacute; mal registrada</td>
-          <td>El administrador la anula y registra la correcci&oacute;n.</td></tr>
-    </tbody>
-  </table>
+  <h3>&laquo;No me deja entrar&raquo;</h3>
+  <p>Revise que el correo est&eacute; completo y sin espacios. Si dice que el correo o la
+  contrase&ntilde;a no son correctos, p&iacute;dale al administrador que le ponga una nueva desde
+  Usuarios. Si dice que no hay conexi&oacute;n, es el internet.</p>
 
-  <div class="caja">
-    <h4>Una regla general</h4>
-    <p>Si el sistema indica que una operaci&oacute;n no se pudo completar, <b>no se
-    complet&oacute;</b>. Conviene repetirla antes que darla por hecha.</p>
-  </div>
+  <h3>&laquo;No aparece un medicamento&raquo;</h3>
+  <p>En Entregar solo salen los que tienen existencia y no est&aacute;n vencidos. Para verlo todo,
+  vaya a Mercanc&iacute;a &rarr; Cat&aacute;logo, que muestra tambi&eacute;n los que est&aacute;n
+  en cero.</p>
 
-  <footer>
-    Alcald&iacute;a del Municipio Bolivariano Crist&oacute;bal Rojas &middot; Direcci&oacute;n de
-    Salud P&uacute;blica<br>
-    Farmacia Municipal &middot; salud.alcaldiadecharallave.com
-  </footer>
+  <h3>&laquo;La persona no tiene medicinas anotadas&raquo;</h3>
+  <p>Puede que nunca se le anotaran. Si ha retirado antes, su tratamiento sale igual: lo que
+  dec&iacute;a el cuaderno se pas&oacute; a su ficha. Si aun as&iacute; est&aacute; vac&iacute;a,
+  an&oacute;telas con <b>+ Anotar una medicina que necesita</b>.</p>
+
+  <h3>&laquo;Dice que no hay suficiente&raquo;</h3>
+  <p>Est&aacute; pidiendo m&aacute;s de lo que queda en ese lote. Mire la existencia real en el
+  cat&aacute;logo: si el n&uacute;mero no cuadra con lo que hay en el estante, hay que contar y
+  corregirlo en <b>Corregir existencia</b>.</p>
+
+  <h3>&laquo;Se fue el internet a mitad&raquo;</h3>
+  <p>Si no dijo &laquo;Entrega registrada&raquo;, <b>no se registr&oacute;</b>. Vuelva a
+  intentarlo cuando haya se&ntilde;al. El sistema nunca dice que guard&oacute; algo que no
+  guard&oacute;, y si pulsa dos veces no se duplica.</p>
+
+  <h3>&laquo;Me equivoqu&eacute; al registrar&raquo;</h3>
+  <p>Av&iacute;sele al administrador. Desde su tablero puede quitar lo que se cre&oacute; por
+  error, siempre que no tenga historial. Una entrega ya hecha no se borra: se anula, y queda
+  constancia.</p>
+
+  <h3>Desde el tel&eacute;fono</h3>
+  <p>Funciona igual. Las tablas se convierten en tarjetas y todos los botones son grandes para
+  acertar con el dedo.</p>
+  __FIG_TELEFONO__
 </section>
 
-</body>
-</html>
+<section>
+  <p class="eyebrow">Cierre</p>
+  <h2>En resumen</h2>
+  <div class="regla"></div>
+
+  <ul class="lista">
+    <li>Se entra en <b>salud.alcaldiadecharallave.com</b> con el correo y la contrase&ntilde;a
+      que da el administrador.</li>
+    <li><b>Entregar</b> es para despachar; <b>Mercanc&iacute;a</b> para cargar, revisar y llevar
+      las fichas; <b>Administraci&oacute;n</b> para los usuarios y la auditor&iacute;a.</li>
+    <li>La existencia <b>se calcula sola</b>. Si no cuadra con el estante, se cuenta y se corrige
+      en Corregir existencia, dejando el motivo.</li>
+    <li>Cada persona y cada centro tienen su ficha. Mientras m&aacute;s completa est&eacute;,
+      m&aacute;s r&aacute;pido se atiende.</li>
+    <li>Lo que no se registra, no existe. Y lo que se registra, queda.</li>
+  </ul>
+
+  <p style="margin-top:16px" class="sub">Manual de la Farmacia Municipal &middot; Direcci&oacute;n
+  de Salud P&uacute;blica &middot; Alcald&iacute;a del Municipio Bolivariano Crist&oacute;bal
+  Rojas.</p>
+</section>
 """
 
 FIGURAS = [
-    ('__FIG_ENTRAR__',   '01-entrar.jpg',         'Pantalla de entrada al sistema.'),
-    ('__FIG_BUSCAR2__',  '02-buscar-paciente.jpg','El tratamiento del paciente, con lo que hay de cada medicamento.'),
-    ('__FIG_LOTES__',    '14-lotes.jpg',          'Los lotes que ya tiene un medicamento: se le puede sumar a uno.'),
-    ('__FIG_LOTE__',     '03-elegir-lote.jpg',    'Lo disponible hoy, con lote, vencimiento y unidades que quedan.'),
-    ('__FIG_ENTREGA__',  '04-entrega-lista.jpg',  'La entrega armada, lista para registrar.'),
-    ('__FIG_CDI__',      '05-entrega-cdi.jpg',    'Entrega a un centro de salud, con los datos de quien recibe.'),
-    ('__FIG_RECIBIR__',  '07-recibir.jpg',        'El cat&aacute;logo con la existencia de cada medicamento a la vista.'),
-    ('__FIG_ALERTAS__',  '06-alertas.jpg',        'Alertas de vencimiento al entrar.'),
-    ('__FIG_AJUSTE__',   '08-ajuste.jpg',         'La hoja de conteo: se escribe encima y se guardan todas juntas.'),
-    ('__FIG_TABLERO__',  '09-tablero.jpg',        'Tablero del administrador.'),
-    ('__FIG_BITACORA__', '10-bitacora.jpg',       'Bit&aacute;cora, con filtros por acci&oacute;n y por persona.'),
-    ('__FIG_USUARIOS__', '11-usuarios.jpg',       'El administrador crea la cuenta completa: nombre, correo, puesto y contrase&ntilde;a.'),
-    ('__FIG_REVISAR__',  '12-por-revisar.jpg',    'Pacientes cuyo registro hay que completar.'),
-    ('__FIG_AREAS__',    '13-areas.jpg',          'Los tres botones del administrador. El t&iacute;tulo cambia con la parte elegida.'),
-    ('__FIG_BUSCAPER__', '15-buscar-persona.jpg', 'La lista de personas: edad, tel&eacute;fono, qu&eacute; toma y cu&aacute;ndo retir&oacute; por &uacute;ltima vez.'),
-    ('__FIG_REGPER__',   '16-registrar-persona.jpg','Registrar una persona, con la consulta al registro electoral.'),
-    ('__FIG_REGCEN__',   '17-registrar-centro.jpg','Registrar un centro de salud al que se despacha.'),
-    ('__FIG_REGMED__',   '18-registrar-medicamento.jpg','Registrar un medicamento con todos sus datos.'),
-    ('__FIG_ACTA__',     '19-acta.jpg',           'El acta de entrega-recepci&oacute;n que firman las dos partes.'),
+    ('__FIG_ENTRAR__',       '01-entrar.jpg',            'La pantalla de acceso.'),
+    ('__FIG_TEMA__',         '02-tema.jpg',              'El bot&oacute;n que cambia entre modo claro y oscuro.'),
+    ('__FIG_AREAS__',        '03-areas.jpg',             'Las tres &aacute;reas que ve el administrador.'),
+    ('__FIG_BUSCARPER__',    '04-buscar-persona.jpg',    'Buscar a la persona por c&eacute;dula o por nombre.'),
+    ('__FIG_REGPER__',       '05-registrar-persona.jpg', 'Registrar a alguien nuevo, con sus patolog&iacute;as y sus medicinas.'),
+    ('__FIG_FICHAPAC__',     '06-ficha-paciente.jpg',    'Sus patolog&iacute;as y su tratamiento, listos para tocar y entregar.'),
+    ('__FIG_CESTA__',        '07-cesta.jpg',             'Lo que se lleva, con la cantidad ajustable.'),
+    ('__FIG_CENTROPED__',    '08-centro-pedido.jpg',     'Lo que pide un centro, con cu&aacute;nto necesita y cu&aacute;nto hay.'),
+    ('__FIG_REGLLEGA__',     '09-registrar-llega.jpg',   'Registrar lo que llega: cinco campos y listo.'),
+    ('__FIG_CATALOGO__',     '10-catalogo.jpg',          'El cat&aacute;logo, con las cifras que tambi&eacute;n filtran.'),
+    ('__FIG_ALERTAS__',      '11-alertas.jpg',           'Vencidos y por vencer, en tres bloques.'),
+    ('__FIG_PERSONAS__',     '12-personas-lista.jpg',    'La lista de personas, buscable tambi&eacute;n por patolog&iacute;a.'),
+    ('__FIG_FICHAPERSONA__', '13-ficha-persona.jpg',     'La ficha completa: datos, patolog&iacute;as y medicinas.'),
+    ('__FIG_CENTROS__',      '14-centros-lista.jpg',     'Los centros de salud a los que se despacha.'),
+    ('__FIG_FICHACENTRO__',  '15-ficha-centro.jpg',      'La ficha del centro: su lista y lo que ha recibido.'),
+    ('__FIG_ENTREGADO__',    '16-lo-entregado.jpg',      'Lo que se entreg&oacute; en el per&iacute;odo, con Excel y PDF.'),
+    ('__FIG_CONTEO__',       '17-corregir-existencia.jpg','La hoja para corregir la existencia despu&eacute;s de contar.'),
+    ('__FIG_TABLERO__',      '18-tablero.jpg',           'Las cifras del d&iacute;a en el panel del administrador.'),
+    ('__FIG_ENTREGASADM__',  '19-entregas-admin.jpg',    'El mismo tablero de entregas, dentro de Administraci&oacute;n.'),
+    ('__FIG_USUARIOS__',     '20-usuarios.jpg',          'Crear un usuario: queda listo para entrar.'),
+    ('__FIG_TELEFONO__',     '21-telefono.jpg',          'La misma pantalla desde un tel&eacute;fono.'),
 ]
 
 cuerpo = CUERPO
