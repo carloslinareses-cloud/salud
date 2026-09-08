@@ -247,7 +247,10 @@
      retiró una vez no es forzosamente lo que toma siempre, y eso lo
      decide quien atiende, no el programa.
   ================================================================ */
-  P.piezasDe = function (textos, yaTiene) {
+  P.piezasDe = function (entradas, yaTiene) {
+    var textos = (entradas || []).map(function (x) {
+      return typeof x === 'string' ? x : (x && x.texto);
+    });
     var piezas = (window.FARM && window.FARM.piezasTratamiento)
       ? window.FARM.piezasTratamiento(textos) : [];
     if (!yaTiene || !yaTiene.length) return piezas;
@@ -258,38 +261,60 @@
     });
   };
 
-  P.cajaRetirado = function (pfx, piezas, textos) {
-    if (!piezas || !piezas.length) return '';
-    var crudo = (textos || []).filter(Boolean);
-    return '<div class="trat retirado" id="' + pfx + 'Caja">' +
-      '<span class="lbl">Lo que ha retirado antes · del cuaderno</span>' +
-      '<p class="sub chico">Esto está anotado en sus entregas, no en su tratamiento. ' +
-      'Toca lo que de verdad necesita y queda en su ficha para la próxima vez.</p>' +
-      '<div class="trat-lista">' + piezas.map(function (x, i) {
-        return '<button type="button" class="pieza" data-pieza="' + i + '">' +
-               esc(x) + '</button>';
-      }).join('') + '</div>' +
-      (piezas.length > 1
-        ? '<button type="button" class="trat-mas" id="' + pfx + 'Todas">' +
-          'Anotarlas todas (' + piezas.length + ')</button>'
+  function fechaCorta(f) {
+    if (!f) return '';
+    var p = String(f).slice(0, 10).split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(f);
+  }
+
+  /* El bloque va DENTRO del recuadro del tratamiento, no en una caja
+     aparte: para quien atiende, esto ES el tratamiento de la persona y
+     tiene que leerse de una, sin tocar nada. Lo que sigue distinguiendo
+     una cosa de la otra es el rótulo y el botón de pasarlo a su ficha. */
+  P.bloqueCuaderno = function (pfx, piezas, entradas) {
+    var filas = (entradas || []).filter(function (x) {
+      return x && (typeof x === 'string' ? x : x.texto);
+    });
+    if (!filas.length) return '';
+
+    return '<div class="cuaderno" id="' + pfx + 'Caja">' +
+      '<span class="cu-lbl">Lo que dice el cuaderno</span>' +
+      '<div class="cu-lista">' + filas.slice(0, 12).map(function (x) {
+        var t = typeof x === 'string' ? x : x.texto;
+        var f = typeof x === 'string' ? '' : x.fecha;
+        return '<div class="cu-fila">' +
+          (f ? '<span class="cu-fecha">' + esc(fechaCorta(f)) + '</span>' : '') +
+          '<span class="cu-txt">' + esc(t) + '</span></div>';
+      }).join('') +
+      (filas.length > 12
+        ? '<p class="sub chico">Y ' + (filas.length - 12) + ' entregas más antiguas.</p>'
         : '') +
-      (crudo.length
-        ? '<details class="crudo"><summary>Ver lo que dice el cuaderno</summary>' +
-          crudo.slice(0, 8).map(function (t) {
-            return '<p class="sub chico">' + esc(t) + '</p>';
-          }).join('') + '</details>'
-        : '') +
+      '</div>' +
+
+      (piezas && piezas.length
+        ? '<p class="cu-pasa">Toca para pasarlo a su tratamiento:</p>' +
+          '<div class="trat-lista">' + piezas.map(function (x, i) {
+            return '<button type="button" class="pieza" data-pieza="' + i + '">' +
+                   esc(x) + '</button>';
+          }).join('') + '</div>' +
+          (piezas.length > 1
+            ? '<button type="button" class="trat-mas" id="' + pfx + 'Todas">' +
+              'Pasarlas todas (' + piezas.length + ')</button>'
+            : '')
+        : '<p class="sub chico">Todo lo del cuaderno ya está en su tratamiento.</p>') +
     '</div>';
   };
 
   P.engancharRetirado = function (raiz, pfx, piezas, alElegir, alElegirTodas) {
     var z = raiz || document;
-    z.querySelectorAll('#' + pfx + 'Caja [data-pieza]').forEach(function (b) {
+    z.querySelectorAll('#' + pfx + 'Caja [data-pieza], [data-pieza]').forEach(function (b) {
+      if (b.dataset.enganchado) return;
+      b.dataset.enganchado = '1';
       b.addEventListener('click', function () { alElegir(piezas[+b.dataset.pieza]); });
     });
     var t = z.querySelector('#' + pfx + 'Todas');
     if (t && alElegirTodas) t.addEventListener('click', function () {
-      t.disabled = true; t.textContent = 'Anotando…';
+      t.disabled = true; t.textContent = 'Pasando…';
       alElegirTodas(piezas);
     });
   };

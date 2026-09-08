@@ -295,7 +295,7 @@ try {
      salian vacias con el dato justo al lado. Ahora sale, partido en
      medicamentos, y se pasa al tratamiento con un toque.
   ============================================================ */
-  console.log('\n--- 4b. Lo que ha retirado antes ---')
+  console.log('\n--- 4b. Lo que dice el cuaderno ---')
   const ENTREGO = 'ZZZ-UNO ' + MARCA + ' / ZZZ-DOS ' + MARCA + ' / DESLORATADINA 0,5MG/ML'
   await sql(`insert into farmacia.entregas
        (fecha, tipo_destinatario, paciente_id, observacion, origen)
@@ -311,7 +311,7 @@ try {
   }, { timeout: 25000 }, PAC)
   await pag.evaluate(() => { document.querySelector('#peRes .ficha').click() })
   await pag.waitForFunction(
-    () => /Lo que ha retirado antes/i.test((document.getElementById('peZona') || {}).innerText || ''),
+    () => /Lo que dice el cuaderno/i.test((document.getElementById('peZona') || {}).innerText || ''),
     { timeout: 25000 })
 
   const piezas = await pag.$$eval('#peRetCaja [data-pieza]', bs => bs.map(b => b.textContent.trim()))
@@ -320,9 +320,18 @@ try {
   prueba('y NO parte los nombres que llevan barra dentro',
     piezas.some(x => x.indexOf('DESLORATADINA 0,5MG/ML') >= 0), JSON.stringify(piezas))
 
-  const crudo = await pag.$eval('#peRetCaja .crudo', e => e.textContent)
-  prueba('se puede ver lo que decia el cuaderno tal cual',
-    crudo.indexOf('ZZZ-UNO') >= 0, crudo.slice(0, 120))
+  /* Lo que dice el cuaderno tiene que LEERSE, sin tocar nada, y dentro
+     del mismo recuadro del tratamiento. */
+  /* Se comprueba desde el propio bloque del cuaderno hacia arriba: tiene
+     que estar DENTRO del recuadro del tratamiento. Buscar '.trat' a secas
+     agarra el de las patologias, que va primero. */
+  const dentro = await pag.$eval('#peRetCaja', e => e.closest('.trat').innerText)
+  prueba('lo que dice el cuaderno se lee dentro de su tratamiento',
+    dentro.indexOf('ZZZ-UNO') >= 0 && /medicina/i.test(dentro), dentro.slice(0, 220))
+  prueba('y sin tener que abrir nada',
+    (await pag.$$eval('#peZona details', d => d.length)) === 0)
+  const conFecha = await pag.$eval('#peRetCaja .cu-fecha', e => e.textContent.trim())
+  prueba('con la fecha de cuando se le dio', /^\d{2}\/\d{2}\/\d{4}$/.test(conFecha), conFecha)
 
   await pag.evaluate(() => { document.querySelector('#peRetCaja [data-pieza]').click() })
   await pag.waitForFunction(
@@ -337,7 +346,7 @@ try {
     () => document.querySelectorAll('#peRetCaja [data-pieza]').length === 2, { timeout: 25000 })
   prueba('y deja de ofrecerlo: ya lo tiene', true)
 
-  await pag.click('#peRetTodas')
+  await pag.click('#peRetTodas')   // "Pasarlas todas"
   await pag.waitForFunction(
     () => /Quedaron anotadas/i.test((document.getElementById('peAviso') || {}).textContent || ''),
     { timeout: 25000 })
@@ -347,8 +356,11 @@ try {
   prueba('y se pueden anotar todas de golpe', Number(tr[0]?.c) === 4, JSON.stringify(tr[0]))
 
   const yaNo = await pag.$eval('#peZona', e => e.innerText)
-  prueba('cuando ya no queda nada por pasar, la caja desaparece',
-    !/Lo que ha retirado antes/i.test(yaNo), yaNo.slice(0, 200))
+  prueba('cuando ya no queda nada por pasar, lo dice',
+    /ya est[aá] en su tratamiento/i.test(yaNo), yaNo.slice(0, 300))
+  prueba('pero el cuaderno se sigue leyendo', yaNo.indexOf('ZZZ-UNO') >= 0, yaNo.slice(0, 300))
+  prueba('y ya no ofrece pasar nada',
+    (await pag.$$eval('#peRetCaja [data-pieza]', b => b.length)) === 0)
 
   /* ============================================================
      5. BUSCARLA POR PATOLOGIA

@@ -223,7 +223,9 @@
     ]).then(function (r) {
       if (!t.quien || t.quien.id !== pid || t.modo !== 'ficha') return;
       t.retirado = (r[2] && !r[2].error)
-        ? (r[2].data || []).map(function (y) { return y.observacion; }) : [];
+        ? (r[2].data || []).map(function (y) {
+            return { fecha: y.fecha, texto: y.observacion };
+          }) : [];
       /* Un error NO significa que la persona no tenga nada: significa que
          no se pudo preguntar. Sobre una ficha de salud la diferencia
          importa, así que se dice. */
@@ -330,7 +332,12 @@
       '<span class="lbl">' + (cuantos
         ? 'Medicinas que necesita · ' + cuantos
         : 'Medicinas que necesita') + '</span>' +
-      (cuantos === 0 ? '<span class="sub chico">Todavía no tiene ninguna anotada.</span>' : '') +
+      (cuantos === 0
+        ? '<span class="sub chico">' +
+          ((t.retirado && t.retirado.length)
+            ? 'No tiene medicinas anotadas en su ficha, pero el cuaderno sí dice qué se le ha dado:'
+            : 'Todavía no tiene ninguna anotada.') + '</span>'
+        : '') +
       (conProd.length
         ? '<div class="trat-lista">' + conProd.map(function (y) {
             var hay = Math.round(Number(y.disponible) || 0);
@@ -351,12 +358,12 @@
               'aria-label="Quitar ' + esc(y.texto_original) + '">&#10005;</button></span>';
           }).join('') + '</div>'
         : '') +
+      window.FARMPICK.bloqueCuaderno(i('Ret'), t.piezasRetiradas(), t.retirado) +
       (t.abierto === 'med'
         ? window.FARMPICK.caja(i('Med'), 'Buscar la medicina',
             'Escribe el nombre del medicamento…', '')
         : '<button type="button" class="trat-mas" id="' + i('MasMed') + '">+ Anotar una medicina</button>') +
-    '</div>' +
-    window.FARMPICK.cajaRetirado(i('Ret'), t.piezasRetiradas(), t.retirado);
+    '</div>';
   };
 
   /* Lo que ha retirado antes, partido en medicamentos y sin lo que ya

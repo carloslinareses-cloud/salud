@@ -343,7 +343,9 @@
         .order('fecha', { ascending: false, nullsFirst: false }).limit(20)
         .then(function (r) {
           if (!destino || destino.id !== x.id) return;
-          destino.retirado = r.error ? [] : (r.data || []).map(function (y) { return y.observacion; });
+          destino.retirado = r.error ? [] : (r.data || []).map(function (y) {
+            return { fecha: y.fecha, texto: y.observacion };
+          });
           pintarDestino();
         });
       sb.from('v_tratamiento_paciente')
@@ -846,8 +848,11 @@
         : 'Su tratamiento') + '</span>' +
 
       (cuantos === 0
-        ? '<span class="sub chico">Todavía no tiene medicinas anotadas. ' +
-          'Anótalas y la próxima vez que venga aparecen aquí de una vez.</span>'
+        ? '<span class="sub chico">' +
+          ((destino.retirado && destino.retirado.length)
+            ? 'No tiene medicinas anotadas en su ficha, pero el cuaderno sí dice qué se le ha dado:'
+            : 'Todavía no tiene medicinas anotadas. ' +
+              'Anótalas y la próxima vez que venga aparecen aquí de una vez.') + '</span>'
         : '') +
 
       (conProd.length
@@ -894,12 +899,12 @@
           '<button type="button" class="enlace" id="tratTira">Descartarlas</button></div>'
         : '') +
 
+      window.FARMPICK.bloqueCuaderno('ret', piezasRetiradas(), destino.retirado) +
       (tratAbierto
         ? buscadorMedicinas('Busca la medicina que necesita')
         : '<button type="button" class="trat-mas" id="tratMas">+ Anotar una medicina que necesita</button>') +
       '<div id="tratAviso"></div>' +
-    '</div>' +
-    window.FARMPICK.cajaRetirado('ret', piezasRetiradas(), destino.retirado);
+    '</div>';
   }
 
   /* Lo que ha retirado antes, partido en medicamentos y sin lo que ya
