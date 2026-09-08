@@ -173,9 +173,67 @@
     $('tituloPanel').textContent = info.titulo;
     $('subPanel').textContent = info.sub;
 
+    /* Inventario es el unico de los dos perfiles sueltos que necesita
+       poder saltar a otra area: los botones de «por receta» y «para una
+       operación» de Mercancía > Centros llevan hasta Entregar. Despacho
+       ya ESTA en Entregar, no necesita saltar a ningun lado. */
+    if (perfil.rol === 'inventario') { montarInventarioConSalto(usuario, zona); return; }
+
     var suya = AREAS.filter(function (a) { return a.id === perfil.rol; })[0];
     if (suya && suya.hay()) { suya.abre(zona, usuario); return; }
     zona.innerHTML = EN_OBRA;
+  }
+
+  /* Mercancía para inventario, con una puerta chica a Entregar.
+
+     No es el selector de tres pestañas del administrador: inventario
+     sigue viendo solo Mercancía de entrada. Entregar se monta OCULTO
+     la primera vez que hace falta -al tocar «por receta» o «para una
+     operación»- y se muestra con un aviso claro de dónde está y un
+     botón para volver. No se destruye al volver, se esconde: si se
+       recargara, se perdería lo que se estaba anotando. */
+  function montarInventarioConSalto(usuario, zona) {
+    zona.innerHTML =
+      '<div id="avisoVolverDespacho" class="aviso warn" hidden>' +
+        '<b>Estás en Entregar</b>' +
+        '<span>Aquí puedes anotar a la persona, su récipe o su operación. ' +
+        'Entregarle lo que necesita lo completa quien despacha.</span>' +
+      '</div>' +
+      '<div class="descargas" id="cajaVolverDespacho" hidden>' +
+        '<button type="button" id="btnVolverMercancia">← Volver a Mercancía</button>' +
+      '</div>' +
+      '<div id="zonaInventarioHome"></div>' +
+      '<div id="zonaDespachoSalto" hidden></div>';
+
+    window.PANTALLA_INVENTARIO(sb, $('zonaInventarioHome'));
+
+    var infoDespacho = AREAS.filter(function (a) { return a.id === 'despacho'; })[0];
+    var montado = false;
+
+    /* La misma puerta que usa el administrador, pero mas chica: no hay
+       tres pestañas, solo Mercancía (siempre) y Entregar (bajo pedido). */
+    window.FARMIR = function (id) {
+      if (id !== 'despacho' || typeof window.PANTALLA_DESPACHO !== 'function') return false;
+      if (!montado) { montado = true; window.PANTALLA_DESPACHO(sb, $('zonaDespachoSalto'), usuario); }
+      $('zonaInventarioHome').hidden = true;
+      $('zonaDespachoSalto').hidden = false;
+      $('avisoVolverDespacho').hidden = false;
+      $('cajaVolverDespacho').hidden = false;
+      $('tituloPanel').textContent = infoDespacho.titulo;
+      $('subPanel').textContent = infoDespacho.sub;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return true;
+    };
+
+    $('btnVolverMercancia').addEventListener('click', function () {
+      $('zonaDespachoSalto').hidden = true;
+      $('zonaInventarioHome').hidden = false;
+      $('avisoVolverDespacho').hidden = true;
+      $('cajaVolverDespacho').hidden = true;
+      $('tituloPanel').textContent = PERFILES.inventario.titulo;
+      $('subPanel').textContent = PERFILES.inventario.sub;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
   }
 
   /* El administrador entra por donde estaba la última vez, para no tener

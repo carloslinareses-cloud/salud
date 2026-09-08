@@ -15,3 +15,8 @@ papeles/
 fallo-*.png
 perfil-*/
 bajadas-*/
+
+# Salidas de las migraciones que cruzan datos con el registro electoral:
+# llevan nombres, cedulas y fechas de nacimiento REALES. El repo es
+# publico (GitHub Pages), asi que esto nunca entra.
+migracion/salida/
