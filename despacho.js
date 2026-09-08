@@ -44,7 +44,7 @@
 
     ancla.querySelectorAll('.conmuta button').forEach(function (b) {
       b.addEventListener('click', function () {
-        modo = b.dataset.modo; destino = null; cesta = [];
+        modo = b.dataset.modo; destino = null; cesta = []; olvidaTratamiento();
         bus = { busca: '', pagina: 0, total: 0, filas: [], cargando: false };
         ancla.querySelectorAll('.conmuta button').forEach(function (x) {
           x.classList.toggle('on', x === b);
@@ -72,13 +72,14 @@
   var tratNuevo = [];
   var tratAbierto = false;      // el buscador de medicinas esta desplegado
   var tratBusca = '';
+  var histTodo = false;         // el historial esta desplegado entero
 
   /* Estas tres viven lo que dure la pagina: el area de Entregar se esconde
      al cambiar de pantalla, no se destruye. Si no se limpian al cambiar de
      persona, el buscador aparece abierto y con lo que se escribio para
      OTRO paciente, y un toque se lo anota a quien no era. */
   function olvidaTratamiento() {
-    tratNuevo = []; tratAbierto = false; tratBusca = '';
+    tratNuevo = []; tratAbierto = false; tratBusca = ''; histTodo = false;
   }
 
   var TIPOS_CENTRO = ['CDI', 'Ambulatorio', 'Consultorio Popular',
@@ -99,6 +100,7 @@
         pintarPatologias() +
         pintarTratamiento() +
         pintarRequerimientos() +
+        pintarHistorial() +
         (modo === 'institucion' ?
           '<h2 class="sub-t">Quién recibe</h2>' +
           '<p class="sub">Hace falta para el acta de entrega-recepción.</p>' +
@@ -125,6 +127,8 @@
       z.querySelectorAll('[data-quita]').forEach(function (b) {
         b.addEventListener('click', function () { quitarMedicina(b.dataset.quita); });
       });
+      var vh = document.getElementById('histMas');
+      if (vh) vh.addEventListener('click', function () { histTodo = !histTodo; pintarDestino(); });
       var conReq = (destino.requerimientos || []).filter(function (x) { return x.producto_id; });
       z.querySelectorAll('[data-req]').forEach(function (b) {
         b.addEventListener('click', function () {
@@ -340,6 +344,7 @@
                   detalle: det.join(' · ') || null,
                   patologias: x.patologias || '' };
       pintarDestino(); pintarRenglones();
+      cargarHistorial('paciente', x.id);
       sb.from('v_tratamiento_paciente')
         .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,disponible,situacion,origen')
         .eq('paciente_id', x.id)
@@ -356,10 +361,11 @@
                   sub: (x.tipo || 'Centro de salud') + (x.direccion ? ' · ' + x.direccion : ''),
                   detalle: x.telefono || null, responsable: x.responsable || '' };
       pintarDestino(); pintarRenglones();
+      cargarHistorial('institucion', x.id);
       /* Su lista de insumos, la que hace rapido armarle el pedido. */
       sb.from('v_requerimientos_institucion')
         .select('requerimiento_id,producto_id,producto,dosificacion,texto_original,' +
-                'cantidad,disponible,cobertura')
+                'cantidad,disponible,vencido,cobertura')
         .eq('institucion_id', x.id).order('producto', { nullsFirst: false })
         .then(function (r) {
           if (!destino || destino.id !== x.id) return;   // ya cambio de centro
@@ -750,13 +756,19 @@
         ? '<div class="trat-lista">' + conProd.map(function (x, i) {
             var hay = Math.round(Number(x.disponible) || 0);
             var pide = x.cantidad == null ? null : Math.round(x.cantidad);
+            /* No es lo mismo "no hay" que "hay, pero vencido": en el
+               segundo caso hay algo que sacar del estante hoy. */
+            var soloVenc = x.cobertura === 'solo_vencido';
+            var venc = Math.round(Number(x.vencido) || 0);
             return '<button type="button" class="trat-med' + (hay > 0 ? '' : ' sin') + '" ' +
               'data-req="' + i + '"' + (hay > 0 ? '' : ' disabled') + '>' +
               '<span class="tm-nom">' + esc(x.producto) +
                 (x.dosificacion ? ' <em>' + esc(x.dosificacion) + '</em>' : '') + '</span>' +
-              '<span class="tm-hay">' +
+              '<span class="tm-hay' + (soloVenc ? ' tm-venc' : '') + '">' +
                 (pide != null ? 'necesita ' + pide + ' · ' : '') +
-                (hay > 0 ? 'hay ' + hay : 'sin existencia') +
+                (hay > 0 ? 'hay ' + hay
+                         : (soloVenc ? 'solo vencido' + (venc ? ' · ' + venc : '')
+                                     : 'sin existencia')) +
                 (pide != null && hay > 0 && hay < pide ? ' — no alcanza' : '') +
               '</span></button>';
           }).join('') + '</div>'
@@ -783,6 +795,38 @@
     '</div>';
   }
 
+  /* Cuando de un medicamento no queda nada que se pueda entregar hay dos
+     motivos muy distintos: que se haya acabado, o que lo que queda este
+     vencido. Decir "no queda nada" habiendo tres cajas vencidas en el
+     estante manda a la gente a buscar algo que si esta ahi pero no
+     sirve, y ademas deja el vencido ahi otro mes mas. */
+  function porQueNoHay(productoId, nombre) {
+    return sb.from('v_lotes_para_ver')
+      .select('existencia,vence').eq('producto_id', productoId).eq('es_vencido', 1)
+      .then(function (r) {
+        var v = (!r.error && r.data) || [];
+        if (!v.length) return 'De ' + esc(nombre) + ' no queda nada que se pueda entregar.';
+        var u = 0, viejo = null;
+        v.forEach(function (x) {
+          u += Number(x.existencia) || 0;
+          if (x.vence && (!viejo || x.vence < viejo)) viejo = x.vence;
+        });
+        return 'De ' + esc(nombre) + ' lo único que queda está <b>vencido</b>: ' +
+          Math.round(u) + (Math.round(u) === 1 ? ' unidad en ' : ' unidades en ') +
+          v.length + (v.length === 1 ? ' lote' : ' lotes') +
+          (viejo ? ', el más viejo venció el ' + fecha(viejo) : '') +
+          '. No se puede entregar: hay que darlo de baja en Mercancía.';
+      });
+  }
+
+  /* Deja el motivo en el aviso de arriba, cuando se sepa. */
+  function avisaNoHay(productoId, nombre) {
+    porQueNoHay(productoId, nombre).then(function (msg) {
+      var a = document.getElementById('zonaAviso');
+      if (a) a.innerHTML = '<div class="aviso warn">' + msg + '</div>';
+    });
+  }
+
   /* Agrega un renglon del pedido con la cantidad que pide el centro, o con
      lo que quede si no alcanza. Nunca mas de lo que hay: la base lo
      rechazaria y ademas seria prometer lo que no existe. */
@@ -795,8 +839,7 @@
       .then(function (r) {
         var l = r.data && r.data[0];
         if (!l) {
-          if (av && !callado) av.innerHTML = '<div class="aviso warn">De ' + esc(x.producto) +
-            ' no queda nada que se pueda entregar.</div>';
+          if (!callado) avisaNoHay(x.producto_id, x.producto);
           return false;
         }
         if (cesta.some(function (c) { return c.lote_id === l.lote_id; })) return false;
@@ -808,6 +851,136 @@
                      empaque: l.empaque, porEmpaque: l.unidades_por_empaque });
         return pide > hay ? 'corto' : true;
       });
+  }
+
+  /* ================================================================
+     LO QUE YA SE LE ENTREGO
+
+     Cuando alguien vuelve, lo primero que hace falta saber es que se le
+     dio y cuando: si vino hace tres dias por lo mismo, si lleva dos
+     meses sin retirar su tratamiento, o si otro despachador ya lo
+     atendio esta manana. Antes eso solo se veia saliendo a Mercancia;
+     aqui esta al lado de la persona, con el dia, la hora, quien lo
+     atendio y que se le entrego.
+
+     Es solo de LECTURA. Corregir una entrega no se hace aqui: se anula,
+     que deja constancia. Una entrega anulada sigue apareciendo, tachada
+     y con su motivo, porque haberla anulado tambien es historia.
+  ================================================================ */
+
+  /* Cuantas visitas se ven de entrada. Con tres se responde "cuando vino
+     la ultima vez" sin llenar la pantalla; el resto esta a un toque. */
+  var HIST_PRIMERAS = 3;
+  /* Cuantos renglones se piden. Una entrega trae uno por medicamento,
+     asi que 300 son muchisimas visitas; aun asi puede quedarse corto y
+     por eso se avisa en vez de callarlo. */
+  var HIST_TOPE = 300;
+
+  function cargarHistorial(tipo, id) {
+    var col = tipo === 'institucion' ? 'institucion_id' : 'paciente_id';
+    sb.from('v_entregas_renglon')
+      .select('entrega_id,fecha,creado_en,origen,anulada,anulada_motivo,' +
+              'entregado_por,lo_entregado,renglon_id,producto,dosificacion,' +
+              'presentacion,cantidad,en_cajas,lote,vence')
+      .eq(col, id)
+      /* La fecha manda; entre dos del mismo dia, la hora. El entrega_id
+         va de tercero como desempate estable: sin el, dos entregas con
+         la misma hora pueden salir en distinto orden en cada consulta. */
+      .order('fecha', { ascending: false })
+      .order('creado_en', { ascending: false, nullsFirst: false })
+      .order('entrega_id')
+      .limit(HIST_TOPE)
+      .then(function (r) {
+        if (!destino || destino.id !== id) return;      // ya cambio de persona
+        /* Un error NO es "nunca se le entrego nada": es "no se pudo
+           preguntar". Confundirlos aqui lleva a entregarle dos veces lo
+           mismo el mismo dia. */
+        if (r.error) {
+          destino.historial = null;
+          destino.falloHist = r.error.message;
+        } else {
+          var filas = r.data || [];
+          /* Al tope: la última entrega puede venir a medias y se descarta. */
+          destino.historial = window.FARM.agrupaEntregas(filas, filas.length >= HIST_TOPE);
+          destino.falloHist = null;
+        }
+        pintarDestino();
+      });
+  }
+
+  /* Un renglon de lo que se entrego, con su cantidad. */
+  function lineaRenglon(y) {
+    var nom = [y.producto, y.dosificacion].filter(Boolean).join(' ');
+    return '<li>' + esc(nom || 'sin nombre') +
+      (y.cantidad == null
+        ? ' <em>no consta la cantidad</em>'
+        : ' <b>' + Math.round(y.cantidad) + '</b>' +
+          (y.en_cajas ? ' <em>' + esc(y.en_cajas) + '</em>' : '')) +
+      (y.lote ? ' <em>lote ' + esc(y.lote) + '</em>' : '') +
+    '</li>';
+  }
+
+  function tarjetaEntrega(e) {
+    var hora = window.FARM.horaCaracas(e.creado_en);
+    /* Las entregas que vinieron del cuaderno tienen `creado_en` del dia
+       en que se cargaron, no del dia en que se entregaron: poner esa
+       hora seria inventarla. Solo se muestra la de las del sistema. */
+    var conHora = e.origen === 'sistema' && hora;
+
+    return '<li class="hist-item' + (e.anulada ? ' hist-anulada' : '') + '">' +
+      '<div class="hist-cab">' +
+        '<b>' + fecha(e.fecha) + (conHora ? ' \u00b7 ' + esc(hora) : '') + '</b>' +
+        (e.anulada ? '<span class="sit mal">ANULADA</span>' : '') +
+      '</div>' +
+      '<span class="hist-quien">Entreg\u00f3: ' + esc(e.entregado_por || 'no consta') +
+        (e.origen === 'sistema' ? '' : ' \u00b7 viene del cuaderno') + '</span>' +
+      (e.renglones.length
+        ? '<ul class="hist-meds">' + e.renglones.map(lineaRenglon).join('') + '</ul>'
+        : (e.lo_entregado
+            ? '<p class="hist-texto">' + esc(e.lo_entregado) + '</p>' +
+              '<span class="hist-nota">Del cuaderno: no anotaba la cantidad.</span>'
+            : '<span class="hist-nota">No qued\u00f3 anotado qu\u00e9 se entreg\u00f3.</span>')) +
+      (e.anulada && e.anulada_motivo
+        ? '<span class="hist-nota">Motivo de la anulaci\u00f3n: ' + esc(e.anulada_motivo) + '</span>'
+        : '') +
+    '</li>';
+  }
+
+  function pintarHistorial() {
+    var lbl = destino.tipo === 'institucion'
+      ? 'Lo que ya se le ha entregado a este centro'
+      : 'Lo que ya se le ha entregado';
+    var h = destino.historial;
+
+    if (h === undefined) return '<div class="trat"><span class="lbl">' + lbl + '</span>' +
+      '<span class="sub chico">Buscando\u2026</span></div>';
+    if (h === null) return '<div class="trat"><span class="lbl">' + lbl + '</span>' +
+      '<div class="aviso bad">No se pudo leer su historial' +
+      (destino.falloHist ? ': ' + esc(destino.falloHist) : '') +
+      '. No quiere decir que no se le haya entregado nada.</div></div>';
+    if (!h.length) return '<div class="trat"><span class="lbl">' + lbl + '</span>' +
+      '<span class="sub chico">No hay ninguna entrega registrada todav\u00eda.</span></div>';
+
+    var ver = histTodo ? h : h.slice(0, HIST_PRIMERAS);
+    var quedan = h.length - ver.length;
+    /* Las anuladas se ven, pero contarlas junto a las buenas diría que
+       se le entregó algo que no se le entregó. Van dichas aparte. */
+    var anul = h.filter(function (e) { return e.anulada; }).length;
+
+    return '<div class="trat">' +
+      '<span class="lbl">' + lbl + ' \u00b7 ' + h.length +
+        (h.length === 1 ? ' entrega' : ' entregas') +
+        (anul ? ', ' + anul + (anul === 1 ? ' anulada' : ' anuladas') : '') + '</span>' +
+      '<ul class="hist">' + ver.map(tarjetaEntrega).join('') + '</ul>' +
+      (quedan > 0
+        ? '<button type="button" class="trat-mas" id="histMas">' +
+          (quedan === 1 ? 'Ver la anterior' : 'Ver las ' + quedan + ' anteriores') +
+          '</button>'
+        : (histTodo && h.length > HIST_PRIMERAS
+            ? '<button type="button" class="trat-mas" id="histMas">Ver solo las \u00faltimas ' +
+              HIST_PRIMERAS + '</button>'
+            : '')) +
+    '</div>';
   }
 
   /* Lo que tiene la persona. Se ve, no se toca: aqui se entrega, y
@@ -864,7 +1037,8 @@
                 ' title="' + esc(sePuede ? 'Agregar a la entrega' : 'No se puede entregar ahora') + '">' +
                 '<span class="tm-nom">' + esc(nom) +
                   (x.dosificacion ? ' <em>' + esc(x.dosificacion) + '</em>' : '') + '</span>' +
-                '<span class="tm-hay">' + (x.producto_id
+                '<span class="tm-hay' +
+                  (x.situacion === 'solo_vencido' ? ' tm-venc' : '') + '">' + (x.producto_id
                   ? (hay > 0 ? hay + ' disponibles'
                              : (x.situacion === 'solo_vencido' ? 'solo vencido' : 'sin existencia'))
                   : 'no está en el catálogo') + '</span>' +
@@ -1087,18 +1261,13 @@
   /* Al tocar un medicamento del tratamiento se busca su lote: el que vence
      primero, que es el que hay que sacar. */
   function agregarDelTratamiento(x) {
-    var av = document.getElementById('zonaAviso');
     sb.from('v_lotes_para_despachar')
       .select('lote_id,producto_id,producto,lote,vence,existencia,en_cajas,'+
               'empaque,unidades_por_empaque,situacion')
       .eq('producto_id', x.producto_id).limit(1)
       .then(function (r) {
         var l = r.data && r.data[0];
-        if (!l) {
-          if (av) av.innerHTML = '<div class="aviso warn">De ' + esc(x.producto) +
-            ' no queda nada que se pueda entregar.</div>';
-          return;
-        }
+        if (!l) { avisaNoHay(x.producto_id, x.producto); return; }
         agregar(l);
       });
   }
@@ -1132,52 +1301,121 @@
     vigente:       { t: 'Vigente',          c: 'ok' }
   };
 
+  /* Numero de busqueda. Se piden dos consultas a la vez y el usuario
+     sigue escribiendo: sin esto, una respuesta lenta de hace dos letras
+     puede pintarse encima de la buena. */
+  var buscaNum = 0;
+
+  /* El cuerpo de la ficha de un lote. Lo comparten la lista de lo que se
+     puede entregar y la de lo vencido; lo unico que cambia es que en la
+     segunda la fecha ya paso y se dice en pasado. */
+  function fichaLote(x, venc) {
+    return '<div class="ficha-nom"><b>' + esc(x.producto) + '</b>' +
+        /* En los vencidos la fecha va en su propio renglón, sin punto de
+           separación: es EL dato que hay que leer, y colgado detrás del
+           número de lote se parte a mitad de línea. */
+        '<span class="ficha-pres">lote ' + esc(x.lote || 'sin número') +
+        (venc ? '<b>venció el ' + fecha(x.vence) + '</b>'
+              : ' · vence ' + fecha(x.vence)) +
+        '</span></div>' +
+      '<div class="ficha-datos">' +
+        '<span class="ficha-cant">' + Math.round(x.existencia) + '<em>quedan</em></span>' +
+        (x.en_cajas ? '<span class="ficha-cajas">' + esc(x.en_cajas) + '</span>' : '') +
+      '</div>';
+  }
+
+  /* LO QUE HAY PARA ENTREGAR, Y LO QUE HAY VENCIDO.
+
+     Antes esta pantalla solo consultaba los lotes despachables. El efecto
+     era el contrario del que se buscaba: quien atiende escribia el nombre,
+     no salia nada, y no tenia forma de saber si es que no habia, si nunca
+     se cargo, o si estaba ahi mismo en el estante pero vencido. Ahora
+     salen las dos cosas, en dos grupos: arriba lo que se puede entregar,
+     abajo lo vencido, apagado y con su etiqueta. */
   function buscarMed(q) {
     var lista = document.getElementById('resMed');
     if (!lista) return;
     lista.innerHTML = '<div class="cargando">Buscando…</div>';
+    var mio = ++buscaNum;
 
-    /* La vista ya viene ordenada por el que vence primero (FEFO) y sin
-       vencidos: lo primero de la lista es lo que hay que sacar. */
-    var p = sb.from('v_lotes_para_despachar')
-      .select('lote_id,producto_id,producto,dosificacion,lote,vence,existencia,' +
-              'en_cajas,empaque,unidades_por_empaque,situacion', { count: 'exact' });
-    if (q.length >= 2) p = p.ilike('producto', '*' + q.replace(/[%,()]/g, '') + '*');
+    function consulta(vencidos) {
+      var p = sb.from('v_lotes_para_ver')
+        .select('lote_id,producto_id,producto,dosificacion,lote,vence,existencia,' +
+                'en_cajas,empaque,unidades_por_empaque,situacion', { count: 'exact' })
+        .eq('es_vencido', vencidos ? 1 : 0);
+      if (q.length >= 2) p = p.ilike('producto', '*' + q.replace(/[%,()]/g, '') + '*');
+      /* FEFO: el que vence primero es el que hay que sacar. Entre los
+         vencidos, primero el que lleva mas tiempo vencido. Los que no
+         tienen fecha van al final, que es lo que hacia la vista vieja. */
+      return p.order('vence', { nullsFirst: false })
+              /* Desempate: muchos lotes vencen el mismo dia. Sin un
+                 segundo criterio, el corte de los 30 varia de una
+                 consulta a otra y un lote entra y sale solo. */
+              .order('lote_id')
+              .limit(vencidos ? 15 : 30);
+    }
 
-    p.limit(30).then(function (r) {
+    Promise.all([consulta(false), consulta(true)]).then(function (rr) {
       var zz = document.getElementById('resMed');
-      if (!zz) return;
-      if (r.error) { zz.innerHTML = '<div class="cargando">' + esc(r.error.message) + '</div>'; return; }
-      var f = r.data || [];
-      if (!f.length) {
-        zz.innerHTML = '<div class="vacio"><b>' +
-          (q ? 'No hay existencia de «' + esc(q) + '».' : 'No hay nada disponible para entregar.') +
-          '</b><span>Puede estar agotado o vencido. Míralo en Mercancía.</span></div>';
+      if (!zz || mio !== buscaNum) return;      // llego una busqueda mas nueva
+      if (rr[0].error) {
+        zz.innerHTML = '<div class="cargando">' + esc(rr[0].error.message) + '</div>';
         return;
       }
-      var total = r.count == null ? f.length : r.count;
-      zz.innerHTML =
-        '<p class="conteo">' + (total > f.length
-          ? 'Los ' + f.length + ' primeros de ' + total + ' lotes disponibles. Escribe para acotar.'
-          : total + (total === 1 ? ' lote disponible' : ' lotes disponibles')) + '</p>' +
-        '<div class="fichas">' + f.map(function (x, i) {
-          var m = SIT_TXT[x.situacion] || { t: '', c: 'gris' };
-          var yaEsta = cesta.some(function (c) { return c.lote_id === x.lote_id; });
-          return '<button type="button" class="ficha" data-i="' + i + '"' +
-            (yaEsta ? ' disabled' : '') + '>' +
-            '<div class="ficha-nom"><b>' + esc(x.producto) + '</b>' +
-              '<span class="ficha-pres">lote ' + esc(x.lote || 'sin número') +
-              ' · vence ' + fecha(x.vence) + '</span></div>' +
-            '<div class="ficha-datos">' +
-              '<span class="ficha-cant">' + Math.round(x.existencia) + '<em>quedan</em></span>' +
-              (x.en_cajas ? '<span class="ficha-cajas">' + esc(x.en_cajas) + '</span>' : '') +
-            '</div>' +
-            (yaEsta ? '<span class="sit ok">Ya está</span>'
-                    : '<span class="sit ' + m.c + '">' + m.t + '</span>') +
-          '</button>';
-        }).join('') + '</div>';
+      var f = rr[0].data || [];
+      /* Si falla la consulta de vencidos no se cae la pantalla: se entrega
+         igual y sencillamente no se muestra ese bloque. */
+      var v = rr[1].error ? [] : (rr[1].data || []);
+      var total  = rr[0].count == null ? f.length : rr[0].count;
+      var totalV = rr[1].count == null ? v.length : rr[1].count;
 
-      zz.querySelectorAll('.ficha').forEach(function (b) {
+      if (!f.length && !v.length) {
+        zz.innerHTML = '<div class="vacio"><b>' +
+          (q ? 'No hay nada de «' + esc(q) + '», ni siquiera vencido.'
+             : 'No hay nada cargado para entregar.') +
+          '</b><span>Se carga en Mercancía → Entrada de mercancía.</span></div>';
+        return;
+      }
+
+      var partes = [];
+
+      if (f.length) {
+        partes.push('<p class="conteo">' + (total > f.length
+            ? 'Los ' + f.length + ' primeros de ' + total + ' lotes disponibles. Escribe para acotar.'
+            : total + (total === 1 ? ' lote disponible' : ' lotes disponibles')) + '</p>' +
+          '<div class="fichas">' + f.map(function (x, i) {
+            var m = SIT_TXT[x.situacion] || { t: '', c: 'gris' };
+            var yaEsta = cesta.some(function (c) { return c.lote_id === x.lote_id; });
+            return '<button type="button" class="ficha" data-i="' + i + '"' +
+              (yaEsta ? ' disabled' : '') + '>' + fichaLote(x, false) +
+              (yaEsta ? '<span class="sit ok">Ya está</span>'
+                      : '<span class="sit ' + m.c + '">' + m.t + '</span>') +
+            '</button>';
+          }).join('') + '</div>');
+      } else {
+        partes.push('<div class="vacio"><b>' +
+          (q ? 'De «' + esc(q) + '» no hay nada que se pueda entregar.'
+             : 'No hay nada vigente para entregar.') +
+          '</b><span>Lo que queda está vencido: es lo de abajo.</span></div>');
+      }
+
+      if (v.length) {
+        partes.push('<div class="venc-caja">' +
+          '<p class="venc-lbl">' + totalV +
+            (totalV === 1 ? ' lote vencido' : ' lotes vencidos') +
+            (totalV > v.length ? ' (se ven los ' + v.length + ' más viejos)' : '') +
+            '. No se pueden entregar; hay que darlos de baja en Mercancía.</p>' +
+          '<div class="fichas">' + v.map(function (x) {
+            return '<button type="button" class="ficha ficha-venc" disabled ' +
+              'title="Vencido: el sistema no permite entregarlo">' + fichaLote(x, true) +
+              '<span class="sit mal">VENCIDO</span></button>';
+          }).join('') + '</div></div>');
+      }
+
+      zz.innerHTML = partes.join('');
+      /* Solo los de arriba se pueden tocar; los vencidos van disabled y
+         sin escuchador, para que no haya forma de meterlos por error. */
+      zz.querySelectorAll('.ficha[data-i]').forEach(function (b) {
         b.addEventListener('click', function () { agregar(f[+b.dataset.i]); });
       });
     });

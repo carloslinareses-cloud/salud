@@ -113,6 +113,94 @@
     }
   };
 
+  /* La hora, tambien en la de Caracas y por el mismo motivo: el servidor
+     guarda en UTC, y una entrega hecha a las 8 de la noche de aqui alla
+     ya lleva la hora de mañana. Devuelve '9:14 a. m.'. */
+  F.horaCaracas = function (iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var h, mi;
+    try {
+      var p = new Intl.DateTimeFormat('en-GB', {
+        timeZone: ZONA, hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+      }).format(d).split(':');
+      h = +p[0]; mi = p[1];
+    } catch (e) {
+      // Sin Intl: Venezuela es UTC-4 todo el año, no cambia la hora.
+      var v = new Date(d.getTime() - 4 * 3600 * 1000);
+      h = v.getUTCHours(); mi = dos(v.getUTCMinutes());
+    }
+    if (h === 24) h = 0;                 // algunas versiones dan 24 la medianoche
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    return h12 + ':' + mi + (h >= 12 ? ' p. m.' : ' a. m.');
+  };
+
+  /* ---------------------------------------------------------------
+     Juntar los renglones de una entrega
+
+     La vista devuelve UNA FILA POR MEDICAMENTO. Para leerlo hacen falta
+     juntos: "el martes 3, a las 9:14, Ana le entrego dos cosas". Esto
+     los agrupa por entrega sin perder ninguno.
+
+     Las entregas viejas del cuaderno no tienen renglones: vienen con la
+     cantidad en nulo y el texto en `lo_entregado`. Salen igual, con la
+     lista vacia, para que quien atiende vea que esa visita existio.
+
+     Si `cortado` es cierto, la consulta llegó a su tope y la última
+     entrega puede venir a medias. Se descarta: enseñar una entrega de
+     tres medicinas con una sola es peor que no enseñarla, porque
+     quien atiende creería que eso fue todo lo que se le dio.
+  --------------------------------------------------------------- */
+  F.agrupaEntregas = function (filas, cortado) {
+    var orden = [], por = {};
+    (filas || []).forEach(function (r) {
+      var e = por[r.entrega_id];
+      if (!e) {
+        e = por[r.entrega_id] = {
+          entrega_id: r.entrega_id,
+          fecha: r.fecha || null,
+          creado_en: r.creado_en || null,
+          origen: r.origen || null,
+          anulada: !!r.anulada,
+          anulada_motivo: r.anulada_motivo || null,
+          entregado_por: r.entregado_por || null,
+          lo_entregado: r.lo_entregado || null,
+          renglones: []
+        };
+        orden.push(e);
+      }
+      if (r.renglon_id) {
+        e.renglones.push({
+          renglon_id: r.renglon_id,
+          producto: r.producto || null,
+          dosificacion: r.dosificacion || null,
+          presentacion: r.presentacion || null,
+          cantidad: r.cantidad == null ? null : Number(r.cantidad),
+          en_cajas: r.en_cajas || null,
+          lote: r.lote || null,
+          vence: r.vence || null
+        });
+      }
+    });
+    /* La ultima que llego puede estar cortada por el tope de la
+       consulta. Se quita ANTES de ordenar, porque "la ultima" es la
+       ultima que devolvio la base, no la mas vieja por fecha. */
+    if (cortado && orden.length > 1) orden.pop();
+
+    /* Lo mas reciente arriba. Se ordena aqui y no solo en la consulta
+       para que la funcion sirva sola y se pueda probar. Entre dos del
+       mismo dia manda la hora; las del cuaderno no la tienen y quedan
+       detras de las del sistema, que es lo correcto: son mas viejas. */
+    orden.sort(function (a, b) {
+      if ((a.fecha || '') !== (b.fecha || '')) return (a.fecha || '') < (b.fecha || '') ? 1 : -1;
+      var ca = a.creado_en || '', cb = b.creado_en || '';
+      if (ca !== cb) return ca < cb ? 1 : -1;
+      return 0;
+    });
+    return orden;
+  };
+
   function dos(n) { return String(n).padStart(2, '0'); }
   function aDia(iso) {
     var p = String(iso).slice(0, 10).split('-');

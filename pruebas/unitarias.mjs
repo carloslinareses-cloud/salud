@@ -262,6 +262,99 @@ prueba('nulo', F.piezasTratamiento(null), []);
 prueba('lista vacia', F.piezasTratamiento([]), []);
 
 /* ================================================================
+   LA HORA DE CARACAS
+
+   El servidor guarda en UTC. Una entrega hecha a las 8 de la noche de
+   Charallave se guarda como medianoche del dia siguiente: mostrarla asi
+   pondria "12:00 a. m." en el historial de una persona que vino de dia.
+================================================================ */
+grupo('La hora de Caracas');
+prueba('media mañana',
+  F.horaCaracas('2026-09-08T13:14:00Z'), '9:14 a. m.');
+prueba('media tarde',
+  F.horaCaracas('2026-09-08T19:42:00Z'), '3:42 p. m.');
+prueba('las 8 de la noche de aqui, que en UTC ya es mañana',
+  F.horaCaracas('2026-09-09T00:30:00Z'), '8:30 p. m.');
+prueba('el mediodia no es la medianoche',
+  F.horaCaracas('2026-09-08T16:00:00Z'), '12:00 p. m.');
+prueba('la medianoche no es el mediodia',
+  F.horaCaracas('2026-09-08T04:00:00Z'), '12:00 a. m.');
+prueba('sin fecha', F.horaCaracas(null), '');
+prueba('basura',    F.horaCaracas('no es una fecha'), '');
+
+/* El dia tambien: hoyCaracas admite cualquier momento, no solo ahora. */
+prueba('el dia de una entrega de las 8 de la noche',
+  F.hoyCaracas('2026-09-09T00:30:00Z'), '2026-09-08');
+
+/* ================================================================
+   JUNTAR LOS RENGLONES DE UNA ENTREGA
+
+   La vista devuelve UNA FILA POR MEDICAMENTO. El historial las muestra
+   por visita: "el martes, a las 9:14, Ana le entrego dos cosas".
+================================================================ */
+grupo('Juntar los renglones de una entrega');
+
+const FILAS = [
+  { entrega_id: 'B', fecha: '2026-09-07', creado_en: '2026-09-07T14:00:00Z',
+    origen: 'sistema', anulada: false, entregado_por: 'Ana',
+    renglon_id: 'r1', producto: 'LOSARTAN', dosificacion: '50MG', cantidad: 30,
+    en_cajas: '1 caja', lote: 'L1' },
+  { entrega_id: 'B', fecha: '2026-09-07', creado_en: '2026-09-07T14:00:00Z',
+    origen: 'sistema', anulada: false, entregado_por: 'Ana',
+    renglon_id: 'r2', producto: 'METFORMINA', dosificacion: '850MG', cantidad: 60,
+    en_cajas: null, lote: 'L2' },
+  { entrega_id: 'A', fecha: '2026-09-08', creado_en: '2026-09-08T13:00:00Z',
+    origen: 'sistema', anulada: true, anulada_motivo: 'se equivocaron de persona',
+    entregado_por: 'Luis',
+    renglon_id: 'r3', producto: 'ENALAPRIL', dosificacion: '10MG', cantidad: 20,
+    en_cajas: null, lote: null },
+  /* Una del cuaderno: sin renglones, sin cantidad y sin hora de verdad. */
+  { entrega_id: 'C', fecha: '2024-05-02', creado_en: '2026-06-01T10:00:00Z',
+    origen: 'migracion_excel', anulada: false,
+    entregado_por: 'No consta (viene del Excel)',
+    lo_entregado: 'LOSARTAN / ASPIRINA', renglon_id: null, cantidad: null }
+];
+
+const G = F.agrupaEntregas(FILAS);
+
+prueba('tres entregas, no cuatro filas', G.length, 3);
+prueba('la mas reciente primero',        G.map(e => e.entrega_id), ['A', 'B', 'C']);
+prueba('los dos renglones quedan juntos', G[1].renglones.length, 2);
+prueba('y no se pierde ninguno',
+  G[1].renglones.map(r => r.producto), ['LOSARTAN', 'METFORMINA']);
+prueba('la cantidad llega como numero',  G[1].renglones[0].cantidad, 30);
+prueba('quien entrego',                  G[1].entregado_por, 'Ana');
+prueba('la anulada se marca',            G[0].anulada, true);
+prueba('con su motivo',                  G[0].anulada_motivo, 'se equivocaron de persona');
+prueba('la del cuaderno no tiene renglones', G[2].renglones.length, 0);
+prueba('pero si su texto',               G[2].lo_entregado, 'LOSARTAN / ASPIRINA');
+prueba('y se sabe de donde viene',       G[2].origen, 'migracion_excel');
+prueba('lista vacia',                    F.agrupaEntregas([]), []);
+prueba('nulo',                           F.agrupaEntregas(null), []);
+
+/* Un renglon sin cantidad NO puede convertirse en cero: cero significa
+   "no se le dio nada", y lo que pasa es que no se anoto. */
+/* Si la consulta llego a su tope, la ULTIMA entrega puede venir a medias.
+   Una entrega de tres medicinas mostrada con una sola haria creer que eso
+   fue todo lo que se le dio. */
+const CORTADAS = [
+  { entrega_id: 'A', fecha: '2026-09-08', creado_en: '2026-09-08T13:00:00Z',
+    renglon_id: 'r1', producto: 'LOSARTAN', cantidad: 30 },
+  { entrega_id: 'B', fecha: '2026-09-01', creado_en: '2026-09-01T13:00:00Z',
+    renglon_id: 'r2', producto: 'METFORMINA', cantidad: 60 }
+];
+prueba('sin corte salen las dos',
+  F.agrupaEntregas(CORTADAS, false).map(e => e.entrega_id), ['A', 'B']);
+prueba('con corte se descarta la ultima que llego',
+  F.agrupaEntregas(CORTADAS, true).map(e => e.entrega_id), ['A']);
+prueba('nunca se queda vacio si solo hay una',
+  F.agrupaEntregas([CORTADAS[0]], true).length, 1);
+
+prueba('cantidad nula sigue nula',
+  F.agrupaEntregas([{ entrega_id: 'X', fecha: '2026-01-01', renglon_id: 'z',
+                      producto: 'GASA', cantidad: null }])[0].renglones[0].cantidad, null);
+
+/* ================================================================
    ESCAPADO — datos de pacientes reales van a la pantalla.
 ================================================================ */
 grupo('Escapado');

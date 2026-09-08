@@ -28,6 +28,7 @@
     hay:            { txt: 'Hay existencia', cl: 'ok' },
     no_alcanza:     { txt: 'No alcanza',     cl: 'ojo' },
     sin_existencia: { txt: 'Sin existencia', cl: 'mal' },
+    solo_vencido:   { txt: 'Solo vencido',   cl: 'mal' },
     sin_enlazar:    { txt: 'Sin enlazar',    cl: 'gris' }
   };
 
@@ -55,7 +56,7 @@
                'ultima_entrega,insumos,unidades_recibidas';
   var CAMPOS_REQ = 'requerimiento_id,institucion_id,producto_id,texto_original,cantidad,nota,' +
                    'producto,dosificacion,presentacion,unidad,empaque,unidades_por_empaque,' +
-                   'disponible,vence_primero,situacion,cobertura';
+                   'disponible,vencido,vence_primero,situacion,cobertura';
 
   /* ================================================================ */
   function Centros(sb, raiz, pfx) {
@@ -279,8 +280,12 @@
     }
 
     var faltan = f.filter(function (x) {
-      return x.cobertura === 'no_alcanza' || x.cobertura === 'sin_existencia';
+      return x.cobertura === 'no_alcanza' || x.cobertura === 'sin_existencia' ||
+             x.cobertura === 'solo_vencido';
     }).length;
+    /* Lo vencido se cuenta aparte: no es que falte, es que está ahí y
+       no sirve. Hay que sacarlo del estante, no salir a comprarlo. */
+    var venc = f.filter(function (x) { return x.cobertura === 'solo_vencido'; }).length;
 
     return '<h3 class="sub-t">Insumos que necesita</h3>' +
       '<p class="sub">Lo que suele pedir y cuánto. Al ir a entregarle, esta lista sale sola ' +
@@ -290,6 +295,12 @@
         ? '<div class="aviso warn"><b>Hoy no hay con qué cubrir ' + faltan +
           (faltan === 1 ? ' renglón' : ' renglones') + '</b>' +
           'Están marcados abajo. Mejor saberlo antes de salir a repartir.</div>'
+        : '') +
+      (venc
+        ? '<div class="aviso warn"><b>De ' + venc +
+          (venc === 1 ? ' renglón solo queda lo vencido' : ' renglones solo queda lo vencido') +
+          '</b>No se puede entregar. Hay existencia física, pero hay que darla ' +
+          'de baja en Mercancía → Alertas.</div>'
         : '') +
       (f.length
         ? '<div class="tabla-caja"><table class="tabla datos"><thead><tr>' +
@@ -313,7 +324,11 @@
                   'data-cant="' + esc(x.requerimiento_id) + '" value="' +
                   (x.cantidad == null ? '' : Math.round(x.cantidad)) + '" placeholder="—"></td>' +
               '<td class="num der" data-col="Hay hoy">' +
-                (x.producto_id ? '<b' + (hay ? '' : ' class="cero"') + '>' + num(hay) + '</b>' : '—') + '</td>' +
+                (x.producto_id
+                  ? '<b' + (hay ? '' : ' class="cero"') + '>' + num(hay) + '</b>' +
+                    (!hay && Number(x.vencido) > 0
+                      ? '<span class="chico mal">' + num(x.vencido) + ' vencidas</span>' : '')
+                  : '—') + '</td>' +
               '<td data-col="Situación">' + sit(x.cobertura) + '</td>' +
               '<td data-col=""><button type="button" class="quitar" data-quita="' +
                 esc(x.requerimiento_id) + '">Quitar</button></td>' +

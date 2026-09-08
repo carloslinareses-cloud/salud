@@ -202,6 +202,7 @@
     var t = this;
     t.quien = x; t.modo = 'ficha'; t.abierto = null;
     t.patologias = null; t.tratamiento = null;   // nulo = todavía no se sabe
+    t.historial = null; t.histTodo = false; t.falloHist = null;
     t.pintar();
     t.cargarAnexos();
   };
@@ -215,7 +216,18 @@
       t.sb.from('v_tratamiento_paciente')
         .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,' +
                 'disponible,situacion,origen')
+        .eq('paciente_id', pid),
+      /* Lo que ya se le entregó, con día, hora y quién. Viene una fila
+         por medicamento; se juntan por entrega más abajo. */
+      t.sb.from('v_entregas_renglon')
+        .select('entrega_id,fecha,creado_en,origen,anulada,anulada_motivo,' +
+                'entregado_por,lo_entregado,renglon_id,producto,dosificacion,' +
+                'presentacion,cantidad,en_cajas,lote,vence')
         .eq('paciente_id', pid)
+        .order('fecha', { ascending: false })
+        .order('creado_en', { ascending: false, nullsFirst: false })
+        .order('entrega_id')
+        .limit(HIST_TOPE)
     ]).then(function (r) {
       if (!t.quien || t.quien.id !== pid || t.modo !== 'ficha') return;
       /* Un error NO significa que la persona no tenga nada: significa que
@@ -223,6 +235,14 @@
          importa, así que se dice. */
       t.patologias = r[0].error ? null : (r[0].data || []);
       t.tratamiento = r[1].error ? null : (r[1].data || []);
+      var fh = r[2].data || [];
+      t.historial = r[2].error
+        ? null
+        : window.FARM.agrupaEntregas(fh, fh.length >= HIST_TOPE);
+      /* El fallo del historial va aparte: si se mezclara con el de
+         las patologías, corregir una medicina lo borraría y el bloque
+         se quedaría diciendo "Buscando" para siempre. */
+      t.falloHist = r[2].error ? r[2].error.message : null;
       t.falloAnexos = (r[0].error || r[1].error || {}).message || null;
       t.pintarFicha();
     });
@@ -251,6 +271,7 @@
 
       t.bloquePatologias() +
       t.bloqueMedicinas() +
+      t.bloqueHistorial() +
 
       '<h3 class="sub-t">Sus datos</h3>' +
       t.camposPersona(x) +
@@ -264,6 +285,95 @@
     t.engancharCampos();
     t.q('Guardar').addEventListener('click', function () { t.guardarDatos(); });
     t.engancharAnexos();
+  };
+
+  /* ---------------------------------------------------------------- historial
+
+     LO QUE YA SE LE ENTREGO, visita por visita.
+
+     La misma informacion que sale en Entregar, pero aqui sin recortar:
+     esta es la ficha, el sitio donde alguien se sienta a revisar el caso
+     completo. Dia, hora, quien atendio y que se llevo.
+
+     Las entregas viejas del cuaderno no tienen renglones ni hora: solo
+     el texto de lo que se anoto. Salen igual y se dice de donde vienen,
+     porque esconderlas seria dar por no atendida una visita que si paso.
+  */
+  var HIST_PRIMERAS = 5;
+  /* Cuantos renglones se piden. Si se llega al tope, la ultima entrega
+     puede venir a medias: agrupaEntregas la descarta. */
+  var HIST_TOPE = 600;
+
+  Personas.prototype.lineaHistorial = function (y) {
+    var nom = [y.producto, y.dosificacion].filter(Boolean).join(' ');
+    return '<li>' + esc(nom || 'sin nombre') +
+      (y.cantidad == null
+        ? ' <em>no consta la cantidad</em>'
+        : ' <b>' + Math.round(y.cantidad) + '</b>' +
+          (y.en_cajas ? ' <em>' + esc(y.en_cajas) + '</em>' : '')) +
+      (y.lote ? ' <em>lote ' + esc(y.lote) + '</em>' : '') +
+    '</li>';
+  };
+
+  Personas.prototype.tarjetaHistorial = function (e) {
+    var t = this;
+    var hora = window.FARM.horaCaracas(e.creado_en);
+    /* Las del cuaderno traen la hora en que se CARGARON, no en la que se
+       entregaron: mostrarla seria inventar un dato. */
+    var conHora = e.origen === 'sistema' && hora;
+
+    return '<li class="hist-item' + (e.anulada ? ' hist-anulada' : '') + '">' +
+      '<div class="hist-cab">' +
+        '<b>' + corta(e.fecha) + (conHora ? ' · ' + esc(hora) : '') + '</b>' +
+        (e.anulada ? '<span class="sit mal">ANULADA</span>' : '') +
+      '</div>' +
+      '<span class="hist-quien">Entregó: ' + esc(e.entregado_por || 'no consta') +
+        (e.origen === 'sistema' ? '' : ' · viene del cuaderno') + '</span>' +
+      (e.renglones.length
+        ? '<ul class="hist-meds">' + e.renglones.map(function (y) {
+            return t.lineaHistorial(y);
+          }).join('') + '</ul>'
+        : (e.lo_entregado
+            ? '<p class="hist-texto">' + esc(e.lo_entregado) + '</p>' +
+              '<span class="hist-nota">Del cuaderno: no anotaba la cantidad.</span>'
+            : '<span class="hist-nota">No quedó anotado qué se entregó.</span>')) +
+      (e.anulada && e.anulada_motivo
+        ? '<span class="hist-nota">Motivo de la anulación: ' + esc(e.anulada_motivo) + '</span>'
+        : '') +
+    '</li>';
+  };
+
+  Personas.prototype.bloqueHistorial = function () {
+    var t = this, i = function (n) { return t.id(n); };
+    var h = t.historial;
+    var TIT = '<h3 class="sub-t">Lo que ya se le ha entregado</h3>';
+
+    if (h === null && !t.falloHist) return TIT + '<div class="cargando">Buscando…</div>';
+    if (h === null) return TIT +
+      '<div class="aviso bad">No se pudo leer su historial. No quiere decir que no se le ' +
+      'haya entregado nada. Vuelve a abrir su ficha.</div>';
+    if (!h.length) return TIT +
+      '<p class="sub chico">No hay ninguna entrega registrada todavía.</p>';
+
+    var ver = t.histTodo ? h : h.slice(0, HIST_PRIMERAS);
+    var quedan = h.length - ver.length;
+    /* Las anuladas se ven, pero contarlas junto a las buenas diría que
+       se le entregó algo que no se le entregó. Van dichas aparte. */
+    var anul = h.filter(function (e) { return e.anulada; }).length;
+
+    return TIT +
+      '<p class="sub">' + h.length + (h.length === 1 ? ' entrega' : ' entregas') +
+        (anul ? ', ' + anul + (anul === 1 ? ' anulada' : ' anuladas') : '') +
+        ', de la más reciente a la más vieja.</p>' +
+      '<ul class="hist">' + ver.map(function (e) { return t.tarjetaHistorial(e); }).join('') + '</ul>' +
+      (quedan > 0
+        ? '<button type="button" class="trat-mas" id="' + i('HistMas') + '">' +
+          (quedan === 1 ? 'Ver la anterior' : 'Ver las ' + quedan + ' anteriores') +
+          '</button>'
+        : (t.histTodo && h.length > HIST_PRIMERAS
+            ? '<button type="button" class="trat-mas" id="' + i('HistMas') +
+              '">Ver solo las últimas ' + HIST_PRIMERAS + '</button>'
+            : ''));
   };
 
   /* ---------------------------------------------------------------- patologías */
@@ -333,9 +443,12 @@
               '<span class="trat-texto' + (y.producto_id ? ' del-catalogo' : '') + '">' +
                 esc(nom) +
                 (y.dosificacion ? ' <em>' + esc(y.dosificacion) + '</em>' : '') +
-                ' <em>' + (y.producto_id
-                  ? hay + (hay === 1 ? ' disponible' : ' disponibles')
-                  : 'no está en el catálogo') + '</em></span>' +
+                ' <em' + (y.situacion === 'solo_vencido' ? ' class="mal"' : '') + '>' +
+                  (y.producto_id
+                    ? (hay > 0 ? hay + (hay === 1 ? ' disponible' : ' disponibles')
+                               : (y.situacion === 'solo_vencido' ? 'solo vencido'
+                                                                 : 'sin existencia'))
+                    : 'no está en el catálogo') + '</em></span>' +
               '<button type="button" class="trat-edita" data-editamed="' + esc(y.tratamiento_id) + '" ' +
                 'data-texto="' + esc(nom) + '" ' +
                 'aria-label="Corregir ' + esc(nom) + '" title="Corregir">&#9998;&#65038;</button>' +
@@ -401,6 +514,11 @@
     var t = this, i = function (n) { return t.id(n); };
     var z = t.q('Zona');
     if (!z) return;
+
+    var vh = t.q('HistMas');
+    if (vh) vh.addEventListener('click', function () {
+      t.histTodo = !t.histTodo; t.pintarFicha();
+    });
 
     var mp = t.q('MasPat');
     if (mp) mp.addEventListener('click', function () {

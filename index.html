@@ -191,33 +191,6 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   padding:0 18px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink-soft)}
 .enlace{font:inherit;font-size:inherit;font-weight:750;cursor:pointer;border:0;background:none;
   color:var(--navy-2);text-decoration:underline;padding:0}
-@media (max-width:480px){
-  .renglon{flex-wrap:wrap}
-  .renglon .que{flex:1 1 100%}
-  .botonera{flex-direction:column}
-  .conmuta button{flex:1 1 40%}
-  .acciones-u{width:100%; justify-content:flex-start}
-  .acciones-u button{flex:1 1 auto; min-height:44px; font-size:13px}
-  .fila-clave button{min-height:44px}
-  .herr-der{flex:1 1 100%; min-width:0}
-  .dos-columnas{grid-template-columns:1fr}
-  .cifra-linea{flex:1 1 45%}
-  /* En el telefono nada que se toque baja de 44 px: es el minimo
-     para acertar con el dedo sin fallar. */
-  .chips button,.acciones-u button,button.deshacer,.volver,.descargas button,
-  .paginador button,.ci-quitar,.paso{min-height:44px}
-  .cesta-item{flex-wrap:wrap; gap:9px}
-  .ci-nom{flex:1 1 100%}
-  .ci-cant{flex:1}
-  .ci-quitar{margin-left:auto}
-  .ficha-ced{max-width:100%}
-  .busca-fila > button{flex:1 1 100%}
-  .ficha{flex-wrap:wrap; gap:10px}
-  .ficha-nom{flex:1 1 100%}
-  .ficha-datos{text-align:left; min-width:0}
-  .paginador button{flex:1}
-  .celda{width:84px}
-}
 
 
 /* ---------- inventario y panel de admin ---------- */
@@ -322,6 +295,56 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 
 .ficha-cajas{display:block; font-size:11.5px; font-weight:700; color:var(--navy-2);
   margin-top:3px}
+
+/* LO VENCIDO SE VE, PERO NO SE TOCA.
+   Va en su propio bloque, debajo de lo que sí se puede entregar: apagado,
+   con la fecha en rojo y sin escuchador de clic. Antes ni se consultaba,
+   así que quien atendía buscaba, no salía nada, y no había forma de saber
+   si es que no había o si estaba ahí mismo en el estante pero vencido. */
+.venc-caja{margin-top:14px; padding:11px 12px 12px; border-radius:12px;
+  border:1px dashed var(--bad-line); background:var(--bad-bg)}
+.venc-lbl{margin:0 0 8px; font-size:12px; font-weight:700; line-height:1.35;
+  color:var(--bad-ink)}
+.venc-caja .fichas{margin-top:0}
+.ficha-venc{cursor:not-allowed; border-color:var(--bad-line); background:var(--card);
+  color:var(--ink-faint)}
+.ficha-venc:hover{border-color:var(--bad-line); background:var(--card)}
+.ficha-venc .ficha-nom b{color:var(--ink-soft)}
+.ficha-venc .ficha-pres b{display:block; margin-top:1px; color:var(--bad-ink)}
+.ficha-venc .ficha-cant{color:var(--ink-faint)}
+
+/* En los chips del tratamiento y de la lista del centro, "solo vencido"
+   no puede leerse igual que "sin existencia": lo primero hay que sacarlo
+   del estante hoy, lo segundo hay que comprarlo. */
+.tm-venc{color:var(--bad-ink); opacity:1; font-weight:750}
+
+/* LO QUE YA SE LE ENTREGO.
+   Una tarjeta por visita: el día y la hora arriba, quién atendió debajo,
+   y la lista de lo que se llevó. Va después del tratamiento porque
+   primero se atiende y luego se comprueba, pero antes de la cesta: hay
+   que verlo ANTES de ponerse a agregar medicinas. */
+.hist{list-style:none; margin:9px 0 0; padding:0; display:flex;
+  flex-direction:column; gap:8px}
+.hist-item{padding:11px 13px; border:1px solid var(--line); border-radius:11px;
+  background:var(--card)}
+.hist-cab{display:flex; align-items:center; justify-content:space-between; gap:9px}
+.hist-cab b{font-size:13.5px; font-weight:800; font-variant-numeric:tabular-nums}
+.hist-quien{display:block; font-size:11.5px; color:var(--ink-faint); margin-top:2px}
+.hist-meds{list-style:none; margin:8px 0 0; padding:0; display:flex;
+  flex-direction:column; gap:4px}
+.hist-meds li{font-size:12.5px; line-height:1.35; padding-left:12px; position:relative;
+  overflow-wrap:anywhere}
+.hist-meds li::before{content:'·'; position:absolute; left:2px; font-weight:800;
+  color:var(--ink-faint)}
+.hist-meds li b{font-variant-numeric:tabular-nums}
+.hist-meds li em{font-style:normal; font-size:11.5px; color:var(--ink-faint)}
+.hist-texto{margin:7px 0 0; font-size:12.5px; line-height:1.35; overflow-wrap:anywhere}
+.hist-nota{display:block; font-size:11px; color:var(--ink-faint); margin-top:5px}
+/* Anulada: sigue viéndose —haberla anulado también es historia— pero se
+   lee de un golpe que ya no cuenta. */
+.hist-anulada{border-color:var(--bad-line); background:var(--bad-bg)}
+.hist-anulada .hist-cab b, .hist-anulada .hist-meds li{text-decoration:line-through}
+.hist-anulada .hist-nota{color:var(--bad-ink)}
 .pc-cajas{font-style:normal; font-size:12.5px; font-weight:700; color:var(--ink-faint)}
 .tabla .num .chico{display:block; margin-top:2px; font-weight:600}
 .ci-tope em{display:block; font-style:normal; font-size:10.5px; font-weight:700;
@@ -663,6 +686,40 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
   .trat-par{display:flex; width:100%}
   .trat-par .trat-med,.trat-par .trat-texto{flex:1; min-width:0}
   .trat-mas{width:100%; text-align:center}
+}
+
+/* ---------- el telefono, lo que faltaba ----------
+   Este bloque estaba ARRIBA del archivo y trece de sus reglas no las
+   aplicaba nadie: con la misma especificidad gana la que viene despues,
+   este o no dentro de una @media. Por eso en la lista de Entregar el
+   nombre del medicamento salia partido letra por letra en el telefono.
+   Bajado aqui, entero y sin tocarle una sola declaracion. */
+@media (max-width:480px){
+  .renglon{flex-wrap:wrap}
+  .renglon .que{flex:1 1 100%}
+  .botonera{flex-direction:column}
+  .conmuta button{flex:1 1 40%}
+  .acciones-u{width:100%; justify-content:flex-start}
+  .acciones-u button{flex:1 1 auto; min-height:44px; font-size:13px}
+  .fila-clave button{min-height:44px}
+  .herr-der{flex:1 1 100%; min-width:0}
+  .dos-columnas{grid-template-columns:1fr}
+  .cifra-linea{flex:1 1 45%}
+  /* En el telefono nada que se toque baja de 44 px: es el minimo
+     para acertar con el dedo sin fallar. */
+  .chips button,.acciones-u button,button.deshacer,.volver,.descargas button,
+  .paginador button,.ci-quitar,.paso{min-height:44px}
+  .cesta-item{flex-wrap:wrap; gap:9px}
+  .ci-nom{flex:1 1 100%}
+  .ci-cant{flex:1}
+  .ci-quitar{margin-left:auto}
+  .ficha-ced{max-width:100%}
+  .busca-fila > button{flex:1 1 100%}
+  .ficha{flex-wrap:wrap; gap:10px}
+  .ficha-nom{flex:1 1 100%}
+  .ficha-datos{text-align:left; min-width:0}
+  .paginador button{flex:1}
+  .celda{width:84px}
 }
 </style>
 <script>
