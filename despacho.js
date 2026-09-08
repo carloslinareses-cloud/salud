@@ -735,7 +735,11 @@
       '<span class="sub chico">No tiene lista de insumos. Se le puede armar en ' +
       'Mercancía → Centros y así la próxima vez sale sola.</span></div>';
 
-    var conProd = r.filter(function (x) { return x.producto_id; });
+    /* Lo que se puede entregar hoy va PRIMERO. Un centro puede pedir
+       ochenta renglones y estar enlazados solo seis: si no se ordena, los
+       seis que sirven quedan enterrados. */
+    var conProd = r.filter(function (x) { return x.producto_id; })
+      .sort(function (a, b) { return (Number(b.disponible) || 0) - (Number(a.disponible) || 0); });
     var sueltos = r.filter(function (x) { return !x.producto_id && x.texto_original; });
     var sePuede = conProd.filter(function (x) { return Number(x.disponible) > 0; });
 
@@ -757,13 +761,20 @@
               '</span></button>';
           }).join('') + '</div>'
         : '') +
+      /* Los que no estan en el catalogo no se pueden tocar, asi que no se
+         pintan como botones: van juntos en un renglon de texto. Se siguen
+         viendo todos —es lo que pide el centro— sin tapar lo que sirve. */
       (sueltos.length
-        ? '<div class="trat-sueltos">' +
-          '<span class="ts-lbl">Pide también, sin enlazar al catálogo</span>' +
-          sueltos.map(function (x) {
-            return '<span class="trat-texto">' + esc(x.texto_original) +
-              (x.cantidad != null ? ' <em>' + Math.round(x.cantidad) + '</em>' : '') + '</span>';
-          }).join('') + '</div>'
+        ? '<div class="pide-texto">' +
+          '<span class="ts-lbl">Pide también ' + sueltos.length +
+            (sueltos.length === 1 ? ' insumo' : ' insumos') +
+            ' que no están en el catálogo</span>' +
+          '<p class="sub chico">' +
+          esc(sueltos.map(function (x) {
+            return x.texto_original + (x.cantidad != null ? ' (' + Math.round(x.cantidad) + ')' : '');
+          }).join(' · ')) + '</p>' +
+          '<span class="sub chico">Se pueden entregar buscándolos abajo, o cargarlos ' +
+          'al catálogo para que salgan aquí de una vez.</span></div>'
         : '') +
       (sePuede.length > 1
         ? '<button type="button" class="trat-mas" id="reqTodo">+ Agregar los ' + sePuede.length +
