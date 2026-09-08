@@ -234,6 +234,66 @@
     });
   };
 
+  /* ================================================================
+     LO QUE HA RETIRADO ANTES
+
+     El cuaderno anotaba el tratamiento en la misma casilla de cada
+     entrega. Al migrar eso quedó como el texto de la entrega —que es lo
+     que era—, así que la ficha de mucha gente sale vacía aunque el dato
+     esté justo al lado.
+
+     Aquí se saca a la vista, partido en medicamentos, para poder pasarlo
+     a su tratamiento con un toque. NO se pasa solo: lo que alguien
+     retiró una vez no es forzosamente lo que toma siempre, y eso lo
+     decide quien atiende, no el programa.
+  ================================================================ */
+  P.piezasDe = function (textos, yaTiene) {
+    var piezas = (window.FARM && window.FARM.piezasTratamiento)
+      ? window.FARM.piezasTratamiento(textos) : [];
+    if (!yaTiene || !yaTiene.length) return piezas;
+    return piezas.filter(function (x) {
+      return !yaTiene.some(function (t) {
+        return P.mismo(t.producto || t.texto_original, x);
+      });
+    });
+  };
+
+  P.cajaRetirado = function (pfx, piezas, textos) {
+    if (!piezas || !piezas.length) return '';
+    var crudo = (textos || []).filter(Boolean);
+    return '<div class="trat retirado" id="' + pfx + 'Caja">' +
+      '<span class="lbl">Lo que ha retirado antes · del cuaderno</span>' +
+      '<p class="sub chico">Esto está anotado en sus entregas, no en su tratamiento. ' +
+      'Toca lo que de verdad necesita y queda en su ficha para la próxima vez.</p>' +
+      '<div class="trat-lista">' + piezas.map(function (x, i) {
+        return '<button type="button" class="pieza" data-pieza="' + i + '">' +
+               esc(x) + '</button>';
+      }).join('') + '</div>' +
+      (piezas.length > 1
+        ? '<button type="button" class="trat-mas" id="' + pfx + 'Todas">' +
+          'Anotarlas todas (' + piezas.length + ')</button>'
+        : '') +
+      (crudo.length
+        ? '<details class="crudo"><summary>Ver lo que dice el cuaderno</summary>' +
+          crudo.slice(0, 8).map(function (t) {
+            return '<p class="sub chico">' + esc(t) + '</p>';
+          }).join('') + '</details>'
+        : '') +
+    '</div>';
+  };
+
+  P.engancharRetirado = function (raiz, pfx, piezas, alElegir, alElegirTodas) {
+    var z = raiz || document;
+    z.querySelectorAll('#' + pfx + 'Caja [data-pieza]').forEach(function (b) {
+      b.addEventListener('click', function () { alElegir(piezas[+b.dataset.pieza]); });
+    });
+    var t = z.querySelector('#' + pfx + 'Todas');
+    if (t && alElegirTodas) t.addEventListener('click', function () {
+      t.disabled = true; t.textContent = 'Anotando…';
+      alElegirTodas(piezas);
+    });
+  };
+
   /* Compara dos cosas anotadas sin que estorben acentos ni mayúsculas, y
      CRUZADO: lo escrito a mano contra el nombre del catálogo y al revés.
      Sin esto, anotar "losartan" a mano cuando ya tenía LOSARTAN del

@@ -158,6 +158,9 @@
         var c = document.getElementById('tratBusca'); if (c) c.focus();
       });
       if (tratAbierto) engancharBuscador(anotarMedicina);
+      window.FARMPICK.engancharRetirado(z, 'ret', piezasRetiradas(),
+        function (x) { anotarMedicina({ producto_id: null, texto_original: x, producto: x }); },
+        anotarPiezas);
       return;
     }
 
@@ -333,6 +336,16 @@
                   detalle: det.join(' · ') || null,
                   patologias: x.patologias || '' };
       pintarDestino(); pintarRenglones();
+      /* Lo que ha retirado antes: el cuaderno guardaba ahi el tratamiento. */
+      sb.from('entregas').select('fecha,observacion')
+        .eq('paciente_id', x.id).eq('anulada', false)
+        .not('observacion', 'is', null)
+        .order('fecha', { ascending: false, nullsFirst: false }).limit(20)
+        .then(function (r) {
+          if (!destino || destino.id !== x.id) return;
+          destino.retirado = r.error ? [] : (r.data || []).map(function (y) { return y.observacion; });
+          pintarDestino();
+        });
       sb.from('v_tratamiento_paciente')
         .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,disponible,situacion')
         .eq('paciente_id', x.id)
@@ -885,7 +898,29 @@
         ? buscadorMedicinas('Busca la medicina que necesita')
         : '<button type="button" class="trat-mas" id="tratMas">+ Anotar una medicina que necesita</button>') +
       '<div id="tratAviso"></div>' +
-    '</div>';
+    '</div>' +
+    window.FARMPICK.cajaRetirado('ret', piezasRetiradas(), destino.retirado);
+  }
+
+  /* Lo que ha retirado antes, partido en medicamentos y sin lo que ya
+     tiene anotado. Se calcula aqui para usarlo al pintar y al enganchar. */
+  function piezasRetiradas() {
+    if (!destino || destino.tipo !== 'paciente' || !destino.retirado) return [];
+    return window.FARMPICK.piezasDe(destino.retirado, destino.tratamiento || []);
+  }
+
+  /* Anota de golpe todo lo que se retiro antes. */
+  function anotarPiezas(piezas) {
+    var pid = destino.id;
+    var filas = piezas.map(function (x) {
+      return { paciente_id: pid, texto_original: x, activo: true };
+    });
+    sb.from('tratamientos_paciente').insert(filas).then(function (r) {
+      if (r.error) { avisoTrat('bad', 'No se pudieron anotar: ' + r.error.message); return; }
+      recargarTratamiento(pid, function () {
+        avisoTrat('ok', 'Quedaron anotadas ' + filas.length + ' medicinas en su tratamiento.');
+      });
+    });
   }
 
   /* El buscador de medicinas es el de picker.js: lo comparten esta

@@ -214,9 +214,16 @@
         .eq('paciente_id', pid).eq('activo', true).order('patologia'),
       t.sb.from('v_tratamiento_paciente')
         .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,disponible,situacion')
-        .eq('paciente_id', pid)
+        .eq('paciente_id', pid),
+      /* Lo que ha retirado antes: el cuaderno guardaba ahi el tratamiento. */
+      t.sb.from('entregas').select('fecha,observacion')
+        .eq('paciente_id', pid).eq('anulada', false)
+        .not('observacion', 'is', null)
+        .order('fecha', { ascending: false, nullsFirst: false }).limit(20)
     ]).then(function (r) {
       if (!t.quien || t.quien.id !== pid || t.modo !== 'ficha') return;
+      t.retirado = (r[2] && !r[2].error)
+        ? (r[2].data || []).map(function (y) { return y.observacion; }) : [];
       /* Un error NO significa que la persona no tenga nada: significa que
          no se pudo preguntar. Sobre una ficha de salud la diferencia
          importa, así que se dice. */
@@ -348,7 +355,28 @@
         ? window.FARMPICK.caja(i('Med'), 'Buscar la medicina',
             'Escribe el nombre del medicamento…', '')
         : '<button type="button" class="trat-mas" id="' + i('MasMed') + '">+ Anotar una medicina</button>') +
-    '</div>';
+    '</div>' +
+    window.FARMPICK.cajaRetirado(i('Ret'), t.piezasRetiradas(), t.retirado);
+  };
+
+  /* Lo que ha retirado antes, partido en medicamentos y sin lo que ya
+     tiene anotado. */
+  Personas.prototype.piezasRetiradas = function () {
+    if (!this.retirado || !this.retirado.length) return [];
+    return window.FARMPICK.piezasDe(this.retirado, this.tratamiento || []);
+  };
+
+  Personas.prototype.anotarPiezas = function (piezas) {
+    var t = this, pid = t.quien.id;
+    var filas = piezas.map(function (x) {
+      return { paciente_id: pid, texto_original: x, activo: true };
+    });
+    t.sb.from('tratamientos_paciente').insert(filas).then(function (r) {
+      if (r.error) { t.aviso('bad', 'No se pudieron anotar: ' + r.error.message); return; }
+      t.recargarAnexos(function () {
+        t.aviso('ok', 'Quedaron anotadas ' + filas.length + ' medicinas en su tratamiento.');
+      });
+    });
   };
 
   Personas.prototype.engancharAnexos = function () {
@@ -380,6 +408,9 @@
     z.querySelectorAll('[data-quitamed]').forEach(function (b) {
       b.addEventListener('click', function () { t.quitarMedicina(b.dataset.quitamed); });
     });
+    window.FARMPICK.engancharRetirado(z, i('Ret'), t.piezasRetiradas(),
+      function (x) { t.anotarMedicina({ producto_id: null, texto_original: x, producto: x }); },
+      function (piezas) { t.anotarPiezas(piezas); });
   };
 
   Personas.prototype.anotarPatologia = function (txt) {
@@ -476,6 +507,7 @@
       }
       t.patologias = r[0].data || [];
       t.tratamiento = r[1].data || [];
+      t.falloAnexos = null;
       t.quien.n_patologias = t.patologias.length;
       t.quien.medicamentos = t.tratamiento.length;
       t.pintarFicha();

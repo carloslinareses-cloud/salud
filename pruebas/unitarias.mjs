@@ -221,6 +221,47 @@ prueba('hacia atrás',         F.sumaDias('2026-09-01', -1), '2026-08-31');
 prueba('cruza el bisiesto',   F.sumaDias('2028-02-28', 1), '2028-02-29');
 
 /* ================================================================
+   PARTIR EL TRATAMIENTO DEL CUADERNO
+
+   Todos estos textos son de verdad, sacados de la columna TRATAMIENTO
+   del registro diario de la farmacia.
+================================================================ */
+grupo('Partir el tratamiento del cuaderno');
+prueba('separado por comas',
+  F.piezasTratamiento('VALSARTAN 80MG,ENALAPRIL 10MG,ASPIRINA 81MG'),
+  ['VALSARTAN 80MG', 'ENALAPRIL 10MG', 'ASPIRINA 81MG']);
+prueba('separado por barras con espacios',
+  F.piezasTratamiento('CARBAMAZEPINA 200mg / CLONAZEPAN 20mg / RESPIRIDONA 2mg'),
+  ['CARBAMAZEPINA 200mg', 'CLONAZEPAN 20mg', 'RESPIRIDONA 2mg']);
+prueba('uno solo se queda entero',
+  F.piezasTratamiento('VALSARTAN 80MG '), ['VALSARTAN 80MG']);
+
+// Lo que NO se puede partir: la coma y la barra van dentro del nombre.
+prueba('NO parte 0,5MG/ML',
+  F.piezasTratamiento('DESLORATADINA 0,5MG/ML'), ['DESLORATADINA 0,5MG/ML']);
+prueba('NO parte 60/400 MG',
+  F.piezasTratamiento('AIRON 60/400 MG'), ['AIRON 60/400 MG']);
+prueba('parte lo de fuera pero respeta lo de dentro',
+  F.piezasTratamiento('DESLORATADINA 0,5MG/ML / IBUPROFENO 400 MG'),
+  ['DESLORATADINA 0,5MG/ML', 'IBUPROFENO 400 MG']);
+
+prueba('el + NO separa: es parte del nombre',
+  F.piezasTratamiento('ACIDO FOLICO 10 MG + COMPLEJO B'),
+  ['ACIDO FOLICO 10 MG + COMPLEJO B']);
+prueba('no repite lo mismo escrito igual',
+  F.piezasTratamiento(['LOSARTAN 50MG / ASPIRINA', 'aspirina / LOSARTAN 50mg']),
+  ['LOSARTAN 50MG', 'ASPIRINA']);
+prueba('junta lo de varias entregas',
+  F.piezasTratamiento(['VALSARTAN 80MG', 'ENALAPRIL 10MG']),
+  ['VALSARTAN 80MG', 'ENALAPRIL 10MG']);
+prueba('descarta los pedazos de menos de 3 letras',
+  F.piezasTratamiento('OMEPRAZOL 20mg / X / AMLODIPINA 10mg'),
+  ['OMEPRAZOL 20mg', 'AMLODIPINA 10mg']);
+prueba('vacio', F.piezasTratamiento(''), []);
+prueba('nulo', F.piezasTratamiento(null), []);
+prueba('lista vacia', F.piezasTratamiento([]), []);
+
+/* ================================================================
    ESCAPADO — datos de pacientes reales van a la pantalla.
 ================================================================ */
 grupo('Escapado');

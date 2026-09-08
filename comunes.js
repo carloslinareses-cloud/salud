@@ -172,6 +172,56 @@
   };
 
   /* ---------------------------------------------------------------
+     Partir en medicamentos lo que dice el cuaderno
+
+     El cuaderno de la farmacia anotaba el tratamiento entero en una sola
+     celda: "VALSARTAN 80MG,ENALAPRIL 10MG" o "CARBAMAZEPINA 200mg /
+     CLONAZEPAN 20mg / RESPIRIDONA 2mg".
+
+     Pero la coma y la barra TAMBIÉN van dentro de un nombre:
+     "DESLORATADINA 0,5MG/ML", "AIRON 60/400 MG", "SOL 0.9/HIDRATANTE".
+     Cortar a ciegas parte los nombres por la mitad.
+
+     La regla: se corta por la coma o la barra SALVO cuando tiene números
+     a los dos lados. Así 0,5 y 60/400 quedan enteros y el resto se
+     separa. No adivina nada más: lo que sale son CANDIDATOS para que una
+     persona los mire, no medicamentos dados por buenos.
+  --------------------------------------------------------------- */
+  var COMA = '\u0001', BARRA = '\u0002';
+
+  F.piezasTratamiento = function (textos) {
+    var lista = Array.isArray(textos) ? textos : [textos];
+    var vistos = {}, salida = [];
+
+    lista.forEach(function (t) {
+      if (t == null || t === '') return;
+      // Se esconden los separadores que NO separan nada:
+      //   · entre números          -> "60/400 MG", "0,5"
+      //   · entre dos unidades     -> "0,5MG/ML", "500 MG/5ML", "UI/ML"
+      // Lo demás sí separa: en "SOL 0.9/HIDRATANTE" la barra sí corta.
+      var s = String(t)
+        .replace(/(\d)\s*,\s*(\d)/g, '$1' + COMA + '$2')
+        .replace(/(\d)\s*\/\s*(\d)/g, '$1' + BARRA + '$2')
+        .replace(/(\d\s*(?:MG|ML|MCG|UI|CC|GR?|L)\s*)\/(\s*\d*\s*(?:MG|ML|MCG|UI|CC|GR?|L)\b)/gi,
+                 '$1' + BARRA + '$2');
+
+      s.split(/[\/,;]+/).forEach(function (p) {
+        var x = p.replace(new RegExp(COMA, 'g'), ',')
+                 .replace(new RegExp(BARRA, 'g'), '/')
+                 .replace(/\s+/g, ' ').trim();
+        // Se quitan los adornos que no son nombre de nada.
+        x = x.replace(/^[-+.*·•]+/, '').replace(/[-+.*·•]+$/, '').trim();
+        if (x.length < 3) return;
+        var clave = F.sinAcentos(x);
+        if (vistos[clave]) return;
+        vistos[clave] = 1;
+        salida.push(x);
+      });
+    });
+    return salida;
+  };
+
+  /* ---------------------------------------------------------------
      Cédulas
   --------------------------------------------------------------- */
 

@@ -288,9 +288,20 @@ try {
     base[0]?.sexo === 'F', JSON.stringify(base[0]))
 
   /* ============================================================
-     5. BUSCARLA POR PATOLOGIA
+     4b. LO QUE HA RETIRADO ANTES
+
+     El cuaderno guardaba el tratamiento en la casilla de cada entrega.
+     Al migrar quedo como el texto de la entrega, asi que 2.734 fichas
+     salian vacias con el dato justo al lado. Ahora sale, partido en
+     medicamentos, y se pasa al tratamiento con un toque.
   ============================================================ */
-  console.log('\n--- 5. Buscar por patologia ---')
+  console.log('\n--- 4b. Lo que ha retirado antes ---')
+  const ENTREGO = 'ZZZ-UNO ' + MARCA + ' / ZZZ-DOS ' + MARCA + ' / DESLORATADINA 0,5MG/ML'
+  await sql(`insert into farmacia.entregas
+       (fecha, tipo_destinatario, paciente_id, observacion, origen)
+     select current_date, 'paciente', p.id, '${ENTREGO}', 'migracion_excel'
+       from farmacia.pacientes p where p.nombre = '${PAC}';`)
+
   await pag.click('#peVolver')
   await pag.waitForSelector('#peBusca', { timeout: 20000 })
   await pag.type('#peBusca', PAC)
@@ -298,9 +309,66 @@ try {
     const f = document.querySelectorAll('#peRes .ficha')
     return f.length === 1 && f[0].innerText.includes(t)
   }, { timeout: 25000 }, PAC)
+  await pag.evaluate(() => { document.querySelector('#peRes .ficha').click() })
+  await pag.waitForFunction(
+    () => /Lo que ha retirado antes/i.test((document.getElementById('peZona') || {}).innerText || ''),
+    { timeout: 25000 })
+
+  const piezas = await pag.$$eval('#peRetCaja [data-pieza]', bs => bs.map(b => b.textContent.trim()))
+  prueba('sale lo que retiro antes, partido en medicamentos',
+    piezas.length === 3, JSON.stringify(piezas))
+  prueba('y NO parte los nombres que llevan barra dentro',
+    piezas.some(x => x.indexOf('DESLORATADINA 0,5MG/ML') >= 0), JSON.stringify(piezas))
+
+  const crudo = await pag.$eval('#peRetCaja .crudo', e => e.textContent)
+  prueba('se puede ver lo que decia el cuaderno tal cual',
+    crudo.indexOf('ZZZ-UNO') >= 0, crudo.slice(0, 120))
+
+  await pag.evaluate(() => { document.querySelector('#peRetCaja [data-pieza]').click() })
+  await pag.waitForFunction(
+    () => /qued[oó] anotada|ya estaba/i.test((document.getElementById('peAviso') || {}).textContent || ''),
+    { timeout: 25000 })
+  let tr = await sql(`select count(*) c from farmacia.tratamientos_paciente t
+     join farmacia.pacientes p on p.id = t.paciente_id
+    where p.nombre = '${PAC}' and t.activo;`)
+  prueba('un toque lo pasa a su tratamiento', Number(tr[0]?.c) === 2, JSON.stringify(tr[0]))
+
+  await pag.waitForFunction(
+    () => document.querySelectorAll('#peRetCaja [data-pieza]').length === 2, { timeout: 25000 })
+  prueba('y deja de ofrecerlo: ya lo tiene', true)
+
+  await pag.click('#peRetTodas')
+  await pag.waitForFunction(
+    () => /Quedaron anotadas/i.test((document.getElementById('peAviso') || {}).textContent || ''),
+    { timeout: 25000 })
+  tr = await sql(`select count(*) c from farmacia.tratamientos_paciente t
+     join farmacia.pacientes p on p.id = t.paciente_id
+    where p.nombre = '${PAC}' and t.activo;`)
+  prueba('y se pueden anotar todas de golpe', Number(tr[0]?.c) === 4, JSON.stringify(tr[0]))
+
+  const yaNo = await pag.$eval('#peZona', e => e.innerText)
+  prueba('cuando ya no queda nada por pasar, la caja desaparece',
+    !/Lo que ha retirado antes/i.test(yaNo), yaNo.slice(0, 200))
+
+  /* ============================================================
+     5. BUSCARLA POR PATOLOGIA
+  ============================================================ */
+  console.log('\n--- 5. Buscar por patologia ---')
+  await pag.click('#peVolver')
+  await pag.waitForSelector('#peBusca', { timeout: 20000 })
+  /* La casilla conserva lo escrito antes, asi que hay que vaciarla o se
+     escribe encima y no encuentra nada. */
+  await pag.evaluate(() => { document.getElementById('peBusca').value = '' })
+  await pag.type('#peBusca', PAC)
+  await pag.waitForFunction(t => {
+    const f = document.querySelectorAll('#peRes .ficha')
+    return f.length === 1 && f[0].innerText.includes(t)
+  }, { timeout: 25000 }, PAC)
   const enLista = await pag.$eval('#peRes .ficha', e => e.innerText.replace(/\s+/g, ' '))
   prueba('en la lista se ve con sus patologias', /HIPERTENSI[OÓ]N/i.test(enLista), enLista)
-  prueba('y con cuantas medicinas necesita', /1 medicina/i.test(enLista), enLista)
+  /* Cuatro: la que se le anoto al registrarla mas las tres que se le
+     pasaron desde lo que habia retirado antes. */
+  prueba('y con cuantas medicinas necesita', /4 medicinas/i.test(enLista), enLista)
 
   await pag.evaluate(() => { document.getElementById('peBusca').value = '' })
   await pag.type('#peBusca', 'HIPERTENSION ARTERIAL')
@@ -393,6 +461,12 @@ delete from farmacia.bitacora
     or registro_id in (select id::text from farmacia.productos where nombre like 'ZZZ-%')
     or registro_id in (select id::text from farmacia.pacientes where nombre like 'ZZZ%');
 
+delete from farmacia.bitacora
+ where registro_id in (select e.id::text from farmacia.entregas e
+                        join farmacia.pacientes p on p.id = e.paciente_id
+                       where p.nombre like 'ZZZ%');
+delete from farmacia.entregas e using farmacia.pacientes p
+ where e.paciente_id = p.id and p.nombre like 'ZZZ%';
 delete from farmacia.patologias_paciente d using farmacia.pacientes p
  where d.paciente_id = p.id and p.nombre like 'ZZZ%';
 delete from farmacia.tratamientos_paciente t using farmacia.pacientes q
