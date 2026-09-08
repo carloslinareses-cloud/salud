@@ -213,19 +213,11 @@
       t.sb.from('patologias_paciente').select('id,patologia,nota')
         .eq('paciente_id', pid).eq('activo', true).order('patologia'),
       t.sb.from('v_tratamiento_paciente')
-        .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,disponible,situacion')
-        .eq('paciente_id', pid),
-      /* Lo que ha retirado antes: el cuaderno guardaba ahi el tratamiento. */
-      t.sb.from('entregas').select('fecha,observacion')
-        .eq('paciente_id', pid).eq('anulada', false)
-        .not('observacion', 'is', null)
-        .order('fecha', { ascending: false, nullsFirst: false }).limit(20)
+        .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,' +
+                'disponible,situacion,origen')
+        .eq('paciente_id', pid)
     ]).then(function (r) {
       if (!t.quien || t.quien.id !== pid || t.modo !== 'ficha') return;
-      t.retirado = (r[2] && !r[2].error)
-        ? (r[2].data || []).map(function (y) {
-            return { fecha: y.fecha, texto: y.observacion };
-          }) : [];
       /* Un error NO significa que la persona no tenga nada: significa que
          no se pudo preguntar. Sobre una ficha de salud la diferencia
          importa, así que se dice. */
@@ -324,41 +316,33 @@
         'ninguna. Vuelve a abrir su ficha.</div></div>';
     }
 
-    var conProd = m.filter(function (y) { return y.producto_id; });
-    var sueltos = m.filter(function (y) { return !y.producto_id && y.texto_original; });
-    var cuantos = conProd.length + sueltos.length;
+    /* UNA sola lista: da igual si el renglon esta enlazado al catalogo o
+       escrito a mano. Cada uno se corrige y se quita ahi mismo. */
+    var lista = m.filter(function (y) { return y.producto_id || y.texto_original; });
 
     return '<div class="trat">' +
-      '<span class="lbl">' + (cuantos
-        ? 'Medicinas que necesita · ' + cuantos
+      '<span class="lbl">' + (lista.length
+        ? 'Medicinas que necesita · ' + lista.length
         : 'Medicinas que necesita') + '</span>' +
-      (cuantos === 0
-        ? '<span class="sub chico">' +
-          ((t.retirado && t.retirado.length)
-            ? 'No tiene medicinas anotadas en su ficha, pero el cuaderno sí dice qué se le ha dado:'
-            : 'Todavía no tiene ninguna anotada.') + '</span>'
-        : '') +
-      (conProd.length
-        ? '<div class="trat-lista">' + conProd.map(function (y) {
+      (lista.length === 0
+        ? '<span class="sub chico">Todavía no tiene ninguna anotada.</span>'
+        : '<div class="trat-lista">' + lista.map(function (y) {
             var hay = Math.round(Number(y.disponible) || 0);
+            var nom = y.producto || y.texto_original;
             return '<span class="trat-par">' +
-              '<span class="trat-texto del-catalogo">' + esc(y.producto) +
+              '<span class="trat-texto' + (y.producto_id ? ' del-catalogo' : '') + '">' +
+                esc(nom) +
                 (y.dosificacion ? ' <em>' + esc(y.dosificacion) + '</em>' : '') +
-                ' <em>' + hay + (hay === 1 ? ' disponible' : ' disponibles') + '</em></span>' +
+                ' <em>' + (y.producto_id
+                  ? hay + (hay === 1 ? ' disponible' : ' disponibles')
+                  : 'no está en el catálogo') + '</em></span>' +
+              '<button type="button" class="trat-edita" data-editamed="' + esc(y.tratamiento_id) + '" ' +
+                'data-texto="' + esc(nom) + '" ' +
+                'aria-label="Corregir ' + esc(nom) + '" title="Corregir">&#9998;&#65038;</button>' +
               '<button type="button" class="trat-quita" data-quitamed="' + esc(y.tratamiento_id) + '" ' +
-              'aria-label="Quitar ' + esc(y.producto) + '">&#10005;</button></span>';
-          }).join('') + '</div>'
-        : '') +
-      (sueltos.length
-        ? '<div class="trat-sueltos">' +
-          '<span class="ts-lbl">Anotado a mano, todavía sin enlazar al catálogo</span>' +
-          sueltos.map(function (y) {
-            return '<span class="trat-par"><span class="trat-texto">' + esc(y.texto_original) + '</span>' +
-              '<button type="button" class="trat-quita" data-quitamed="' + esc(y.tratamiento_id) + '" ' +
-              'aria-label="Quitar ' + esc(y.texto_original) + '">&#10005;</button></span>';
-          }).join('') + '</div>'
-        : '') +
-      window.FARMPICK.bloqueCuaderno(i('Ret'), t.piezasRetiradas(), t.retirado) +
+                'aria-label="Quitar ' + esc(nom) + '" title="Quitar">&#10005;</button>' +
+            '</span>';
+          }).join('') + '</div>') +
       (t.abierto === 'med'
         ? window.FARMPICK.caja(i('Med'), 'Buscar la medicina',
             'Escribe el nombre del medicamento…', '')
@@ -366,24 +350,51 @@
     '</div>';
   };
 
-  /* Lo que ha retirado antes, partido en medicamentos y sin lo que ya
-     tiene anotado. */
-  Personas.prototype.piezasRetiradas = function () {
-    if (!this.retirado || !this.retirado.length) return [];
-    return window.FARMPICK.piezasDe(this.retirado, this.tratamiento || []);
-  };
-
-  Personas.prototype.anotarPiezas = function (piezas) {
+  /* Corregir un renglon. Si coincide con un medicamento del catalogo queda
+     enlazado a el; si no, queda como texto, tal cual se escribio. */
+  Personas.prototype.corregirMedicina = function (id, actual) {
     var t = this, pid = t.quien.id;
-    var filas = piezas.map(function (x) {
-      return { paciente_id: pid, texto_original: x, activo: true };
+
+    var mismos = (t.tratamiento || []).filter(function (y) {
+      return String(y.tratamiento_id) === String(id);
     });
-    t.sb.from('tratamientos_paciente').insert(filas).then(function (r) {
-      if (r.error) { t.aviso('bad', 'No se pudieron anotar: ' + r.error.message); return; }
-      t.recargarAnexos(function () {
-        t.aviso('ok', 'Quedaron anotadas ' + filas.length + ' medicinas en su tratamiento.');
+    if (mismos.length > 1) {
+      t.aviso('warn', 'Este renglón trae ' + mismos.length + ' medicinas escritas juntas (' +
+        mismos.map(function (y) { return y.producto || y.texto_original; }).join(', ') +
+        '). Quítalo y anótalas por separado, así cada una se puede entregar sola.');
+      return;
+    }
+
+    var nuevo = window.prompt('Corrige el nombre del medicamento:', actual || '');
+    if (nuevo == null) return;
+    nuevo = nuevo.replace(/\s+/g, ' ').trim();
+    if (nuevo.length < 3) { t.aviso('warn', 'Escribe al menos tres letras.'); return; }
+    if (window.FARMPICK.mismo(nuevo, actual)) return;
+
+    if ((t.tratamiento || []).some(function (y) {
+      return String(y.tratamiento_id) !== String(id) &&
+             window.FARMPICK.mismo(y.producto || y.texto_original, nuevo);
+    })) { t.aviso('warn', nuevo + ' ya está en su tratamiento.'); return; }
+
+    t.sb.from('v_catalogo').select('producto_id,producto').ilike('producto', nuevo).limit(5)
+      .then(function (r) {
+        var enCat = (r.data || []).filter(function (c) {
+          return window.FARMPICK.mismo(c.producto, nuevo);
+        })[0];
+        var cambio = enCat
+          ? { producto_id: enCat.producto_id, texto_original: null }
+          : { producto_id: null, texto_original: nuevo };
+        return t.sb.from('tratamientos_paciente').update(cambio).eq('id', id)
+          .then(function (u) {
+            if (u.error) { t.aviso('bad', 'No se pudo corregir: ' + u.error.message); return; }
+            if (!t.quien || t.quien.id !== pid) return;
+            t.recargarAnexos(function () {
+              t.aviso('ok', enCat
+                ? 'Quedó como ' + enCat.producto + ', enlazado al catálogo.'
+                : 'Quedó como «' + nuevo + '». No está en el catálogo todavía.');
+            });
+          });
       });
-    });
   };
 
   Personas.prototype.engancharAnexos = function () {
@@ -415,9 +426,11 @@
     z.querySelectorAll('[data-quitamed]').forEach(function (b) {
       b.addEventListener('click', function () { t.quitarMedicina(b.dataset.quitamed); });
     });
-    window.FARMPICK.engancharRetirado(z, i('Ret'), t.piezasRetiradas(),
-      function (x) { t.anotarMedicina({ producto_id: null, texto_original: x, producto: x }); },
-      function (piezas) { t.anotarPiezas(piezas); });
+    z.querySelectorAll('[data-editamed]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        t.corregirMedicina(b.dataset.editamed, b.dataset.texto);
+      });
+    });
   };
 
   Personas.prototype.anotarPatologia = function (txt) {
@@ -503,7 +516,8 @@
       t.sb.from('patologias_paciente').select('id,patologia,nota')
         .eq('paciente_id', pid).eq('activo', true).order('patologia'),
       t.sb.from('v_tratamiento_paciente')
-        .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,disponible,situacion')
+        .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,' +
+                'disponible,situacion,origen')
         .eq('paciente_id', pid)
     ]).then(function (r) {
       if (!t.quien || t.quien.id !== pid) return;

@@ -84,7 +84,10 @@ await pag.setViewport({ width: 1280, height: 950 })
 const errores = []
 pag.on('pageerror', e => errores.push('pageerror: ' + e.message))
 pag.on('console', m => { if (m.type() === 'error') errores.push('console: ' + m.text()) })
-pag.on('dialog', d => d.accept())
+/* Lo que se contesta al prompt de "corregir". Se cambia antes de cada
+   caso; null es "cancelar". */
+let respuesta = ''
+pag.on('dialog', d => (respuesta === null ? d.dismiss() : d.accept(respuesta)))
 
 const espera = (ms) => new Promise(r => setTimeout(r, ms))
 const irArea = async (id) => { await pag.click(`.areas [data-area="${id}"]`); await espera(500) }
@@ -288,79 +291,93 @@ try {
     base[0]?.sexo === 'F', JSON.stringify(base[0]))
 
   /* ============================================================
-     4b. LO QUE HA RETIRADO ANTES
+     4b. UNA SOLA LISTA, Y CADA RENGLON SE CORRIGE
 
-     El cuaderno guardaba el tratamiento en la casilla de cada entrega.
-     Al migrar quedo como el texto de la entrega, asi que 2.734 fichas
-     salian vacias con el dato justo al lado. Ahora sale, partido en
-     medicamentos, y se pasa al tratamiento con un toque.
+     Antes habia tres cosas separadas: lo enlazado al catalogo, lo escrito
+     a mano y lo que decia el cuaderno. Para quien atiende eso es UNA
+     lista: lo que la persona necesita. Y cada renglon se corrige ahi.
   ============================================================ */
-  console.log('\n--- 4b. Lo que dice el cuaderno ---')
-  const ENTREGO = 'ZZZ-UNO ' + MARCA + ' / ZZZ-DOS ' + MARCA + ' / DESLORATADINA 0,5MG/ML'
-  await sql(`insert into farmacia.entregas
-       (fecha, tipo_destinatario, paciente_id, observacion, origen)
-     select current_date, 'paciente', p.id, '${ENTREGO}', 'migracion_excel'
-       from farmacia.pacientes p where p.nombre = '${PAC}';`)
+  console.log('\n--- 4b. Una sola lista, y se corrige ---')
 
-  await pag.click('#peVolver')
-  await pag.waitForSelector('#peBusca', { timeout: 20000 })
-  await pag.type('#peBusca', PAC)
+  /* Se le anota una medicina que NO esta en el catalogo, para tener en la
+     lista las dos clases de renglon a la vez. */
+  const A_MANO_MED = 'ZZZ SUERO QUE NO ESTA ' + MARCA
+  await pag.click('#peMasMed')
+  await pag.waitForSelector('#peMedBusca', { timeout: 20000 })
+  await pag.type('#peMedBusca', A_MANO_MED)
   await pag.waitForFunction(t => {
-    const f = document.querySelectorAll('#peRes .ficha')
-    return f.length === 1 && f[0].innerText.includes(t)
-  }, { timeout: 25000 }, PAC)
-  await pag.evaluate(() => { document.querySelector('#peRes .ficha').click() })
+    const b = document.getElementById('peMedAMano')
+    return b && b.innerText.includes(t)
+  }, { timeout: 25000 }, A_MANO_MED)
+  await pag.click('#peMedAMano')
   await pag.waitForFunction(
-    () => /Lo que dice el cuaderno/i.test((document.getElementById('peZona') || {}).innerText || ''),
+    () => /qued[oó] anotada/i.test((document.getElementById('peAviso') || {}).textContent || ''),
     { timeout: 25000 })
 
-  const piezas = await pag.$$eval('#peRetCaja [data-pieza]', bs => bs.map(b => b.textContent.trim()))
-  prueba('sale lo que retiro antes, partido en medicamentos',
-    piezas.length === 3, JSON.stringify(piezas))
-  prueba('y NO parte los nombres que llevan barra dentro',
-    piezas.some(x => x.indexOf('DESLORATADINA 0,5MG/ML') >= 0), JSON.stringify(piezas))
+  const listas = await pag.$$eval('#peZona .trat', ts => ts.map(x => x.innerText))
+  const suya = listas.find(x => /Medicinas que necesita/i.test(x)) || ''
+  prueba('las dos clases de renglon van en la MISMA lista',
+    suya.includes(MED) && suya.includes(A_MANO_MED), suya.slice(0, 260))
+  prueba('no hay un bloque aparte para lo del cuaderno',
+    !/Lo que dice el cuaderno|retirado antes/i.test(
+      await pag.$eval('#peZona', e => e.innerText)))
+  const cuantasListas = await pag.$$eval('#peZona .trat .trat-lista', l => l.length)
+  prueba('las medicinas caben en un solo listado', cuantasListas === 2,
+    'listados (patologias + medicinas): ' + cuantasListas)
 
-  /* Lo que dice el cuaderno tiene que LEERSE, sin tocar nada, y dentro
-     del mismo recuadro del tratamiento. */
-  /* Se comprueba desde el propio bloque del cuaderno hacia arriba: tiene
-     que estar DENTRO del recuadro del tratamiento. Buscar '.trat' a secas
-     agarra el de las patologias, que va primero. */
-  const dentro = await pag.$eval('#peRetCaja', e => e.closest('.trat').innerText)
-  prueba('lo que dice el cuaderno se lee dentro de su tratamiento',
-    dentro.indexOf('ZZZ-UNO') >= 0 && /medicina/i.test(dentro), dentro.slice(0, 220))
-  prueba('y sin tener que abrir nada',
-    (await pag.$$eval('#peZona details', d => d.length)) === 0)
-  const conFecha = await pag.$eval('#peRetCaja .cu-fecha', e => e.textContent.trim())
-  prueba('con la fecha de cuando se le dio', /^\d{2}\/\d{2}\/\d{4}$/.test(conFecha), conFecha)
+  const conBoton = await pag.$$eval('#peZona [data-editamed]', b => b.length)
+  prueba('cada renglon se puede corregir', conBoton === 2, 'botones: ' + conBoton)
 
-  await pag.evaluate(() => { document.querySelector('#peRetCaja [data-pieza]').click() })
+  /* Corregir a algo que SI esta en el catalogo: queda enlazado, y entonces
+     se puede entregar de un toque. */
+  respuesta = MED
+  await pag.evaluate(t => {
+    const b = [...document.querySelectorAll('#peZona [data-editamed]')]
+      .find(x => x.dataset.texto === t)
+    b.click()
+  }, A_MANO_MED)
   await pag.waitForFunction(
-    () => /qued[oó] anotada|ya estaba/i.test((document.getElementById('peAviso') || {}).textContent || ''),
+    () => /enlazado al cat|ya está en su tratamiento|No se pudo/i.test(
+      (document.getElementById('peAviso') || {}).textContent || ''),
+    { timeout: 25000 })
+  const msgRepe2 = await pag.$eval('#peAviso', e => e.textContent.trim())
+  prueba('no deja corregir a algo que ya tiene', /ya está en su tratamiento/i.test(msgRepe2), msgRepe2)
+
+  /* Ahora a un nombre libre. */
+  const CORREGIDO = 'ZZZ SUERO CORREGIDO ' + MARCA
+  respuesta = CORREGIDO
+  await pag.evaluate(t => {
+    const b = [...document.querySelectorAll('#peZona [data-editamed]')]
+      .find(x => x.dataset.texto === t)
+    b.click()
+  }, A_MANO_MED)
+  await pag.waitForFunction(
+    () => /Qued[oó] como/i.test((document.getElementById('peAviso') || {}).textContent || ''),
     { timeout: 25000 })
   let tr = await sql(`select count(*) c from farmacia.tratamientos_paciente t
      join farmacia.pacientes p on p.id = t.paciente_id
-    where p.nombre = '${PAC}' and t.activo;`)
-  prueba('un toque lo pasa a su tratamiento', Number(tr[0]?.c) === 2, JSON.stringify(tr[0]))
+    where p.nombre = '${PAC}' and t.activo and t.texto_original = '${CORREGIDO}';`)
+  prueba('se corrige el nombre y llega a la base', Number(tr[0]?.c) === 1, JSON.stringify(tr[0]))
 
-  await pag.waitForFunction(
-    () => document.querySelectorAll('#peRetCaja [data-pieza]').length === 2, { timeout: 25000 })
-  prueba('y deja de ofrecerlo: ya lo tiene', true)
+  const trasCorregir = await pag.$eval('#peZona', e => e.innerText)
+  prueba('y se ve corregido en la lista', trasCorregir.includes(CORREGIDO),
+    trasCorregir.slice(0, 260))
+  prueba('diciendo que ese no está en el catálogo',
+    /no está en el catálogo/i.test(trasCorregir), trasCorregir.slice(0, 300))
 
-  await pag.click('#peRetTodas')   // "Pasarlas todas"
-  await pag.waitForFunction(
-    () => /Quedaron anotadas/i.test((document.getElementById('peAviso') || {}).textContent || ''),
-    { timeout: 25000 })
+  /* Cancelar no cambia nada. */
+  respuesta = null
+  await pag.evaluate(t => {
+    const b = [...document.querySelectorAll('#peZona [data-editamed]')]
+      .find(x => x.dataset.texto === t)
+    b.click()
+  }, CORREGIDO)
+  await espera(900)
   tr = await sql(`select count(*) c from farmacia.tratamientos_paciente t
      join farmacia.pacientes p on p.id = t.paciente_id
-    where p.nombre = '${PAC}' and t.activo;`)
-  prueba('y se pueden anotar todas de golpe', Number(tr[0]?.c) === 4, JSON.stringify(tr[0]))
-
-  const yaNo = await pag.$eval('#peZona', e => e.innerText)
-  prueba('cuando ya no queda nada por pasar, lo dice',
-    /ya est[aá] en su tratamiento/i.test(yaNo), yaNo.slice(0, 300))
-  prueba('pero el cuaderno se sigue leyendo', yaNo.indexOf('ZZZ-UNO') >= 0, yaNo.slice(0, 300))
-  prueba('y ya no ofrece pasar nada',
-    (await pag.$$eval('#peRetCaja [data-pieza]', b => b.length)) === 0)
+    where p.nombre = '${PAC}' and t.activo and t.texto_original = '${CORREGIDO}';`)
+  prueba('cancelar no cambia nada', Number(tr[0]?.c) === 1, JSON.stringify(tr[0]))
+  respuesta = ''
 
   /* ============================================================
      5. BUSCARLA POR PATOLOGIA
@@ -378,9 +395,8 @@ try {
   }, { timeout: 25000 }, PAC)
   const enLista = await pag.$eval('#peRes .ficha', e => e.innerText.replace(/\s+/g, ' '))
   prueba('en la lista se ve con sus patologias', /HIPERTENSI[OÓ]N/i.test(enLista), enLista)
-  /* Cuatro: la que se le anoto al registrarla mas las tres que se le
-     pasaron desde lo que habia retirado antes. */
-  prueba('y con cuantas medicinas necesita', /4 medicinas/i.test(enLista), enLista)
+  /* Dos: la del catalogo mas la que se anoto a mano y luego se corrigio. */
+  prueba('y con cuantas medicinas necesita', /2 medicinas/i.test(enLista), enLista)
 
   await pag.evaluate(() => { document.getElementById('peBusca').value = '' })
   await pag.type('#peBusca', 'HIPERTENSION ARTERIAL')

@@ -417,25 +417,16 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   font-weight:750; color:var(--warn-ink); background:var(--card);
   border:1px solid var(--warn-line)}
 
-/* ---------- lo que dice el cuaderno ----------
-   Va DENTRO del recuadro del tratamiento, a la vista y sin tener que
-   tocar nada: para quien atiende, esto ES su tratamiento. Lo que sigue
-   separando una cosa de la otra es el rotulo y el boton de pasarlo. */
-.cuaderno{margin-top:12px; padding-top:11px; border-top:1px dashed var(--line)}
-.cu-lbl{display:block; font-size:11px; font-weight:800; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--ink-faint); margin-bottom:7px}
-.cu-lista{display:flex; flex-direction:column; gap:6px}
-.cu-fila{display:flex; gap:10px; align-items:baseline; font-size:13.5px;
-  line-height:1.4; overflow-wrap:anywhere}
-.cu-fecha{flex:none; font-size:11.5px; font-weight:800; color:var(--ink-faint);
-  font-variant-numeric:tabular-nums}
-.cu-txt{font-weight:650; color:var(--ink)}
-.cu-pasa{margin:12px 0 0; font-size:12px; font-weight:700; color:var(--ink-faint)}
-.pieza{font:inherit; font-size:13px; font-weight:700; cursor:pointer; text-align:left;
-  padding:9px 13px; min-height:44px; border-radius:10px; border:1px dashed var(--navy-2);
-  background:var(--card); color:var(--navy-2)}
-.pieza:hover{border-style:solid; background:var(--rail); color:var(--ink)}
-.pieza::before{content:'+ '; font-weight:800; opacity:.7}
+/* ---------- corregir un renglon del tratamiento ----------
+   Va pegado al de quitar, con el mismo alto: son las dos cosas que se
+   hacen con un renglon y tienen que verse como un par. */
+.trat-edita{flex:none; width:38px; min-height:46px; font-size:14px;
+  /* Sin esta familia, Windows pinta el lapiz con la fuente de emojis y
+     sale a color, desentonando con la equis de al lado. */
+  font-family:"Segoe UI Symbol","Segoe UI",system-ui,sans-serif;
+  font-weight:700; cursor:pointer; color:var(--ink-faint); background:var(--card);
+  border:1px solid var(--line); border-left:0; border-radius:0; line-height:1}
+.trat-edita:hover{color:var(--navy-2); border-color:var(--navy-2); background:var(--rail)}
 
 /* ---------- la hoja de conteo en el telefono ----------
    En una pantalla de 375 px la tabla no cabe y la casilla editable queda
@@ -550,6 +541,7 @@ button.deshacer:disabled{opacity:.6; cursor:not-allowed}
   font-weight:700; cursor:pointer; color:var(--ink-faint); background:var(--card);
   border:1px solid var(--line); border-left:0;
   border-radius:0 10px 10px 0; line-height:1}
+.trat-par > *:last-child{border-top-right-radius:10px; border-bottom-right-radius:10px}
 .trat-quita:hover{color:var(--bad-ink); border-color:var(--bad-line); background:var(--bad-bg)}
 .trat-texto{display:flex; align-items:center; padding:9px 13px; min-height:46px;
   font-size:13.5px; font-weight:700; line-height:1.2; color:var(--ink-soft);
@@ -655,8 +647,8 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
   .paginador button,
   .volver,
   .trat-quita,
+  .trat-edita,
   .quitar,
-  .pieza,
   .rango-fechas button{min-height:44px}
 }
 @media (max-width:480px){
