@@ -76,13 +76,51 @@
   var tratAbierto = false;      // el buscador de medicinas esta desplegado
   var tratBusca = '';
   var histTodo = false;         // el historial esta desplegado entero
+  /* Por que via se esta registrando: null (persona sin mas), 'recipe'
+     u 'operacion'. Decide que campos pide el formulario y que queda
+     anotado. Se limpia siempre al salir del formulario. */
+  var formVia = null;
+
+  /* Los campos de la ficha, en un solo sitio: estaban escritos tres
+     veces y al ampliar la vista habia que acordarse de las tres. */
+  var CAMPOS_FICHA =
+    'id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,' +
+    'estado,medicamentos,entregas,ultima_entrega,patologias,n_patologias,' +
+    'solicitudes,ultima_via,ultimo_motivo,ultima_solicitud';
+
+  /* Lo que cambia de un formulario a otro. Un solo formulario con dos
+     anadidos, y no tres formularios que se desincronizan al primer
+     cambio que se le haga a uno. */
+  var VIAS = {
+    recipe: {
+      titulo: 'Registrar por r\u00e9cipe',
+      sub: 'La persona trae un r\u00e9cipe m\u00e9dico. Se anota qui\u00e9n es y qu\u00e9 le ' +
+           'indicaron; enseguida se elige qu\u00e9 se le entrega hoy.',
+      lblMeds: 'Qu\u00e9 dice el r\u00e9cipe',
+      subMeds: 'Las medicinas que indic\u00f3 el m\u00e9dico. Quedan en su ficha, as\u00ed que ' +
+               'la pr\u00f3xima vez que venga salen solas con lo que hay en existencia.',
+      boton: 'Registrar el r\u00e9cipe y continuar',
+      etiqueta: 'R\u00e9cipe'
+    },
+    operacion: {
+      titulo: 'Registrar para una operaci\u00f3n',
+      sub: 'La persona viene por los insumos de una operaci\u00f3n. Hace falta saber ' +
+           'de qu\u00e9 es: es lo que justifica la entrega y lo que se va a poder ' +
+           'consultar dentro de un a\u00f1o.',
+      lblMeds: 'Qu\u00e9 insumos necesita',
+      subMeds: 'Lo que dice la lista del hospital. Se pueden anotar ahora o ' +
+               'buscarlos al momento de entregar.',
+      boton: 'Registrar la operaci\u00f3n y continuar',
+      etiqueta: 'Operaci\u00f3n'
+    }
+  };
 
   /* Estas tres viven lo que dure la pagina: el area de Entregar se esconde
      al cambiar de pantalla, no se destruye. Si no se limpian al cambiar de
      persona, el buscador aparece abierto y con lo que se escribio para
      OTRO paciente, y un toque se lo anota a quien no era. */
   function olvidaTratamiento() {
-    tratNuevo = []; tratAbierto = false; tratBusca = ''; histTodo = false;
+    tratNuevo = []; tratAbierto = false; tratBusca = ''; histTodo = false; formVia = null;
   }
 
   var TIPOS_CENTRO = ['CDI', 'Ambulatorio', 'Consultorio Popular',
@@ -100,6 +138,7 @@
           '<button type="button" class="quitar" id="cambiarDestino">Cambiar</button>' +
         '</div>' +
         (destino.detalle ? '<p class="sub chico">' + esc(destino.detalle) + '</p>' : '') +
+        pintarSolicitud() +
         pintarPatologias() +
         pintarTratamiento() +
         pintarRequerimientos() +
@@ -187,6 +226,14 @@
         '<button type="button" class="secundario" id="btnNuevoDestino">+ ' +
           (esPac ? 'Registrar persona' : 'Registrar centro') + '</button>' +
       '</div>' +
+      /* Busca primero, registra despues: si la persona ya esta, sale en
+         la lista de abajo de un toque y no se duplica la cedula. */
+      (esPac
+        ? '<div class="vias"><span class="vias-lbl">\u00bfViene con un papel?</span>' +
+          '<button type="button" class="suave" data-via="recipe">Por r\u00e9cipe</button>' +
+          '<button type="button" class="suave" data-via="operacion">Para una operaci\u00f3n</button>' +
+          '</div>'
+        : '') +
       '<div id="resultados"></div>' +
       '<div id="formDestino"></div>';
 
@@ -196,7 +243,12 @@
       bus.busca = caja.value.trim(); bus.pagina = 0; cargarDestinos();
     }, 300));
     document.getElementById('btnNuevoDestino').addEventListener('click', function () {
-      if (esPac) formNuevoPaciente(bus.busca); else formNuevoCentro(bus.busca);
+      if (esPac) formNuevoPaciente(bus.busca, null); else formNuevoCentro(bus.busca);
+    });
+    z.querySelectorAll('[data-via]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        formNuevoPaciente(bus.busca, b.dataset.via);
+      });
     });
     cargarDestinos();
   }
@@ -211,8 +263,7 @@
     var q, esPac = modo === 'paciente';
     if (esPac) {
       q = sb.from('v_pacientes_ficha')
-        .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,' +
-                'estado,medicamentos,entregas,ultima_entrega,patologias,n_patologias', { count: 'exact' });
+        .select(CAMPOS_FICHA, { count: 'exact' });
       if (bus.busca.length >= 2) {
         var t = bus.busca.replace(/[%,()]/g, '');
         var soloNum = t.replace(/\D/g, '');
@@ -235,6 +286,11 @@
     q.range(desde, desde + POR_PAGINA - 1).then(function (r) {
       var zz = document.getElementById('resultados');
       if (!zz) return;
+      /* Si mientras se buscaba se abrio el formulario de registro, la
+         lista NO se pinta: caeria encima de lo que la persona ya esta
+         llenando. Pasa al entrar desde Mercancia > Centros. */
+      var fz = document.getElementById('formDestino');
+      if (fz && fz.innerHTML.trim()) return;
       if (r.error) { zz.innerHTML = '<div class="aviso bad">' + esc(r.error.message) + '</div>'; return; }
       bus.filas = r.data || [];
       bus.total = r.count == null ? bus.filas.length : r.count;
@@ -346,7 +402,12 @@
       if (x.direccion) det.push(x.direccion);
       destino = { tipo: 'paciente', id: x.id, titulo: x.nombre, sub: ced,
                   detalle: det.join(' · ') || null,
-                  patologias: x.patologias || '' };
+                  patologias: x.patologias || '',
+                  /* Por qué vino la última vez: un récipe o una operación. */
+                  via: x.ultima_via || null,
+                  motivoVia: x.ultimo_motivo || null,
+                  fechaVia: x.ultima_solicitud || null,
+                  nVias: Number(x.solicitudes) || 0 };
       pintarDestino(); pintarRenglones();
       cargarHistorial('paciente', x.id);
       sb.from('v_tratamiento_paciente')
@@ -387,15 +448,18 @@
      consultar en el registro electoral para traer el nombre: se teclea
      menos y se evitan las erratas.
   ================================================================ */
-  function formNuevoPaciente(texto) {
+  function formNuevoPaciente(texto, via) {
+    formVia = (via === 'recipe' || via === 'operacion') ? via : null;
+    var V = formVia ? VIAS[formVia] : null;
     var soloNum = String(texto || '').replace(/\D/g, '');
     var esCedula = /^\d{6,9}$/.test(soloNum);
     var z = document.getElementById('formDestino');
     document.getElementById('resultados').innerHTML = '';
 
     z.innerHTML =
-      '<h2 class="sub-t">Registrar una persona nueva</h2>' +
-      '<p class="sub">Escribe la cédula y pulsa <b>Buscar en el registro</b>: trae el nombre y la ' +
+      '<h2 class="sub-t">' + (V ? V.titulo : 'Registrar una persona nueva') + '</h2>' +
+      '<p class="sub">' + (V ? V.sub + ' ' : '') +
+      'Escribe la cédula y pulsa <b>Buscar en el registro</b>: trae el nombre y la ' +
       'fecha de nacimiento. Lo demás se completa a mano.</p>' +
 
       '<label>Nacionalidad</label>' +
@@ -432,14 +496,32 @@
       '<label for="nDireccion">Dirección <span class="opc">(opcional)</span></label>' +
       '<input id="nDireccion" type="text" autocomplete="off" placeholder="Sector, calle, casa…">' +
 
-      '<h2 class="sub-t">Qué medicinas necesita <span class="opc">(opcional)</span></h2>' +
-      '<p class="sub">Quedan guardadas en su ficha. La próxima vez que venga salen ' +
-      'aquí mismo, con lo que hay en existencia, y se entregan de un toque.</p>' +
+      /* El motivo NO es opcional en una operacion: sin el, dentro de un
+         ano nadie sabe por que salieron esos insumos. La base tambien lo
+         exige, para que no dependa solo de esta pantalla. */
+      (formVia === 'operacion'
+        ? '<label for="nMotivo">De qu\u00e9 es la operaci\u00f3n</label>' +
+          '<input id="nMotivo" type="text" autocomplete="off" ' +
+            'placeholder="Por ejemplo: hernia inguinal, ces\u00e1rea, ves\u00edcula\u2026">' +
+          '<p class="sub chico">Tal como lo dice la orden del hospital.</p>'
+        : '') +
+      (formVia === 'recipe'
+        ? '<label for="nIndicado">Qui\u00e9n lo indic\u00f3 <span class="opc">(opcional)</span></label>' +
+          '<input id="nIndicado" type="text" autocomplete="off" ' +
+            'placeholder="M\u00e9dico o centro que firma el r\u00e9cipe">'
+        : '') +
+
+      '<h2 class="sub-t">' + (V ? V.lblMeds : 'Qu\u00e9 medicinas necesita') +
+        ' <span class="opc">(opcional)</span></h2>' +
+      '<p class="sub">' + (V ? V.subMeds
+        : 'Quedan guardadas en su ficha. La pr\u00f3xima vez que venga salen ' +
+          'aqu\u00ed mismo, con lo que hay en existencia, y se entregan de un toque.') + '</p>' +
       '<div id="tratElegidos"></div>' +
       buscadorMedicinas('Buscar la medicina') +
 
       '<div class="botonera">' +
-        '<button type="button" class="principal" id="guardarPac">Registrar y continuar</button>' +
+        '<button type="button" class="principal" id="guardarPac">' +
+          (V ? V.boton : 'Registrar y continuar') + '</button>' +
         '<button type="button" class="secundario" id="cancelarPac">Cancelar</button>' +
       '</div>' +
       '<div id="errPac" class="aviso bad" hidden></div>';
@@ -453,6 +535,7 @@
       pintarTratNuevo();
     });
     document.getElementById('cancelarPac').addEventListener('click', function () {
+      formVia = null;
       pintarDestino();
     });
     document.getElementById('nBuscarCne').addEventListener('click', consultarCne);
@@ -521,8 +604,9 @@
 
     /* Primero: ¿ya está registrada aquí? Si sí, no se crea otra vez. */
     sb.from('v_pacientes_ficha')
-      .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,estado,medicamentos,entregas,ultima_entrega,patologias,n_patologias')
-      .eq('cedula', ced).eq('nacionalidad', elegido('nNac', 'n') || 'V').limit(1)
+      .select(CAMPOS_FICHA)
+      .eq('cedula', ced).eq('nacionalidad', elegido('nNac', 'n') || 'V')
+      .neq('estado', 'por_revisar').limit(1)
       .then(function (r) {
         var ya = r.data && r.data[0];
         if (ya) {
@@ -570,67 +654,203 @@
     var tel = document.getElementById('nTelefono').value.trim() || null;
     var dir = document.getElementById('nDireccion').value.trim() || null;
 
-    if (nom.length < 4) { err.textContent = 'Escribe el nombre y el apellido completos.'; err.hidden = false; return; }
-    if (!/^\d{6,9}$/.test(ced)) { err.textContent = 'La cédula debe tener entre 6 y 9 números.'; err.hidden = false; return; }
-    if (fnac && fnac > (window.FARM && window.FARM.hoyCaracas ? window.FARM.hoyCaracas() : new Date().toISOString().slice(0, 10))) {
-      err.textContent = 'La fecha de nacimiento no puede ser futura.'; err.hidden = false; return;
+    /* Lo propio de cada via. Los campos solo existen si el formulario se
+       abrio por esa via, asi que se comprueba antes de leerlos. */
+    var cMot = document.getElementById('nMotivo');
+    var cInd = document.getElementById('nIndicado');
+    var motivo = cMot ? cMot.value.trim() : '';
+    var indicado = cInd ? (cInd.value.trim() || null) : null;
+    var via = formVia;
+
+    function falla(txt, foco) {
+      err.innerHTML = txt; err.hidden = false;
+      if (foco && foco.focus) foco.focus();
+    }
+
+    if (nom.length < 4) { falla('Escribe el nombre y el apellido completos.'); return; }
+    if (!/^\d{6,9}$/.test(ced)) { falla('La c\u00e9dula debe tener entre 6 y 9 n\u00fameros.'); return; }
+    if (fnac && fnac > hoyCaracas()) {
+      falla('La fecha de nacimiento no puede ser futura.'); return;
+    }
+    /* La base tambien lo exige, para que no dependa solo de esta pantalla. */
+    if (via === 'operacion' && motivo.length < 4) {
+      falla('Escribe de qu\u00e9 es la operaci\u00f3n. Sin eso, dentro de un a\u00f1o nadie ' +
+            'va a saber por qu\u00e9 se entregaron esos insumos.', cMot);
+      return;
     }
     err.hidden = true;
 
     var btn = document.getElementById('guardarPac');
-    btn.disabled = true; btn.textContent = 'Registrando…';
+    var etiq = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Registrando\u2026';
 
     sb.from('pacientes').insert({
       nombre: nom, cedula: ced, nacionalidad: nac, cedula_cruda: ced,
       sexo: sex, fecha_nac: fnac, telefono: tel, direccion: dir, estado: 'activo'
     }).select().single().then(function (r) {
       if (r.error) {
-        btn.disabled = false; btn.textContent = 'Registrar y continuar';
-        if (r.error.code === '23505') {
-          err.innerHTML = 'Esa cédula ya está registrada. ' +
-            '<button type="button" class="enlace" id="verYa">Buscarla en la lista</button>' +
-            (tratNuevo.length
-              ? '<br><span class="chico">Las ' + tratNuevo.length + ' medicinas que anotaste ' +
-                'no se pierden: al abrir su ficha te ofrezco ponérselas.</span>'
-              : '');
-          err.hidden = false;
+        btn.disabled = false; btn.textContent = etiq;
+        if (r.error.code === '23505') { yaEstaba(ced, nac, motivo, indicado, via); return; }
+        falla('No se pudo guardar. ' + esc(r.error.message));
+        return;
+      }
+      rematarRegistro(r.data.id, motivo, indicado, via, btn, etiq);
+    });
+  }
+
+  /* LA CEDULA YA ESTABA.
+
+     No es un error de quien atiende: es que la persona ya vino antes. Lo
+     que hace falta no es un regano, es seguir con la ficha que ya existe
+     -una persona, una ficha- y anotarle ESTE recipe o ESTA operacion. Es
+     lo que evita que se creen dos fichas de la misma gente, que es de
+     donde salen los historiales partidos por la mitad. */
+  function yaEstaba(ced, nac, motivo, indicado, via) {
+    var err = document.getElementById('errPac');
+    err.innerHTML = 'Esa c\u00e9dula ya est\u00e1 registrada. Buscando de qui\u00e9n es\u2026';
+    err.hidden = false;
+
+    /* Se busca por el MISMO par que hace unica a una ficha: nacionalidad
+       y cedula, y sin contar las que estan por revisar. Buscar solo por el
+       numero era peligroso de verdad: la V-12345678 y la E-12345678 son
+       dos personas distintas, y la migracion dejo a proposito fichas
+       repetidas con el mismo numero. Colgarle el recipe a la primera por
+       orden alfabetico es escribir en la ficha clinica de otro. */
+    sb.from('v_pacientes_ficha').select(CAMPOS_FICHA)
+      .eq('cedula', ced).eq('nacionalidad', nac)
+      .neq('estado', 'por_revisar')
+      .order('nombre').limit(2)
+      .then(function (r) {
+        var e = document.getElementById('errPac');
+        if (!e) return;
+
+        /* Un error de consulta NO es "no existe": no se puede decidir. */
+        if (r.error) {
+          e.innerHTML = 'Esa c\u00e9dula ya est\u00e1 registrada, pero no se pudo abrir su ficha: ' +
+            esc(r.error.message) + '. B\u00fascala arriba escribiendo la c\u00e9dula.';
+          return;
+        }
+        var filas = r.data || [];
+
+        /* Ninguna, o mas de una: NO se adivina. Se manda a elegir a mano,
+           que es lo que hacia antes esta pantalla. */
+        if (filas.length !== 1) {
+          e.innerHTML = (filas.length > 1
+            ? 'Hay <b>m\u00e1s de una ficha</b> con la c\u00e9dula ' + esc(nac + '-' + ced) + '. '
+            : 'Esa c\u00e9dula ya est\u00e1 registrada, pero no se pudo saber de qui\u00e9n. ') +
+            'B\u00fascala arriba y elige t\u00fa la correcta: no la voy a adivinar.' +
+            '<div class="descargas"><button type="button" id="verYa">Buscarla en la lista</button></div>';
           document.getElementById('verYa').addEventListener('click', function () {
-            bus.busca = ced; bus.pagina = 0; pintarDestino();
+            bus.busca = ced; bus.pagina = 0; formVia = null; pintarDestino();
           });
           return;
         }
-        err.textContent = 'No se pudo guardar. ' + r.error.message; err.hidden = false;
-        return;
-      }
-      /* Las medicinas que necesita, si se anotaron. Si esto fallara, la
-         persona YA está registrada: se avisa y se sigue, pero no se
-         miente diciendo que quedaron guardadas. */
-      var medicinas = tratNuevo.map(function (x) {
-        var fila = { paciente_id: r.data.id, activo: true };
-        if (x.producto_id) fila.producto_id = x.producto_id;
-        else fila.texto_original = x.texto_original;
-        return fila;
-      });
-      var guardaTrat = medicinas.length
-        ? sb.from('tratamientos_paciente').insert(medicinas)
-        : Promise.resolve({ error: null });
 
-      guardaTrat.then(function (tr) {
+        var p = filas[0];
+        var pila = String(p.nombre || '').split(' ')[0] || 'esta persona';
+        e.innerHTML = 'Esa c\u00e9dula ya est\u00e1 registrada: <b>' + esc(p.nombre) + '</b>. ' +
+          'No hace falta crearla otra vez' +
+          (via ? '; se le anota este ' + (via === 'recipe' ? 'r\u00e9cipe' : 'caso') + ' y listo.' : '.') +
+          '<div class="descargas"><button type="button" id="seguirCon">Continuar con ' +
+          esc(pila) + '</button></div>';
+        document.getElementById('seguirCon').addEventListener('click', function () {
+          var b = document.getElementById('seguirCon');
+          if (b) { b.disabled = true; b.textContent = 'Abriendo\u2026'; }
+          rematarRegistro(p.id, motivo, indicado, via, null, null);
+        });
+      });
+  }
+
+  /* Cierra el registro venga de donde venga: deja la solicitud si se vino
+     por recipe o por operacion, anota lo que necesita y deja a la persona
+     elegida, con la cesta delante. Es el "y luego me manda al panel de
+     que se le va a entregar". */
+  function rematarRegistro(pid, motivo, indicado, via, btn, etiq) {
+    var pedirSolicitud = via
+      ? sb.from('solicitudes').insert({
+          paciente_id: pid, via: via,
+          motivo: motivo || null, indicado_por: indicado || null
+        }).select().single()
+      : Promise.resolve({ data: null, error: null });
+
+    pedirSolicitud.then(function (sr) {
+      var sid = sr && sr.data ? sr.data.id : null;
+      var falloSol = sr && sr.error ? sr.error.message : null;
+
+      /* Si la solicitud NO se pudo guardar, las medicinas no se marcan
+         como suyas: dirian que vienen de un papel que no existe. Se
+         anotan como lo que son, medicinas que la persona necesita. */
+      var deSolicitud = via && sid;
+
+      /* Puede que la persona ya estuviera registrada y ya tuviera anotada
+         alguna de estas medicinas. Se leen las que tiene y no se repiten:
+         una ficha con la misma medicina tres veces no se entiende. */
+      sb.from('v_tratamiento_paciente')
+        .select('producto_id,producto,texto_original').eq('paciente_id', pid)
+        .then(function (tt) {
+          var suyas = (!tt.error && tt.data) || [];
+          var nuevas = tratNuevo.filter(function (x) { return !yaLoTiene(suyas, x); });
+          var repes = tratNuevo.length - nuevas.length;
+
+          var medicinas = nuevas.map(function (x) {
+            var fila = { paciente_id: pid, activo: true };
+            if (x.producto_id) fila.producto_id = x.producto_id;
+            else fila.texto_original = x.texto_original;
+            /* De donde salio cada renglon. Lo que la persona toma siempre
+               no es lo mismo que lo que le indicaron en un papel de un
+               dia concreto. */
+            if (deSolicitud) { fila.origen = via; fila.solicitud_id = sid; }
+            return fila;
+          });
+          var guardaTrat = medicinas.length
+            ? sb.from('tratamientos_paciente').insert(medicinas)
+            : Promise.resolve({ error: null });
+
+          guardaTrat.then(function (tr) {
         var falloTrat = tr && tr.error ? tr.error.message : null;
-        tratNuevo = []; tratBusca = ''; tratAbierto = false;
-        /* Se vuelve a leer de la ficha, para que traiga la edad calculada. */
-        sb.from('v_pacientes_ficha')
-          .select('id,nombre,nacionalidad,cedula,cedula_cruda,sexo,edad,telefono,direccion,estado,medicamentos,entregas,ultima_entrega,patologias,n_patologias')
-          .eq('id', r.data.id).single()
+        tratNuevo = []; tratBusca = ''; tratAbierto = false; formVia = null;
+        if (btn) { btn.disabled = false; btn.textContent = etiq; }
+
+        /* Se relee de la ficha: trae la edad calculada y, ahora, el motivo
+           de la operacion que se acaba de anotar. */
+        sb.from('v_pacientes_ficha').select(CAMPOS_FICHA).eq('id', pid).single()
           .then(function (f) {
-            elegirDestino(f.data || r.data);
-            if (falloTrat) {
-              aviso('warn', 'La persona quedó registrada, pero sus medicinas NO se guardaron: ' +
-                            falloTrat + '. Anótalas otra vez desde su ficha.');
+            /* Si no se pudo releer la ficha NO se inventa una persona
+               llamada "Sin nombre" y se deja elegida: se dice lo que
+               pas\u00f3 y se manda a buscarla, que existe y est\u00e1 guardada. */
+            if (!f || f.error || !f.data) {
+              formVia = null;
+              bus.busca = ''; bus.pagina = 0;
+              pintarDestino();
+              aviso('warn', 'Qued\u00f3 registrada, pero no se pudo abrir su ficha' +
+                (f && f.error ? ' (' + f.error.message + ')' : '') +
+                '. B\u00fascala arriba por su c\u00e9dula: est\u00e1 guardada.');
+              return;
+            }
+            elegirDestino(f.data);
+            /* Nunca se dice "guardado" de lo que el servidor no confirmo. */
+            var pega = [];
+            if (falloSol) pega.push('no qued\u00f3 anotado por qu\u00e9 vino (' + falloSol + ')');
+            if (falloTrat) pega.push('sus medicinas NO se guardaron (' + falloTrat + ')');
+            if (pega.length) {
+              aviso('warn', 'La persona est\u00e1 registrada, pero ' + pega.join(' y ') +
+                            '. An\u00f3talo otra vez desde su ficha.');
+            } else if (repes) {
+              aviso('ok', repes === 1
+                ? 'Una de las medicinas ya la ten\u00eda anotada: no se repiti\u00f3.'
+                : repes + ' de las medicinas ya las ten\u00eda anotadas: no se repitieron.');
             }
           });
+        });
       });
     });
+  }
+
+  /* El dia de hoy en Venezuela, que es el que cuenta aqui. */
+  function hoyCaracas() {
+    return window.FARM && window.FARM.hoyCaracas
+      ? window.FARM.hoyCaracas()
+      : new Date().toISOString().slice(0, 10);
   }
 
   /* ================================================================
@@ -984,6 +1204,43 @@
             ? '<button type="button" class="trat-mas" id="histMas">Ver solo las \u00faltimas ' +
               HIST_PRIMERAS + '</button>'
             : '')) +
+    '</div>';
+  }
+
+  /* POR QUE VINO.
+
+     Si la persona llegó con un récipe o por los insumos de una
+     operación, eso tiene que estar delante de quien atiende: no es lo
+     mismo entregarle su tratamiento de siempre que entregarle lo de una
+     intervención concreta, y el motivo es lo que después justifica el
+     gasto. Se muestra lo último que se le anotó. */
+  function pintarSolicitud() {
+    if (destino.tipo !== 'paciente' || !destino.via) return '';
+    var V = VIAS[destino.via];
+    if (!V) return '';
+    /* La hora la guarda el servidor en UTC: recortar los diez primeros
+       caracteres da el día de mañana a partir de las ocho de la noche
+       de aquí. Se pasa a la fecha de Caracas, como todo lo demás. */
+    var cuando = destino.fechaVia
+      ? fecha(window.FARM && window.FARM.hoyCaracas
+          ? window.FARM.hoyCaracas(destino.fechaVia)
+          : String(destino.fechaVia).slice(0, 10))
+      : null;
+    return '<div class="trat via-caja">' +
+      '<span class="lbl">Por qué vino</span>' +
+      '<div class="via-linea">' +
+        '<span class="sit ojo">' + esc(V.etiqueta) + '</span>' +
+        '<b>' + esc(destino.motivoVia || (destino.via === 'recipe'
+          ? 'Trajo un récipe médico' : 'Insumos para una operación')) + '</b>' +
+      '</div>' +
+      '<span class="sub chico">' +
+        (cuando ? 'Anotado el ' + cuando : '') +
+        /* Cuenta las dos vías juntas, así que no se dice "así": se dice
+           lo que de verdad se cuenta, que es venir con un papel. */
+        (destino.nVias > 1
+          ? (cuando ? ' · ' : '') + 'es la ' + destino.nVias + '.ª vez que viene con un papel'
+          : '') +
+      '</span>' +
     '</div>';
   }
 
@@ -1703,6 +1960,31 @@
     document.getElementById('zonaAviso').innerHTML =
       '<div class="aviso ' + clase + '">' + esc(texto) + '</div>';
   }
+
+  /* PUERTA PARA OTRAS PANTALLAS.
+
+     Mercancía → Centros tiene los botones de «por récipe» y «para una
+     operación», pero registrar y entregar se hace aquí. Esto abre el
+     mostrador ya en el formulario que toca.
+
+     Deja la cesta como esté: si había algo a medias, se conserva. Lo
+     que sí suelta es a la persona elegida, porque abrir el formulario
+     de registro significa justamente que es otra. */
+  window.FARMDESPACHO = {
+    via: function (v) {
+      if (v !== 'recipe' && v !== 'operacion') return false;
+      if (!ancla) return false;                 // todavía no se ha montado
+      modo = 'paciente'; destino = null;
+      olvidaTratamiento();
+      bus = { busca: '', pagina: 0, total: 0, filas: [], cargando: false };
+      ancla.querySelectorAll('.conmuta button').forEach(function (b) {
+        b.classList.toggle('on', b.dataset.modo === 'paciente');
+      });
+      pintarDestino(); pintarCesta();
+      formNuevoPaciente('', v);
+      return true;
+    }
+  };
 
   /* ---------------------------------------------------------------- entrada */
   window.PANTALLA_DESPACHO = function (cliente, contenedor, usuario) {

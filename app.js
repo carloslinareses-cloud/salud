@@ -233,6 +233,18 @@
       });
     });
 
+    /* Puerta para que una pantalla mande a otra. La usa Mercancía →
+       Centros para llevar al mostrador a registrar por récipe o para
+       una operación. Devuelve si pudo: el que llama no debe dar por
+       hecho que el área existe ni que el usuario tiene permiso. */
+    window.FARMIR = function (id) {
+      var a = AREAS.filter(function (x) { return x.id === id; })[0];
+      if (!a || !a.hay()) return false;
+      if (a.id !== actual.id) ir(a);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return true;
+    };
+
     ir(actual);
   }
 

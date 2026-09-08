@@ -318,6 +318,21 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
    del estante hoy, lo segundo hay que comprarlo. */
 .tm-venc{color:var(--bad-ink); opacity:1; font-weight:750}
 
+/* LAS DOS VÍAS: por récipe y para una operación.
+   Van debajo del buscador, no encima: primero se busca si la persona ya
+   está registrada y solo si no, se registra. */
+.vias{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px}
+.vias-lbl{font-size:12px; font-weight:700; color:var(--ink-faint);
+  letter-spacing:.02em; margin-right:2px}
+/* `button.suave` no trae ni fuente, ni relleno, ni alto: hereda lo del
+   navegador y sale diminuto. Estos se tocan con el dedo, así que se les
+   pone lo que les falta. */
+.vias button{font:inherit; font-size:13.5px; padding:0 14px; min-height:44px;
+  flex:1 1 auto}
+.via-caja{border-color:var(--warn-line)}
+.via-linea{display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-top:8px}
+.via-linea b{font-size:14px; font-weight:750; line-height:1.3; overflow-wrap:anywhere}
+
 /* LO QUE YA SE LE ENTREGO.
    Una tarjeta por visita: el día y la hora arriba, quién atendió debajo,
    y la lista de lo que se llevó. Va después del tratamiento porque
@@ -686,6 +701,11 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
   .trat-par{display:flex; width:100%}
   .trat-par .trat-med,.trat-par .trat-texto{flex:1; min-width:0}
   .trat-mas{width:100%; text-align:center}
+  /* La pregunta arriba y los dos botones debajo, del mismo ancho: en
+     columna estrecha uno se quedaba pegado a la etiqueta y el otro
+     saltaba solo a la fila de abajo. */
+  .vias-lbl{flex:1 1 100%; margin-right:0}
+  .vias button{flex:1 1 45%}
 }
 
 /* ---------- el telefono, lo que faltaba ----------
