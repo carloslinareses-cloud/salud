@@ -6,6 +6,9 @@
   'use strict';
 
   var sb = null, ancla = null, cesta = [], destino = null, modo = 'paciente', yo = null;
+  /* La ultima persona o centro elegido, para poder ofrecer volver a
+     elegirlo despues de registrar sin tener que buscarlo otra vez. */
+  var ultimo = null;
 
   function esc(t) {
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
@@ -333,6 +336,7 @@
   }
 
   function elegirDestino(x) {
+    ultimo = x;
     if (modo === 'paciente') {
       var ced = x.cedula ? (x.nacionalidad || 'V') + '-' + x.cedula
                          : (x.cedula_cruda || 'sin cédula válida');
@@ -1488,13 +1492,22 @@
             'aria-label="Quitar ' + esc(c.producto) + ' de la entrega">✕</button>' +
         '</div>';
       }).join('') + '</div>' +
+      /* Antes esto era una linea gris debajo del boton y el boton iba
+         deshabilitado. Al tocarlo no pasaba nada de nada, y quien
+         atiende se quedaba sin saber por que. */
+      (destino ? '' :
+        '<div class="aviso warn"><b>Falta elegir a quién se le entrega</b>' +
+        'Los medicamentos ya están puestos. Busca arriba a la persona o ' +
+        'al centro y toca su nombre.</div>') +
       '<div class="botonera">' +
-        '<button type="button" class="principal" id="btnRegistrar"' +
-        (destino ? '' : ' disabled') + '>Registrar la entrega' +
-        (destino ? ' · ' + unidades + (unidades === 1 ? ' unidad' : ' unidades') : '') +
+        /* Nunca deshabilitado: si falta algo, el boton lo dice y lleva
+           hasta donde se arregla. */
+        '<button type="button" class="principal" id="btnRegistrar">' +
+        (destino
+          ? 'Registrar la entrega · ' + unidades + (unidades === 1 ? ' unidad' : ' unidades')
+          : 'Elegir a quién se le entrega') +
         '</button>' +
-      '</div>' +
-      (destino ? '' : '<p class="sub chico">Falta elegir a quién se le entrega, arriba.</p>');
+      '</div>';
 
     document.getElementById('btnRegistrar').addEventListener('click', registrar);
 
@@ -1539,8 +1552,15 @@
   /* Se llama desde fuera cuando cambia el destino: el botón depende de que
      haya alguien a quien entregarle. */
   function refrescarBoton() {
+    /* Se toca el boton EN SITIO, sin volver a pintar la cesta. Si se
+       repintara, la casilla de la cantidad se rehace mientras la
+       persona escribe y pierde el cursor a media cifra. */
     var b = document.getElementById('btnRegistrar');
-    if (b) b.disabled = !(cesta.length && destino);
+    if (!b) return;
+    var u = cesta.reduce(function (t, c) { return t + Number(c.cantidad || 0); }, 0);
+    b.textContent = destino
+      ? 'Registrar la entrega · ' + u + (u === 1 ? ' unidad' : ' unidades')
+      : 'Elegir a quién se le entrega';
   }
 
   /* ---------------------------------------------------------------- registrar */
@@ -1549,7 +1569,14 @@
     var av = document.getElementById('zonaAviso');
     av.innerHTML = '';
 
-    if (!destino) { aviso('warn', 'Falta elegir a quién se le entrega.'); return; }
+    if (!destino) {
+      aviso('warn', 'Falta elegir a quién se le entrega. Busca arriba a la persona ' +
+                    'o al centro y toca su nombre.');
+      /* No basta con decir "arriba": se sube y se pone el cursor ahi. */
+      var c = document.getElementById('buscaDestino');
+      if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.focus(); }
+      return;
+    }
     if (!cesta.length) { aviso('warn', 'No has agregado ningún medicamento.'); return; }
 
     var cab = { tipo_destinatario: destino.tipo, origen: 'sistema',
@@ -1606,9 +1633,15 @@
       aviso('ok', 'Entrega registrada para ' + destino.titulo + ': ' +
                   res.n + (res.n === 1 ? ' medicamento' : ' medicamentos') +
                   '. Ya quedó descontado del inventario.');
+      var atendido = ultimo;
       destino = null; cesta = []; olvidaTratamiento();
+      /* Tambien se limpia la busqueda. Si no, el nombre sigue escrito y
+         la persona sigue en la lista de abajo, y parece que sigue
+         elegida cuando ya no lo esta. */
+      bus = { busca: '', pagina: 0, total: 0, filas: [], cargando: false };
       pintarDestino(); pintarCesta();
       ofrecerPapel(papel);
+      ofrecerOtraVez(atendido, papel.tipo === 'institucion' ? papel.centro : papel.paciente);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }).catch(function (err) {
       // Nunca decimos "guardado" si el servidor no confirmó.
@@ -1647,6 +1680,25 @@
     });
   }
 
+  /* Media de las veces, lo siguiente que se quiere es darle otra cosa a
+     la misma persona. Antes habia que volver a buscarla; y como la
+     pantalla parecia haberla dejado elegida, se agregaban medicinas sin
+     destino y el boton no dejaba registrar. */
+  function ofrecerOtraVez(x, nombre) {
+    var z = document.getElementById('zonaAviso');
+    if (!z || !x) return;
+    var caja = document.createElement('div');
+    caja.className = 'descargas';
+    caja.innerHTML = '<button type="button" id="btnOtraVez">Entregarle otra cosa a ' +
+      esc(String(nombre || '').split(' ')[0] || 'la misma persona') + '</button>';
+    z.appendChild(caja);
+    document.getElementById('btnOtraVez').addEventListener('click', function () {
+      elegirDestino(x);
+      z.innerHTML = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+
   function aviso(clase, texto) {
     document.getElementById('zonaAviso').innerHTML =
       '<div class="aviso ' + clase + '">' + esc(texto) + '</div>';
@@ -1655,7 +1707,7 @@
   /* ---------------------------------------------------------------- entrada */
   window.PANTALLA_DESPACHO = function (cliente, contenedor, usuario) {
     sb = cliente; ancla = contenedor; yo = usuario || null;
-    cesta = []; destino = null; modo = 'paciente';
+    cesta = []; destino = null; modo = 'paciente'; ultimo = null;
     olvidaTratamiento();
     bus = { busca: '', pagina: 0, total: 0, filas: [], cargando: false };
     pintar();
