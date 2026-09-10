@@ -210,7 +210,7 @@
 
       engancharCorregir(z, verHoy);
     }).catch(function (e) {
-      z.innerHTML = '<div class="aviso bad">' + esc(e.message || e) + '</div>';
+      z.innerHTML = '<div class="aviso bad">' + esc(enCristiano(e)) + '</div>';
     });
   }
 
@@ -267,6 +267,13 @@
           .then(function (r) {
             b.disabled = false;
             if (r.error) { aviso('bad', enCristiano(r.error)); return; }
+            /* Sin fila devuelta no hubo corrección: la base la filtró (por
+               ejemplo, porque quien está usando esto ya no es admin) y
+               calló. No se dice "corregido" sin que el servidor confirme. */
+            if (!r.data || !r.data.length) {
+              aviso('bad', 'La base no confirmó la corrección: no se cambió nada. Vuelve a entrar e inténtalo otra vez.');
+              return;
+            }
             aviso('ok', 'Corregido. Queda registrado en la bitácora.');
             recargar();
           });
@@ -317,7 +324,7 @@
       .select('id,fecha,cedula,empleado_nombre,hora_entrada,dentro_sede_entrada,' +
               'distancia_entrada_m,precision_entrada_m,' +
               'hora_salida,dentro_sede_salida,distancia_salida_m,precision_salida_m,nota_correccion')
-      .order('fecha', { ascending: false }).limit(300);
+      .order('fecha', { ascending: false }).order('cedula').limit(300);
     if (f.desde) q = q.gte('fecha', f.desde);
     if (f.hasta) q = q.lte('fecha', f.hasta);
     if (f.quien) q = q.ilike('empleado_nombre', '*' + f.quien.replace(/[%,()]/g, '') + '*');
@@ -354,7 +361,11 @@
                 'distancia_entrada_m,precision_entrada_m,' +
                 'hora_salida,dentro_sede_salida,sede_salida_nombre,' +
                 'distancia_salida_m,precision_salida_m,nota_correccion')
-        .order('fecha', { ascending: false }).range(desde, desde + 999);
+        /* El segundo criterio no es adorno: con cinco personas por día hay
+           muchas filas con la MISMA fecha, y sin un desempate fijo la base
+           puede devolverlas en distinto orden en cada tanda. Ahí el Excel
+           repetiría a unos y se saltaría a otros, sin avisar. */
+        .order('fecha', { ascending: false }).order('cedula').range(desde, desde + 999);
       if (f.desde) q = q.gte('fecha', f.desde);
       if (f.hasta) q = q.lte('fecha', f.hasta);
       if (f.quien) q = q.ilike('empleado_nombre', '*' + f.quien.replace(/[%,()]/g, '') + '*');
@@ -388,7 +399,7 @@
       btn.disabled = false; btn.textContent = texto;
     }).catch(function (e) {
       btn.disabled = false; btn.textContent = texto;
-      aviso('bad', 'No se pudo preparar la descarga: ' + (e.message || e));
+      aviso('bad', 'No se pudo preparar la descarga. ' + enCristiano(e));
     });
   }
 
@@ -445,11 +456,15 @@
           b.addEventListener('click', function () {
             var activando = b.dataset.a !== '1';
             b.disabled = true;
-            sb.from('asistencia_personal').update({ activo: activando }).eq('cedula', b.dataset.personalToggle)
+            sb.from('asistencia_personal').update({ activo: activando }).eq('cedula', b.dataset.personalToggle).select()
               .then(function (r) {
                 b.disabled = false;
                 if (r.error) { aviso('bad', enCristiano(r.error)); return; }
-                aviso('ok', 'Listo.'); verPersonal();
+                if (!r.data || !r.data.length) {
+                  aviso('bad', 'La base no confirmó el cambio: no se guardó nada. Vuelve a entrar e inténtalo otra vez.');
+                  return;
+                }
+                aviso('ok', activando ? 'Activado.' : 'Desactivado.'); verPersonal();
               });
           });
         });
@@ -463,7 +478,15 @@
             sb.rpc('asis_admin_resetear_clave', { p_cedula: b.dataset.resetear, p_clave_nueva: nueva }).then(function (r) {
               b.disabled = false;
               if (r.error) { aviso('bad', enCristiano(r.error)); return; }
-              aviso('ok', 'Clave restablecida para ' + b.dataset.nombre + '.'); verPersonal();
+              /* La función devuelve false cuando no encontró esa cédula.
+                 No es un error, pero tampoco cambió nada: decir "clave
+                 restablecida" ahí sería mentirle al administrador, que se
+                 iría a dictar una clave que no sirve. */
+              if (r.data === false) {
+                aviso('bad', 'No se pudo cambiar la clave: la base no encontró esa cédula. Recarga la pantalla y vuelve a intentar.');
+                return;
+              }
+              aviso('ok', 'Clave restablecida para ' + b.dataset.nombre + '. Dictásela: ' + nueva); verPersonal();
             });
           });
         });
@@ -584,16 +607,35 @@
         });
       });
 
-      /* --- activar y desactivar un sitio --- */
+      /* --- activar y desactivar un sitio ---
+         Cuidado: sin NINGÚN sitio activo la base deja marcar desde donde
+         sea (no tiene contra qué comparar). O sea que apagar el último
+         sitio apaga el candado de GPS entero, aunque en Horario siga
+         encendido. Por eso se avisa igual que al apagar el interruptor. */
+      var activas = f.filter(function (s) { return s.activo; }).length;
       z.querySelectorAll('[data-sede-toggle]').forEach(function (b) {
         b.addEventListener('click', function () {
           var activando = b.dataset.a !== '1';
+          if (!activando && activas <= 1 && !window.confirm(
+                'Este es el único sitio activo. Si lo desactivas, la base se queda sin ' +
+                'nada contra qué comparar y cualquiera va a poder marcar desde donde esté, ' +
+                'aunque el candado de GPS siga encendido.\n\n¿Seguro?')) return;
           b.disabled = true;
-          sb.from('sedes').update({ activo: activando }).eq('id', b.dataset.sedeToggle)
+          sb.from('sedes').update({ activo: activando }).eq('id', b.dataset.sedeToggle).select()
             .then(function (r) {
               b.disabled = false;
               if (r.error) { aviso('bad', enCristiano(r.error)); return; }
-              aviso('ok', 'Listo.'); verSedes();
+              if (!r.data || !r.data.length) {
+                aviso('bad', 'La base no confirmó el cambio: no se guardó nada. Vuelve a entrar e inténtalo otra vez.');
+                return;
+              }
+              aviso(activando ? 'ok' : 'warn',
+                    activando
+                      ? 'Sitio activado. Ya se puede marcar ahí.'
+                      : 'Sitio desactivado.' + (activas <= 1
+                          ? ' OJO: no queda ningún sitio activo, así que se puede marcar desde cualquier lado.'
+                          : ''));
+              verSedes();
             });
         });
       });
@@ -627,7 +669,7 @@
           });
       });
     }).catch(function (e) {
-      z.innerHTML = '<div class="aviso bad">' + esc(e.message || e) + '</div>';
+      z.innerHTML = '<div class="aviso bad">' + esc(enCristiano(e)) + '</div>';
     });
   }
 

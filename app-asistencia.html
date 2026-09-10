@@ -317,8 +317,8 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
               recuadro marcado "NOVEDADES DE ESTA VERSIÓN")
              ══════════════════════════════════════════════════════════════ -->
         <p class="meta-apk">
-          Versión <span id="version-app">1.1.0</span> ·
-          <span id="peso-app">~15 MB</span> ·
+          Versión <span id="version-app">1.2.0</span> ·
+          <span id="peso-app">14,5 MB</span> ·
           Necesitas Android 7.0 o más nuevo
         </p>
         <!-- ⬆⬆ FIN DEL HUECO DE VERSIÓN Y PESO ⬆⬆ -->
@@ -467,6 +467,9 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
           Si le diste que no, se arregla en <kbd>Ajustes</kbd> → <kbd>Aplicaciones</kbd> →
           <kbd>Farmacia Asistencia</kbd> → <kbd>Permisos</kbd> → <kbd>Ubicación</kbd> →
           <kbd>Mientras se usa la aplicación</kbd>.
+          <span class="nota">En los teléfonos nuevos, esa misma pantalla te deja escoger entre
+          <kbd>Precisa</kbd> y <kbd>Aproximada</kbd>: tiene que quedar en <strong>Precisa</strong>.
+          Con la aproximada la aplicación no te deja marcar y te lo dice en rojo.</span>
         </li>
         <li>
           <strong>Estar de verdad en el sitio.</strong> La aplicación te dice, antes de que
@@ -485,10 +488,12 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 
       <div class="aviso ok">
         <b>Esto no es para vigilarte</b>
-        La aplicación <strong>no te sigue durante el día</strong>. Tu ubicación se toma
-        únicamente en los dos momentos en que tocas el botón de marcar entrada y de marcar
-        salida, y solo para confirmar que estabas en el sitio de trabajo. Ni antes, ni
-        después, ni cuando la aplicación está cerrada.
+        La aplicación <strong>no te sigue durante el día</strong>. Solo lee el GPS
+        mientras tienes la pantalla de marcar abierta, que es lo que le permite decirte a
+        cuántos metros estás; y <strong>lo único que queda guardado</strong> es el punto de
+        los dos momentos en que tocas el botón de entrada y de salida, para confirmar que
+        estabas en el sitio de trabajo. Con la aplicación cerrada o en segundo plano no lee
+        nada: el permiso que se le da es <kbd>Mientras se usa la aplicación</kbd>.
       </div>
 
       <div class="aviso neutro">
@@ -508,7 +513,8 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
       <details class="pregunta">
         <summary>No me deja marcar</summary>
         <div class="cuerpo">
-          <p>Lee el mensaje que salió en la pantalla, porque ahí está el motivo. Solo hay cuatro:</p>
+          <p>Lee el mensaje que salió en la pantalla, porque ahí está el motivo. Casi siempre
+          es uno de estos:</p>
           <p><b>1. “Fuera del horario permitido”.</b> Estás intentando marcar fuera de las franjas:
           entrada de 7:00 a 8:45 de la mañana, salida de 4:30 a 6:30 de la tarde. No hay nada que
           hacer desde el teléfono; avísale al administrador.</p>
@@ -520,6 +526,8 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
           espera un momento.</p>
           <p><b>4. “Ya marcaste”.</b> La entrada y la salida se marcan una sola vez por día. Si
           la hora que quedó está mal, solo el administrador puede corregirla.</p>
+          <p><b>5. “El teléfono está dando una ubicación falsa”.</b> Tienes encendida una
+          aplicación de GPS simulado. Apágala en los ajustes del teléfono y vuelve a intentar.</p>
         </div>
       </details>
 

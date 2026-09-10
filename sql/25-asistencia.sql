@@ -443,13 +443,24 @@ begin
   -- Si no está en la sede, esto lanza el error y no se escribe nada.
   select * into v_sitio from farmacia.asis_verificar_sitio('entrada', p_lat, p_lng, p_precision);
 
-  insert into farmacia.asistencia_registros (
-    cedula, fecha, hora_entrada, lat_entrada, lng_entrada, precision_entrada,
-    sede_entrada_id, distancia_entrada, dentro_sede_entrada, foto_entrada, dispositivo)
-  values (
-    v_cedula, (timezone('America/Caracas', now()))::date, now(), p_lat, p_lng, p_precision,
-    v_sitio.o_sede_id, v_sitio.o_distancia, v_sitio.o_dentro, p_foto, p_dispositivo)
-  returning * into v_fila;
+  begin
+    insert into farmacia.asistencia_registros (
+      cedula, fecha, hora_entrada, lat_entrada, lng_entrada, precision_entrada,
+      sede_entrada_id, distancia_entrada, dentro_sede_entrada, foto_entrada, dispositivo)
+    values (
+      v_cedula, (timezone('America/Caracas', now()))::date, now(), p_lat, p_lng, p_precision,
+      v_sitio.o_sede_id, v_sitio.o_distancia, v_sitio.o_dentro, p_foto, p_dispositivo)
+    returning * into v_fila;
+  exception when unique_violation then
+    -- Ya hay fila de hoy para esta cédula. Sin esto, al teléfono le
+    -- llegaría "duplicate key value violates unique constraint", que no
+    -- le dice nada a nadie.
+    select * into v_fila from farmacia.asistencia_registros
+     where cedula = v_cedula and fecha = (timezone('America/Caracas', now()))::date;
+    raise exception 'Ya marcaste tu entrada hoy, a las %.',
+      to_char(timezone('America/Caracas', v_fila.hora_entrada), 'HH12:MI AM')
+      using errcode = 'P0001';
+  end;
   return v_fila;
 end $$;
 
@@ -649,6 +660,47 @@ alter table farmacia.sedes                 enable row level security;
 alter table farmacia.config_asistencia     enable row level security;
 alter table farmacia.asistencia_personal   enable row level security;
 alter table farmacia.asistencia_registros  enable row level security;
+
+-- ---------------------------------------------------------------------
+-- Permiso de tabla (va ANTES que las políticas, porque son dos candados
+-- distintos y hay que pasar los dos).
+--
+-- El esquema `farmacia` no reparte permisos solos a las tablas nuevas:
+-- 01-esquema.sql se los da UNA POR UNA a las suyas. Sin estas líneas, el
+-- panel web le contestaría "permission denied for table sedes" al propio
+-- administrador aunque sus políticas estén perfectas.
+--
+-- Se da exactamente lo que las políticas de más abajo permiten, ni una
+-- letra más:
+--   · asistencia_registros NO lleva insert: el marcaje solo se crea por
+--     las RPC (asis_marcar_entrada), nunca directo desde el navegador.
+--   · config_asistencia NO lleva insert: la fila única la crea este
+--     archivo.
+--   · anon (la clave pública que lleva la app del teléfono) no recibe
+--     NADA: su única puerta son las funciones asis_* del final.
+-- ---------------------------------------------------------------------
+revoke all on farmacia.sedes                from anon;
+revoke all on farmacia.config_asistencia    from anon;
+revoke all on farmacia.asistencia_personal  from anon;
+revoke all on farmacia.asistencia_registros from anon;
+
+grant select, insert, update on farmacia.sedes                to authenticated;
+grant select,         update on farmacia.config_asistencia    to authenticated;
+grant select, insert, update on farmacia.asistencia_personal  to authenticated;
+grant select,         update on farmacia.asistencia_registros to authenticated;
+
+-- La vista del panel es security_invoker: no regala nada, sigue mandando
+-- el RLS de la tabla de abajo (solo admin). Pero sin este grant no se
+-- puede ni abrir.
+grant select on farmacia.v_asistencia to authenticated;
+
+-- service_role solo se usa desde el servidor (migraciones y respaldos);
+-- nunca viaja al navegador.
+grant select, insert, update, delete on farmacia.sedes                to service_role;
+grant select, insert, update, delete on farmacia.config_asistencia    to service_role;
+grant select, insert, update, delete on farmacia.asistencia_personal  to service_role;
+grant select, insert, update, delete on farmacia.asistencia_registros to service_role;
+grant select on farmacia.v_asistencia to service_role;
 
 -- ---------- sedes: cualquier operador de farmacia las ve; solo el admin las crea/edita ----------
 drop policy if exists sedes_ver on farmacia.sedes;
