@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>App de Asistencia · Dirección de Salud</title>
+<meta name="description" content="Descarga la aplicación con la que el personal de la Dirección de Salud marca su entrada y su salida, y aprende a usarla paso a paso.">
+<meta name="theme-color" content="#0a2351">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕐</text></svg>">
+<style>
+/* Los mismos colores del resto del sistema (ver index.html). */
+:root{
+  --navy:#0a2351; --navy-2:#123571; --gold:#f4c20d;
+  --paper:#f5f7fb; --card:#ffffff; --rail:#eef2f9;
+  --ink:#101c33; --ink-soft:#4a5670; --ink-faint:#7b869c;
+  --line:#dfe5f0;
+  --ok-bg:#eef8f2; --ok-line:#a5cdb6; --ok-ink:#16653c;
+  --warn-bg:#fff6e8; --warn-line:#e6c489; --warn-ink:#8a5a06;
+  --bad-bg:#fdf1ef; --bad-line:#e2ab9c; --bad-ink:#96331e;
+  --verde:#15803d; --verde-2:#0f6e30;
+  --r:12px; --pad:18px;
+  --shadow:0 1px 2px rgba(16,28,51,.05), 0 8px 24px -14px rgba(16,28,51,.28);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0b1220; --card:#141d2f; --rail:#101827;
+    --ink:#e6ecf7; --ink-soft:#a7b2c8; --ink-faint:#7a8599; --line:#25314a;
+    --ok-bg:#122419; --ok-line:#356041; --ok-ink:#8dd3a6;
+    --warn-bg:#2a2113; --warn-line:#6d5626; --warn-ink:#e8c073;
+    --bad-bg:#2b1917; --bad-line:#7a453a; --bad-ink:#f0a898;
+    --verde:#17914a; --verde-2:#1aa354;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.85);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0b1220; --card:#141d2f; --rail:#101827;
+  --ink:#e6ecf7; --ink-soft:#a7b2c8; --ink-faint:#7a8599; --line:#25314a;
+  --ok-bg:#122419; --ok-line:#356041; --ok-ink:#8dd3a6;
+  --warn-bg:#2a2113; --warn-line:#6d5626; --warn-ink:#e8c073;
+  --bad-bg:#2b1917; --bad-line:#7a453a; --bad-ink:#f0a898;
+  --verde:#17914a; --verde-2:#1aa354;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 10px 28px -16px rgba(0,0,0,.85);
+}
+
+*{box-sizing:border-box}
+:root{color-scheme:light dark}
+:root[data-theme="light"]{color-scheme:light}
+:root[data-theme="dark"]{color-scheme:dark}
+html,body{margin:0}
+body{
+  background:var(--paper); color:var(--ink); min-height:100dvh;
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:16px; line-height:1.55; -webkit-text-size-adjust:100%;
+  -webkit-tap-highlight-color:transparent;
+  overflow-wrap:anywhere;
+}
+.wrap{max-width:760px; margin:0 auto; padding:0 16px}
+
+/* ---------- cintillo y barra de arriba (igual que el sistema) ---------- */
+.tricolor{height:4px; display:flex}
+.tricolor i{flex:1}
+.tricolor i:nth-child(1){background:#f4c20d}
+.tricolor i:nth-child(2){background:#1a4f8a}
+.tricolor i:nth-child(3){background:#cf142b}
+
+header.top{background:var(--navy); color:#fff; padding:12px 0}
+header.top .wrap{display:flex; align-items:center; gap:12px}
+.marca{display:flex; align-items:center; gap:11px; min-width:0}
+.pastilla{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.12);
+  display:grid;place-items:center;font-size:20px;flex:none}
+.marca b{display:block; font-size:15px; font-weight:800; letter-spacing:-.01em; line-height:1.15}
+.marca > span > span{display:block; font-size:11.5px; color:#b8c6e2; font-weight:600}
+.top .der{margin-left:auto}
+button.tema{display:inline-flex; align-items:center; gap:6px; min-height:44px; font:inherit;
+  font-size:13px; font-weight:700; cursor:pointer; color:#cdd8ee;
+  background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
+  padding:6px 13px; border-radius:99px; white-space:nowrap}
+button.tema:hover{background:rgba(255,255,255,.20); color:#fff}
+
+/* ---------- cuerpo ---------- */
+main{padding:22px 0 60px}
+.tarjeta{background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  padding:var(--pad); box-shadow:var(--shadow)}
+.tarjeta + .tarjeta{margin-top:16px}
+h1{font-size:clamp(1.35rem,5vw,1.75rem); margin:0 0 6px; letter-spacing:-.015em; line-height:1.2}
+h2{font-size:1.1rem; margin:0; letter-spacing:-.01em}
+h3{font-size:.98rem; margin:20px 0 8px; letter-spacing:-.01em}
+p{margin:0} p + p{margin-top:10px}
+.sub{color:var(--ink-soft); font-size:.95rem}
+.chico{display:block; font-size:12.5px; color:var(--ink-faint); line-height:1.45}
+strong{font-weight:750}
+
+/* titulo de seccion con su numero */
+.tit{display:flex; align-items:center; gap:11px; margin:0 0 14px;
+  padding-bottom:12px; border-bottom:1px solid var(--line)}
+.tit .num{flex:none; width:30px; height:30px; border-radius:50%;
+  background:var(--navy); color:#fff; display:grid; place-items:center;
+  font-size:14px; font-weight:800}
+:root[data-theme="dark"] .tit .num{background:var(--navy-2)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .tit .num{background:var(--navy-2)}}
+
+/* ---------- portada ---------- */
+.portada{background:var(--navy); color:#fff;
+  border:1px solid rgba(255,255,255,.10); border-left:4px solid var(--gold)}
+.portada .etq{display:block; font-size:11px; font-weight:800; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--gold); margin-bottom:8px}
+.portada h1{color:#fff}
+.portada p{color:#c9d5ec; font-size:.97rem}
+.portada .icono{font-size:34px; line-height:1}
+
+/* ---------- el boton de descargar ---------- */
+.descarga{margin-top:18px}
+a.btn-apk{display:flex; align-items:center; justify-content:center; gap:12px;
+  width:100%; min-height:62px; padding:14px 16px;
+  background:var(--verde); color:#fff; text-decoration:none;
+  border:0; border-bottom:4px solid var(--gold); border-radius:12px;
+  font-size:18px; font-weight:850; letter-spacing:.01em; text-align:center;
+  box-shadow:0 6px 18px -8px rgba(21,128,61,.75)}
+a.btn-apk:hover{background:var(--verde-2)}
+a.btn-apk:active{transform:translateY(1px)}
+a.btn-apk .ic{flex:none}
+a.btn-apk-2 svg{flex:none; color:var(--verde)}
+.meta-apk{margin-top:9px; text-align:center; font-size:12.5px; color:var(--ink-faint); line-height:1.5}
+.portada .meta-apk{color:#9fb0d0}
+a.btn-apk-2{display:flex; align-items:center; justify-content:center; gap:9px;
+  width:100%; min-height:48px; margin-top:14px; padding:10px 14px;
+  border:1px solid var(--line); border-radius:10px; background:var(--rail);
+  color:var(--ink); text-decoration:none; font-size:15px; font-weight:750}
+a.btn-apk-2:hover{border-color:var(--navy-2)}
+
+/* ---------- resumen de tres puntos ---------- */
+.resumen{display:grid; gap:9px; margin-top:18px}
+.resumen div{display:flex; gap:11px; align-items:flex-start;
+  background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.13);
+  border-radius:10px; padding:11px 13px; font-size:14px; color:#dde5f4; line-height:1.45}
+.resumen div span:first-child{flex:none; font-size:18px; line-height:1.25}
+.resumen b{color:#fff; font-weight:800}
+
+/* ---------- pasos numerados ---------- */
+ol.pasos{list-style:none; counter-reset:paso; margin:0; padding:0}
+ol.pasos > li{counter-increment:paso; position:relative;
+  padding:13px 14px 13px 52px; margin-bottom:9px;
+  background:var(--rail); border:1px solid var(--line); border-left:3px solid var(--navy-2);
+  border-radius:10px; font-size:15px; line-height:1.55}
+ol.pasos > li:last-child{margin-bottom:0}
+ol.pasos > li::before{content:counter(paso); position:absolute; left:12px; top:12px;
+  width:28px; height:28px; border-radius:50%; background:var(--navy-2); color:#fff;
+  display:grid; place-items:center; font-size:13.5px; font-weight:800}
+ol.pasos .nota{display:block; margin-top:6px; font-size:13px; color:var(--ink-soft); line-height:1.5}
+
+/* ---------- avisos ---------- */
+.aviso{border:1px solid; border-radius:10px; padding:13px 15px; font-size:.94rem;
+  margin-top:14px; line-height:1.55}
+.aviso b{display:block; margin-bottom:4px}
+.aviso.ok{background:var(--ok-bg); border-color:var(--ok-line); color:var(--ok-ink)}
+.aviso.warn{background:var(--warn-bg); border-color:var(--warn-line); color:var(--warn-ink)}
+.aviso.bad{background:var(--bad-bg); border-color:var(--bad-line); color:var(--bad-ink)}
+.aviso.neutro{background:var(--rail); border-color:var(--line); color:var(--ink-soft)}
+
+/* ---------- el recuadro de los horarios ---------- */
+.horario{display:grid; gap:12px}
+.franja{border:1px solid; border-radius:12px; padding:14px 15px}
+.franja.ent{background:var(--ok-bg); border-color:var(--ok-line)}
+.franja.sal{background:var(--rail); border-color:var(--line)}
+.franja .etq{display:inline-block; font-size:12.5px; font-weight:850; letter-spacing:.09em;
+  text-transform:uppercase; padding:4px 11px; border-radius:999px; color:#fff}
+.franja.ent .etq{background:var(--verde)}
+.franja.sal .etq{background:var(--navy-2)}
+.franja .hora{display:block; margin-top:9px; font-size:clamp(1.25rem,6.5vw,1.6rem);
+  font-weight:850; letter-spacing:-.02em; line-height:1.15; font-variant-numeric:tabular-nums}
+.franja.ent .hora{color:var(--ok-ink)}
+.franja.sal .hora{color:var(--ink)}
+.franja .det{display:block; margin-top:4px; font-size:13.5px; color:var(--ink-soft)}
+.franja.ent .det{color:var(--ok-ink); opacity:.9}
+
+/* ---------- listas con viñeta propia ---------- */
+ul.puntos{list-style:none; margin:0; padding:0}
+ul.puntos li{position:relative; padding:0 0 0 26px; margin-top:11px; font-size:15px; line-height:1.55}
+ul.puntos li:first-child{margin-top:0}
+ul.puntos li::before{content:"›"; position:absolute; left:8px; top:-1px;
+  color:var(--navy-2); font-weight:900; font-size:17px}
+:root[data-theme="dark"] ul.puntos li::before{color:var(--gold)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) ul.puntos li::before{color:var(--gold)}}
+
+/* ---------- preguntas que se abren ---------- */
+details.pregunta{border:1px solid var(--line); border-radius:10px; background:var(--rail);
+  margin-top:10px; overflow:hidden}
+details.pregunta[open]{background:var(--card); border-color:var(--navy-2)}
+details.pregunta > summary{list-style:none; cursor:pointer; display:flex; gap:10px;
+  align-items:center; min-height:52px; padding:12px 14px;
+  font-size:15px; font-weight:750; color:var(--ink)}
+details.pregunta > summary::-webkit-details-marker{display:none}
+details.pregunta > summary::after{content:"+"; margin-left:auto; flex:none;
+  font-size:22px; font-weight:800; color:var(--ink-faint); line-height:1}
+details.pregunta[open] > summary::after{content:"–"; color:var(--navy-2)}
+details.pregunta .cuerpo{padding:0 14px 14px; font-size:14.5px; color:var(--ink-soft); line-height:1.6}
+details.pregunta .cuerpo b{color:var(--ink)}
+details.pregunta .cuerpo p + p{margin-top:9px}
+
+/* ---------- varios ---------- */
+/* <kbd> = lo que dice un boton del telefono. Se deja partir en varias
+   lineas: en 375 px si va con "nowrap" se sale de la pantalla. */
+kbd{display:inline; background:var(--rail); border:1px solid var(--line);
+  border-bottom-width:2px; border-radius:6px; padding:1px 7px; font:inherit;
+  font-size:13.5px; font-weight:750; color:var(--ink);
+  white-space:normal; overflow-wrap:anywhere;
+  box-decoration-break:clone; -webkit-box-decoration-break:clone}
+/* .frase = un mensaje largo que muestra el telefono. Como ficha se
+   partiria en pedazos feos, asi que va entre comillas y en cursiva. */
+.frase{font-style:italic; color:var(--ink-soft); font-weight:650}
+.cedula-ej{display:inline-block; background:var(--navy); color:#fff; border-radius:6px;
+  padding:2px 9px; font-weight:800; letter-spacing:.08em; font-variant-numeric:tabular-nums}
+a.volver{display:inline-flex; align-items:center; min-height:44px; margin-top:6px;
+  color:var(--navy-2); font-weight:750; font-size:15px; text-decoration:none}
+a.volver:hover{text-decoration:underline}
+:root[data-theme="dark"] a.volver{color:#9db9ee}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) a.volver{color:#9db9ee}}
+footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-faint);
+  font-size:13px; text-align:center; line-height:1.6}
+
+@media (max-width:560px){
+  .wrap{padding:0 14px}
+  main{padding:16px 0 46px}
+  .tarjeta{padding:15px}
+  .marca > span > span{display:none}
+  ol.pasos > li{padding:12px 12px 12px 48px; font-size:14.5px}
+}
+</style>
+<script>
+/* El modo claro u oscuro, igual que en el resto del sistema. Se aplica
+   aqui arriba, antes de que se pinte nada: si se hiciera al final, la
+   pagina saldria un instante con el color equivocado. */
+(function () {
+  var LLAVE = 'farmacia_tema';
+  var guardado = null;
+  try { guardado = localStorage.getItem(LLAVE); } catch (e) { guardado = null; }
+  if (guardado === 'claro' || guardado === 'oscuro') {
+    document.documentElement.setAttribute('data-theme', guardado === 'claro' ? 'light' : 'dark');
+  }
+  window.FARMTEMA = {
+    llave: LLAVE,
+    actual: function () {
+      var e = document.documentElement.getAttribute('data-theme');
+      if (e === 'light') return 'claro';
+      if (e === 'dark') return 'oscuro';
+      try {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'oscuro' : 'claro';
+      } catch (x) { return 'claro'; }
+    },
+    poner: function (cual) {
+      document.documentElement.setAttribute('data-theme', cual === 'claro' ? 'light' : 'dark');
+      try { localStorage.setItem(LLAVE, cual); } catch (e) { /* modo privado */ }
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', cual === 'claro' ? '#0a2351' : '#0b1220');
+    }
+  };
+})();
+</script>
+</head>
+<body>
+<div class="tricolor"><i></i><i></i><i></i></div>
+
+<header class="top">
+  <div class="wrap">
+    <div class="marca">
+      <span class="pastilla" aria-hidden="true">🕐</span>
+      <span>
+        <b>Control de Asistencia</b>
+        <span>Dirección de Salud · Alcaldía de Cristóbal Rojas</span>
+      </span>
+    </div>
+    <div class="der">
+      <button class="tema" id="btnTema" type="button" aria-live="polite">
+        <span aria-hidden="true">☀</span><span class="tema-txt">Modo claro</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <!-- ═══════════ 1. QUÉ ES Y PARA QUÉ SIRVE + DESCARGA ═══════════ -->
+    <section class="tarjeta portada">
+      <span class="etq">Personal de la Dirección de Salud</span>
+      <h1><span class="icono" aria-hidden="true">🕐</span> App para marcar tu entrada y tu salida</h1>
+      <p>
+        Es una aplicación para tu teléfono Android. Con ella marcas la hora en que llegas
+        y la hora en que te vas, en vez de firmar en el cuaderno. Cada marcaje queda
+        guardado con la hora exacta, y tú puedes revisar tus días anteriores cuando quieras.
+      </p>
+
+      <div class="resumen">
+        <div><span aria-hidden="true">🪪</span><span>Entras <b>solo con tu cédula</b> y una clave. No hace falta correo.</span></div>
+        <div><span aria-hidden="true">⏰</span><span>Se marca <b>dentro de un horario</b>: de mañana la entrada, de tarde la salida.</span></div>
+        <div><span aria-hidden="true">📍</span><span>Se marca <b>estando en la Dirección de Salud</b>. Desde la casa no deja.</span></div>
+      </div>
+
+      <div class="descarga">
+        <a class="btn-apk" href="descargas/FarmaciaAsistencia.apk" download="FarmaciaAsistencia.apk">
+          <svg class="ic" viewBox="0 0 24 24" width="26" height="26" fill="none"
+               stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 3v12"></path><path d="M6.5 10.5L12 16l5.5-5.5"></path>
+            <path d="M4 20h16"></path>
+          </svg>
+          Descargar la aplicación
+        </a>
+
+        <!-- ══════════════════════════════════════════════════════════════
+             ⬇⬇ ACTUALIZAR AL PUBLICAR UN APK NUEVO — SOLO ESTOS DOS DATOS ⬇⬇
+                · la versión  →  <span id="version-app">
+                · el peso     →  <span id="peso-app">
+             El archivo se reemplaza en  descargas/FarmaciaAsistencia.apk
+             (si además cambian las novedades, están más abajo, en el
+              recuadro marcado "NOVEDADES DE ESTA VERSIÓN")
+             ══════════════════════════════════════════════════════════════ -->
+        <p class="meta-apk">
+          Versión <span id="version-app">1.1.0</span> ·
+          <span id="peso-app">~15 MB</span> ·
+          Necesitas Android 7.0 o más nuevo
+        </p>
+        <!-- ⬆⬆ FIN DEL HUECO DE VERSIÓN Y PESO ⬆⬆ -->
+      </div>
+    </section>
+
+    <!-- ═══════════ NOVEDADES DE ESTA VERSIÓN ═══════════ -->
+    <div class="aviso ok" style="margin:16px 0">
+      <b>Lo nuevo de esta versión</b>
+      Ahora el marcaje <strong>solo funciona estando en la Dirección de Salud</strong>:
+      la aplicación toma tu ubicación al momento de marcar y te dice a cuántos metros
+      estás. Más abajo, en el punto 4, te explicamos bien cómo funciona eso.
+    </div>
+
+    <!-- ═══════════ 2. INSTALACIÓN ═══════════ -->
+    <section class="tarjeta">
+      <div class="tit"><span class="num">1</span><h2>Cómo instalarla en tu teléfono</h2></div>
+
+      <ol class="pasos">
+        <li>
+          <strong>Toca el botón verde</strong> “Descargar la aplicación”, aquí arriba,
+          desde el navegador de tu teléfono.
+          <span class="nota">El archivo queda en la carpeta <kbd>Descargas</kbd> del teléfono,
+          con el nombre <kbd>FarmaciaAsistencia.apk</kbd></span>
+        </li>
+        <li>
+          <strong>Abre el archivo descargado.</strong> Toca el aviso que aparece abajo en la
+          pantalla, o busca en <kbd>Archivos</kbd> → <kbd>Descargas</kbd> y tócalo ahí.
+        </li>
+        <li>
+          <strong>Aquí es donde casi todo el mundo se traba.</strong> El teléfono va a mostrar
+          un mensaje parecido a <span class="frase">“Por seguridad, tu teléfono no permite
+          instalar aplicaciones de esta fuente”</span>, o hablará de
+          <span class="frase">“orígenes desconocidos”</span>.
+          <strong>No es un virus ni un error:</strong> Android avisa eso con toda aplicación que
+          no venga de la tienda Play Store, y esta es del municipio, no está en la tienda.
+          <span class="nota">Toca <kbd>Configuración</kbd> (o <kbd>Ajustes</kbd>) en ese mismo
+          mensaje → activa el interruptor <kbd>Permitir de esta fuente</kbd> → toca la flecha de
+          <kbd>Atrás</kbd> y vuelve a abrir el archivo.</span>
+        </li>
+        <li>
+          <strong>Toca <kbd>Instalar</kbd></strong> y espera. Tarda menos de un minuto.
+          Si sale otro aviso diciendo que la aplicación no se analizó, toca
+          <span class="frase">“Instalar de todas formas”</span>.
+        </li>
+        <li>
+          <strong>Abre la aplicación.</strong> En tu pantalla de aplicaciones aparece con el
+          nombre <kbd>Farmacia Asistencia</kbd>
+          <span class="nota">La primera vez te va a pedir permiso para usar tu ubicación:
+          toca <kbd>Mientras se usa la aplicación</kbd>. Sin ese permiso no vas a poder marcar
+          (te explicamos por qué en el punto 4).</span>
+        </li>
+      </ol>
+
+      <div class="aviso neutro">
+        <b>¿No te aparece el botón de descargar?</b>
+        Estás leyendo esta página desde la computadora o desde un navegador que bloquea la
+        descarga. Ábrela en el teléfono donde vas a usar la aplicación: es ahí donde tiene
+        que instalarse.
+      </div>
+    </section>
+
+    <!-- ═══════════ 3. CÓMO SE ENTRA ═══════════ -->
+    <section class="tarjeta">
+      <div class="tit"><span class="num">2</span><h2>Cómo entrar la primera vez</h2></div>
+
+      <ul class="puntos">
+        <li>
+          <strong>Tu usuario es tu número de cédula</strong>, escrito seguido:
+          sin la <strong>V</strong>, sin puntos y sin guiones.
+          Por ejemplo, así: <span class="cedula-ej">12345678</span>
+        </li>
+        <li>
+          <strong>Tu clave te la entrega el administrador</strong> de la Dirección de Salud, en
+          persona. No se manda por esta página ni la vas a encontrar escrita aquí.
+        </li>
+        <li>
+          <strong>La primera vez que entres, la aplicación te obliga a cambiar esa clave</strong>
+          por una tuya, de al menos 8 caracteres. Es a propósito: la clave que te dieron la
+          conoce otra persona, así que no es solo tuya todavía.
+        </li>
+        <li>
+          Escribe la clave nueva dos veces y toca <kbd>Guardar y entrar</kbd>. De ahí en
+          adelante entras siempre con esa.
+        </li>
+      </ul>
+
+      <div class="aviso warn">
+        <b>Tu clave es tuya y de nadie más</b>
+        El marcaje queda a tu nombre. Si alguien más sabe tu clave, puede marcar por ti y la
+        responsabilidad sigue siendo tuya. Si crees que alguien la conoce, pídele al
+        administrador que te la restablezca.
+      </div>
+    </section>
+
+    <!-- ═══════════ 4. LOS HORARIOS ═══════════ -->
+    <section class="tarjeta">
+      <div class="tit"><span class="num">3</span><h2>A qué hora se puede marcar</h2></div>
+
+      <div class="horario">
+        <div class="franja ent">
+          <span class="etq">Entrada</span>
+          <span class="hora">7:00 a 8:45 de la mañana</span>
+          <span class="det">Marcas cuando llegas, dentro de esa franja.</span>
+        </div>
+        <div class="franja sal">
+          <span class="etq">Salida</span>
+          <span class="hora">4:30 a 6:30 de la tarde</span>
+          <span class="det">Marcas cuando te vas, dentro de esa franja.</span>
+        </div>
+      </div>
+
+      <div class="aviso bad">
+        <b>Fuera de esas horas la aplicación no marca. No es que quede tarde: no deja.</b>
+        Si intentas marcar la entrada a las 9:00 de la mañana, o la salida a las 3:00 de la
+        tarde, la aplicación te lo va a rechazar con un mensaje y no se guarda nada. El
+        candado no está en el teléfono, está en el sistema: no hay manera de saltárselo.
+      </div>
+
+      <div class="aviso neutro">
+        <b>¿Se te pasó la hora?</b>
+        Avísale ese mismo día al administrador de la Dirección de Salud. Él es el único que
+        puede dejar anotado lo que ocurrió, y queda registrado como una corrección.
+      </div>
+    </section>
+
+    <!-- ═══════════ 5. LA UBICACIÓN ═══════════ -->
+    <section class="tarjeta">
+      <div class="tit"><span class="num">4</span><h2>Hay que estar en la Dirección de Salud</h2></div>
+
+      <p style="font-size:15px">
+        Esto es lo más importante de esta versión, y conviene leerlo con calma:
+        <strong>solo se puede marcar estando en la Dirección de Salud</strong>. Aunque sea la
+        hora correcta, desde la casa o desde la calle la aplicación no marca.
+      </p>
+
+      <h3>Qué necesitas para que funcione</h3>
+      <ul class="puntos">
+        <li>
+          <strong>La ubicación (GPS) encendida.</strong> Es el mismo botón que usas para Waze o
+          Google Maps: bajas la cortinilla de arriba del teléfono y tocas
+          <kbd>Ubicación</kbd> hasta que quede prendida.
+        </li>
+        <li>
+          <strong>El permiso dado a la aplicación.</strong> La primera vez te lo pregunta.
+          Si le diste que no, se arregla en <kbd>Ajustes</kbd> → <kbd>Aplicaciones</kbd> →
+          <kbd>Farmacia Asistencia</kbd> → <kbd>Permisos</kbd> → <kbd>Ubicación</kbd> →
+          <kbd>Mientras se usa la aplicación</kbd>.
+        </li>
+        <li>
+          <strong>Estar de verdad en el sitio.</strong> La aplicación te dice, antes de que
+          toques el botón, a cuántos metros estás: si te dice que estás lejos, acércate y
+          espera a que el número baje.
+        </li>
+      </ul>
+
+      <div class="aviso warn">
+        <b>Si te dice que la ubicación llegó imprecisa</b>
+        Dentro de un edificio de concreto el GPS tarda más y a veces se equivoca por mucho.
+        Sal un momento a un sitio donde se vea el cielo — la puerta, el pasillo, una ventana
+        abierta — espera unos diez o quince segundos con la aplicación abierta, y vuelve a
+        intentarlo. Casi siempre con eso basta.
+      </div>
+
+      <div class="aviso ok">
+        <b>Esto no es para vigilarte</b>
+        La aplicación <strong>no te sigue durante el día</strong>. Tu ubicación se toma
+        únicamente en los dos momentos en que tocas el botón de marcar entrada y de marcar
+        salida, y solo para confirmar que estabas en el sitio de trabajo. Ni antes, ni
+        después, ni cuando la aplicación está cerrada.
+      </div>
+
+      <div class="aviso neutro">
+        <b>Y también necesitas internet</b>
+        El marcaje se guarda en el momento, en el sistema, no en tu teléfono. Necesitas datos
+        móviles o wifi. <strong>Hasta que la aplicación no te muestre la hora en la pantalla,
+        el marcaje no está guardado</strong>: si se quedó dando vueltas o salió un error,
+        no cuentes con que quedó.
+      </div>
+    </section>
+
+    <!-- ═══════════ 6. SI ALGO FALLA ═══════════ -->
+    <section class="tarjeta">
+      <div class="tit"><span class="num">5</span><h2>Si algo falla</h2></div>
+      <p class="sub" style="margin-bottom:4px">Toca cada pregunta para ver la respuesta.</p>
+
+      <details class="pregunta">
+        <summary>No me deja marcar</summary>
+        <div class="cuerpo">
+          <p>Lee el mensaje que salió en la pantalla, porque ahí está el motivo. Solo hay cuatro:</p>
+          <p><b>1. “Fuera del horario permitido”.</b> Estás intentando marcar fuera de las franjas:
+          entrada de 7:00 a 8:45 de la mañana, salida de 4:30 a 6:30 de la tarde. No hay nada que
+          hacer desde el teléfono; avísale al administrador.</p>
+          <p><b>2. “Estás a tantos metros de la Dirección de Salud”.</b> No estás en el sitio, o el
+          GPS todavía no se ha afinado. Acércate, sal donde se vea el cielo, espera unos segundos
+          e inténtalo otra vez.</p>
+          <p><b>3. “La ubicación llegó muy imprecisa”.</b> Tu teléfono está dando una ubicación
+          sacada de la antena, no del GPS. Enciende la ubicación, sal a un sitio despejado y
+          espera un momento.</p>
+          <p><b>4. “Ya marcaste”.</b> La entrada y la salida se marcan una sola vez por día. Si
+          la hora que quedó está mal, solo el administrador puede corregirla.</p>
+        </div>
+      </details>
+
+      <details class="pregunta">
+        <summary>Se me olvidó la clave</summary>
+        <div class="cuerpo">
+          <p>Pídele al <b>administrador de la Dirección de Salud</b> que te la restablezca. Él te
+          entrega una clave provisional y, al entrar con ella, la aplicación te va a pedir de
+          nuevo que pongas una tuya.</p>
+          <p>Nadie puede ver tu clave actual, ni el administrador: el sistema solo la puede
+          reemplazar. Por eso no hay forma de “recordártela”.</p>
+        </div>
+      </details>
+
+      <details class="pregunta">
+        <summary>Dice que mi cédula no está autorizada</summary>
+        <div class="cuerpo">
+          <p>Primero revisa cómo la escribiste: <b>solo los números</b>, sin la V, sin puntos y
+          sin guiones. <span class="cedula-ej">12345678</span></p>
+          <p>Si está bien escrita y sigue sin entrar, es que todavía no te han dado de alta, o tu
+          cuenta está desactivada. Eso lo resuelve el administrador en un minuto desde el panel
+          del sistema.</p>
+        </div>
+      </details>
+
+      <details class="pregunta">
+        <summary>No tengo internet en ese momento</summary>
+        <div class="cuerpo">
+          <p>El marcaje <b>no queda pendiente</b> ni se guarda para después: si no hay conexión,
+          no se marcó. Busca señal o conéctate a un wifi y marca de una vez, siempre dentro de
+          la franja de horario.</p>
+          <p>Si la franja se venció mientras peleabas con la señal, avísale al administrador ese
+          mismo día para que lo deje anotado.</p>
+        </div>
+      </details>
+
+      <details class="pregunta">
+        <summary>Marqué la entrada pero se me olvidó la salida</summary>
+        <div class="cuerpo">
+          <p>Después de las 6:30 de la tarde ya no se puede marcar salida, y el día queda con la
+          entrada sola. Avísale al administrador para que lo corrija y quede claro a qué hora te
+          fuiste.</p>
+        </div>
+      </details>
+
+      <details class="pregunta">
+        <summary>La aplicación se cerró, se ve rara o no abre</summary>
+        <div class="cuerpo">
+          <p>Ciérrala por completo y vuelve a abrirla. Si sigue igual, vuelve a esta página desde
+          el teléfono, descarga otra vez el archivo e instálalo encima: <b>no pierdes nada</b>,
+          tus marcajes están guardados en el sistema, no en el teléfono.</p>
+        </div>
+      </details>
+
+      <div class="aviso neutro">
+        <b>Si nada de esto resuelve</b>
+        Habla con el <strong>administrador del sistema de la Dirección de Salud</strong>. Dile
+        qué estabas haciendo, a qué hora, y qué decía el mensaje que te salió: con eso lo
+        revisa enseguida.
+      </div>
+    </section>
+
+    <!-- ═══════════ CIERRE ═══════════ -->
+    <section class="tarjeta">
+      <h2>¿Listo para instalarla?</h2>
+      <p class="sub" style="margin-top:6px">Este es el mismo botón del principio de la página.</p>
+      <a class="btn-apk-2" href="descargas/FarmaciaAsistencia.apk" download="FarmaciaAsistencia.apk">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v12"></path><path d="M6.5 10.5L12 16l5.5-5.5"></path>
+          <path d="M4 20h16"></path>
+        </svg>
+        Descargar la aplicación (Android)
+      </a>
+      <a class="volver" href="index.html">← Volver al sistema de la Farmacia Municipal</a>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    Alcaldía del Municipio Bolivariano Cristóbal Rojas · Dirección de Salud Pública<br>
+    Control de Asistencia · <span id="pie"></span>
+  </div>
+</footer>
+
+<script>
+/* El boton de cambiar entre modo claro y oscuro. */
+(function () {
+  var boton = document.getElementById('btnTema');
+  if (!boton || !window.FARMTEMA) return;
+
+  function pintar() {
+    var ahora = window.FARMTEMA.actual();
+    var icono = boton.querySelector('span[aria-hidden]');
+    var texto = boton.querySelector('.tema-txt');
+    /* El boton ofrece lo CONTRARIO de lo que se esta viendo. */
+    if (ahora === 'oscuro') {
+      if (icono) icono.textContent = '☀';
+      if (texto) texto.textContent = 'Modo claro';
+      boton.setAttribute('aria-label', 'Cambiar a modo claro');
+    } else {
+      if (icono) icono.textContent = '☾';
+      if (texto) texto.textContent = 'Modo oscuro';
+      boton.setAttribute('aria-label', 'Cambiar a modo oscuro');
+    }
+  }
+
+  boton.addEventListener('click', function () {
+    window.FARMTEMA.poner(window.FARMTEMA.actual() === 'oscuro' ? 'claro' : 'oscuro');
+    pintar();
+  });
+
+  pintar();
+
+  /* El año del pie, para no dejarlo escrito a mano. */
+  var pie = document.getElementById('pie');
+  if (pie) pie.textContent = new Date().getFullYear();
+})();
+</script>
+</body>
+</html>

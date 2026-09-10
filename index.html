@@ -741,6 +741,30 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
   .paginador button{flex:1}
   .celda{width:84px}
 }
+
+/* ---- Elegir sistema (barra azul de arriba) ----
+   Va al final a proposito: aqui adentro el fondo es siempre --navy, en
+   claro y en oscuro, asi que los colores del tema no sirven y se usan
+   blancos con transparencia, igual que .chip-user y button.tema. */
+.sistemas{display:inline-flex; background:rgba(0,0,0,.22); border:1px solid rgba(255,255,255,.16);
+  border-radius:99px; padding:3px; gap:3px}
+.sistemas button{display:inline-flex; align-items:center; gap:6px; min-height:34px; font:inherit;
+  font-size:13px; font-weight:700; cursor:pointer; color:#cdd8ee; background:transparent;
+  border:none; padding:5px 13px; border-radius:99px; white-space:nowrap}
+.sistemas button:hover{color:#fff}
+.sistemas button.on{background:#fff; color:var(--navy)}
+.sistemas button:focus-visible{outline:2px solid var(--gold); outline-offset:2px}
+/* En el telefono NO se quita el texto: dos emojis sueltos no dicen que
+   es cada cosa. Se aprieta el resto de la barra, que si se entiende sin
+   texto (el chip del usuario y el boton de tema). */
+@media (max-width:640px){
+  .sistemas button{padding:5px 10px; font-size:12.5px; gap:4px}
+  .sistemas{padding:2px}
+  .der .chip-user{max-width:88px; overflow:hidden; text-overflow:ellipsis}
+}
+@media (max-width:400px){
+  .der .chip-user{display:none}
+}
 </style>
 <script>
 /* El modo claro u oscuro. Se aplica aqui mismo, antes de que se pinte
@@ -788,6 +812,12 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
       </span>
     </div>
     <div class="der">
+      <!-- Elegir sistema. Solo lo ve el administrador: los perfiles de
+           despacho e inventario entran directo a lo suyo. -->
+      <div class="sistemas" id="selectorSistema" role="group" aria-label="Elegir sistema" hidden>
+        <button type="button" data-sistema="farmacia" class="on" aria-pressed="true" title="Farmacia: entregas, mercancía y administración"><span aria-hidden="true">💊</span><span class="sis-txt">Farmacia</span></button>
+        <button type="button" data-sistema="asistencia" aria-pressed="false" title="Control de asistencia de la Dirección de Salud"><span aria-hidden="true">🕐</span><span class="sis-txt">Asistencia</span></button>
+      </div>
       <button class="tema" id="btnTema" type="button" aria-live="polite"><span aria-hidden="true">☀</span><span class="tema-txt">Modo claro</span></button>
       <span class="chip-user" id="chipUsuario" hidden></span>
       <button class="salir" id="btnSalir" type="button" hidden>Salir</button>
@@ -858,6 +888,15 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
       <div id="contenidoPanel"></div>
     </section>
 
+    <!-- ======== CONTROL DE ASISTENCIA (sistema aparte, solo admin) ======== -->
+    <section id="vistaAsistencia" hidden>
+      <div class="tarjeta">
+        <h1>Control de asistencia</h1>
+        <p class="sub">Entrada y salida del personal de la Dirección de Salud, marcadas desde la app con GPS</p>
+      </div>
+      <div id="contenidoAsistencia"></div>
+    </section>
+
   </div>
 </main>
 
@@ -874,18 +913,22 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
-<script src="config.js"></script>
-<script src="comunes.js"></script>
-<script src="logos-base64.js"></script>
-<script src="pdf-header.js"></script>
-<script src="reportes.js"></script>
-<script src="picker.js"></script>
-<script src="tablero-entregas.js"></script>
-<script src="personas.js"></script>
-<script src="centros.js"></script>
-<script src="despacho.js"></script>
-<script src="inventario.js"></script>
-<script src="admin.js"></script>
-<script src="app.js"></script>
+<!-- El ?v= de los scripts se sube en cada publicacion: sin el, el
+     navegador se queda con la version vieja hasta 10 minutos y la gente
+     ve el sitio a medias. Version actual: 20260911a -->
+<script src="config.js?v=20260911a"></script>
+<script src="comunes.js?v=20260911a"></script>
+<script src="logos-base64.js?v=20260911a"></script>
+<script src="pdf-header.js?v=20260911a"></script>
+<script src="reportes.js?v=20260911a"></script>
+<script src="picker.js?v=20260911a"></script>
+<script src="tablero-entregas.js?v=20260911a"></script>
+<script src="personas.js?v=20260911a"></script>
+<script src="centros.js?v=20260911a"></script>
+<script src="despacho.js?v=20260911a"></script>
+<script src="inventario.js?v=20260911a"></script>
+<script src="admin.js?v=20260911a"></script>
+<script src="asistencia.js?v=20260911a"></script>
+<script src="app.js?v=20260911a"></script>
 </body>
 </html>

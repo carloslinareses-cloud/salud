@@ -58,7 +58,10 @@
 
   function salir() {
     if (!sb) return;
-    try { sessionStorage.removeItem(RECUERDA_AREA); } catch (e) { /* modo privado */ }
+    try {
+      sessionStorage.removeItem(RECUERDA_AREA);
+      sessionStorage.removeItem(RECUERDA_SISTEMA);
+    } catch (e) { /* modo privado */ }
     sb.auth.signOut().then(function () { location.reload(); });
   }
 
@@ -166,6 +169,7 @@
 
     if (perfil.rol === 'admin') {
       montarAreas(usuario, zona);
+      montarSelectorSistema(usuario);
       return;
     }
 
@@ -182,6 +186,72 @@
     var suya = AREAS.filter(function (a) { return a.id === perfil.rol; })[0];
     if (suya && suya.hay()) { suya.abre(zona, usuario); return; }
     zona.innerHTML = EN_OBRA;
+  }
+
+  /* ELEGIR SISTEMA (solo el administrador)
+     Son dos programas distintos que comparten la misma puerta de entrada:
+     la Farmacia (entregas, mercancía, administración) y el Control de
+     asistencia de la Dirección de Salud. Se cambia de uno a otro desde la
+     barra de arriba.
+
+     Igual que las áreas, la asistencia se monta UNA sola vez y después se
+     esconde, no se destruye: si se volviera a construir cada vez, se
+     perderían los filtros y las búsquedas a medio hacer, y las respuestas
+     del servidor que llegan tarde escribirían sobre una pantalla muerta. */
+  var RECUERDA_SISTEMA = 'farmacia_sistema';
+  var asistenciaMontada = false;
+  var usuarioSistema = null;
+
+  function irSistema(cual) {
+    var caja = $('selectorSistema');
+    if (!caja) return false;
+    var esAsis = cual === 'asistencia';
+    $('vistaPanel').hidden = esAsis;
+    $('vistaAsistencia').hidden = !esAsis;
+    caja.querySelectorAll('[data-sistema]').forEach(function (b) {
+      var suyo = b.dataset.sistema === cual;
+      b.classList.toggle('on', suyo);
+      b.setAttribute('aria-pressed', suyo ? 'true' : 'false');
+    });
+    try { sessionStorage.setItem(RECUERDA_SISTEMA, cual); } catch (e) { /* modo privado */ }
+
+    if (esAsis && !asistenciaMontada) {
+      asistenciaMontada = true;
+      var z = $('contenidoAsistencia');
+      if (typeof window.PANTALLA_ASISTENCIA === 'function') window.PANTALLA_ASISTENCIA(sb, z, usuarioSistema);
+      else z.innerHTML = EN_OBRA;
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return true;
+  }
+
+  /* Los clics se enganchan al cargar la página, no al entrar. Así el
+     selector responde siempre que esté a la vista, sin depender de en qué
+     orden pasaron las cosas. Mientras nadie sea admin queda escondido,
+     que es lo que decide quién puede usarlo. */
+  function engancharSelectorSistema() {
+    var caja = $('selectorSistema');
+    if (!caja) return;
+    caja.querySelectorAll('[data-sistema]').forEach(function (b) {
+      b.addEventListener('click', function () { irSistema(b.dataset.sistema); });
+    });
+  }
+
+  /* Puerta pública, igual que FARMIR: sirve para saltar de un sistema a
+     otro desde cualquier pantalla. */
+  window.FARMSISTEMA = irSistema;
+
+  function montarSelectorSistema(usuario) {
+    var caja = $('selectorSistema');
+    if (!caja) return;
+    usuarioSistema = usuario;
+    caja.hidden = false;
+
+    /* Vuelve donde estaba, para que recargar la página no lo saque del
+       sistema en el que estaba trabajando. */
+    var guardado = null;
+    try { guardado = sessionStorage.getItem(RECUERDA_SISTEMA); } catch (e) { guardado = null; }
+    if (guardado === 'asistencia') irSistema('asistencia');
   }
 
   /* Mercancía para inventario, con una puerta chica a Entregar.
@@ -353,6 +423,7 @@
       new Date().toLocaleDateString('es-VE', { day: 'numeric', month: 'long', year: 'numeric' });
 
     engancharTema();
+    engancharSelectorSistema();
     $('formAcceso').addEventListener('submit', entrar);
     $('btnSalir').addEventListener('click', salir);
 
