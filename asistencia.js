@@ -43,7 +43,8 @@
      no le dicen nada a nadie. Aquí se traducen los que pueden salir de
      verdad; el resto se muestra tal cual, que es mejor que esconderlo. */
   function enCristiano(error) {
-    var m = (error && (error.message || error.hint || error.details)) || 'Error desconocido';
+    var m = (typeof error === 'string' ? error
+             : (error && (error.message || error.hint || error.details))) || 'Error desconocido';
     if (/schema cache|does not exist|relation .* does not exist|Could not find the (table|function)/i.test(m)) {
       return 'El control de asistencia todavía no está instalado en la base de datos. ' +
              'Hay que aplicar sql/25-asistencia.sql antes de poder usar esta pantalla.';
@@ -97,7 +98,9 @@
   }
 
   function metros(v) {
-    if (v == null || v === '' || isNaN(Number(v))) return null;
+    /* Vacío o en blanco NO es cero: cero significa "marcó justo encima del
+       punto", y eso sería acusar de exactitud a un dato que no llegó. */
+    if (v == null || String(v).trim() === '' || isNaN(Number(v))) return null;
     return Math.round(Number(v));
   }
 

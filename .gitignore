@@ -1,22 +1,23 @@
-# archivos de trabajo, no van al repositorio
-sql/*.json
-__pycache__/
-*.pyc
-.env
-manual/pag*.png
-node_modules/
-package-lock.json
-perfil-chrome/
-bajadas-prueba/
-papeles/
+
 # Capturas que dejan las pruebas cuando algo falla. Salen de la base de
 # PRODUCCION: pueden llevar nombres y cedulas de personas reales, asi que
-# no entran nunca al repositorio, que es publico.
-fallo-*.png
-perfil-*/
-bajadas-*/
-
 # Salidas de las migraciones que cruzan datos con el registro electoral:
+# archivos de trabajo, no van al repositorio
 # llevan nombres, cedulas y fechas de nacimiento REALES. El repo es
+# no entran nunca al repositorio, que es publico.
 # publico (GitHub Pages), asi que esto nunca entra.
+*.pyc
+.claude/
+.env
+__pycache__/
+bajadas-*/
+bajadas-prueba/
+fallo-*.png
+manual/pag*.png
 migracion/salida/
+node_modules/
+package-lock.json
+papeles/
+perfil-*/
+perfil-chrome/
+sql/*.json
