@@ -465,6 +465,14 @@ try {
 } catch (e) {
   mal++; fallos.push('EXCEPCION: ' + e.message)
   console.log('\n  EXCEPCION: ' + e.message)
+  /* Sin esto, cuando algo revienta a mitad de la prueba no queda ni rastro
+     de POR QUÉ: se ve el timeout, pero no el error de JS o de red que lo
+     causó de verdad. Costó un rato descubrirlo la primera vez que hizo falta. */
+  try { console.log('  URL al momento del fallo: ' + pag.url()) } catch {}
+  if (errores.length) {
+    console.log('  Errores de la pagina capturados hasta el momento:')
+    errores.forEach((er) => console.log('    ' + er))
+  }
   try { await pag.screenshot({ path: RAIZ + '/fallo-personas.png', fullPage: true }) } catch {}
 } finally {
   await nav.close(); servidor.close()

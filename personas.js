@@ -964,6 +964,12 @@
           t.quien = f.data || r.data;
           t.modo = 'ficha'; t.abierto = null;
           t.patologias = null; t.tratamiento = null; t.falloAnexos = null;
+          /* Sin esto, t.historial se queda "undefined" (nunca se había
+             tocado, por ser una persona recién creada) y bloqueHistorial()
+             revienta en "h.length" porque su guardia solo contempla null o
+             un arreglo, no undefined. Pasaba SIEMPRE al registrar a alguien
+             nuevo: la ficha se quedaba en blanco justo al terminar. */
+          t.historial = null; t.falloHist = null;
           t.pintar();
           t.cargarAnexos();
           if (falta.length) {
