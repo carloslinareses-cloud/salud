@@ -131,13 +131,22 @@ try {
     base.length === 1 && base[0].estado === 'activo', JSON.stringify(base))
   const idNuevo = base[0]?.id
 
-  console.log('\n--- 4. Buscarlo por nombre y por cédula ---')
+  const sinCargando = () => pag.waitForFunction(
+    () => !/Buscando/.test((document.getElementById('joRes') || {}).innerText || ''),
+    { timeout: 20000 })
+
+  console.log('\n--- 4. Buscarlo por nombre y por cédula, con toda la información a la vista ---')
   await pag.waitForSelector('#joBusca', { timeout: 20000 })
   await pag.type('#joBusca', NOMBRE)
   await pag.waitForFunction(
     (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
     { timeout: 20000 }, NOMBRE)
   prueba('aparece buscando por nombre', true)
+
+  const targeta = await pag.$eval('#joRes .ficha', (e) => e.innerText)
+  prueba('la ficha de la lista trae todo -cédula, dirección y tratamiento- sin tener que abrirla',
+    targeta.includes(CEDULA) && targeta.includes('ZZZ SECTOR DE PRUEBA') && targeta.includes('ZZZ-MEDICINA DE PRUEBA'),
+    targeta)
 
   await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
   await pag.type('#joBusca', CEDULA)
@@ -146,8 +155,42 @@ try {
     { timeout: 20000 }, NOMBRE)
   prueba('y buscando por cédula', true)
 
+  console.log('\n--- 4b. La búsqueda avanzada también cubre dirección y tratamiento ---')
+  await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
+  await pag.type('#joBusca', 'ZZZ SECTOR DE PRUEBA')
+  await pag.waitForFunction(
+    (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
+    { timeout: 20000 }, NOMBRE)
+  prueba('se encuentra buscando por la dirección', true)
+
+  await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
+  await pag.type('#joBusca', 'ZZZ-MEDICINA DE PRUEBA')
+  await pag.waitForFunction(
+    (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
+    { timeout: 20000 }, NOMBRE)
+  prueba('y buscando por el tratamiento', true)
+
+  console.log('\n--- 4c. El filtro de hoja/mes del Excel funciona ---')
+  await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
+  await pag.select('#joHoja', 'JULIO A SEPTIEMBRE')
+  await sinCargando()
+  const totalJulSep = await pag.$eval('#joRes .conteo', (e) => Number((e.textContent.match(/\d+/) || [0])[0]))
+  await pag.select('#joHoja', 'RUTA MATERNA MES JULIO')
+  await sinCargando()
+  const totalRuta = await pag.$eval('#joRes .conteo', (e) => Number((e.textContent.match(/\d+/) || [0])[0]))
+  prueba('el filtro por hoja del Excel de verdad acota la lista',
+    totalJulSep > 0 && totalRuta > 0 && totalJulSep !== totalRuta,
+    `julio-septiembre=${totalJulSep} · ruta materna=${totalRuta}`)
+  await pag.select('#joHoja', 'todos')
+  await sinCargando()
+
   console.log('\n--- 5. Abrirlo y corregirle el teléfono ---')
-  await pag.click('.fila-clic')
+  await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
+  await pag.type('#joBusca', CEDULA)
+  await pag.waitForFunction(
+    (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
+    { timeout: 20000 }, NOMBRE)
+  await pag.click('.ficha')
   await pag.waitForSelector('#joTelefono', { timeout: 20000 })
   await pag.type('#joTelefono', '04120000000')
   await pag.click('#joGuardar')

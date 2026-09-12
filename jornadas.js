@@ -16,6 +16,19 @@
 
   var CONJUNTOS = { jornadas: 'Jornada de salud', ruta_materna: 'Ruta materna' };
 
+  /* Las hojas del Excel de donde salió cada registro. "Octubre a diciembre"
+     todavía no tiene filas -esa hoja aún no se llenó cuando se cargó la
+     base- pero se deja lista para cuando llegue, con el mismo nombre que
+     trae la pestaña del Excel. */
+  var HOJAS = [
+    { v: 'JORNADAS 2026', t: 'Jornadas 2026' },
+    { v: 'JULIO A SEPTIEMBRE', t: 'Julio a septiembre' },
+    { v: 'OCTUBRE A DICIEMBRE', t: 'Octubre a diciembre' },
+    { v: 'RUTA MATERNA MES JULIO', t: 'Ruta materna (julio)' }
+  ];
+  var HOJAS_TXT = {};
+  HOJAS.forEach(function (h) { HOJAS_TXT[h.v] = h.t; });
+
   function esc(t) {
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -49,6 +62,7 @@
     this.modo = 'lista';           // lista | nuevo | ficha
     this.busca = '';
     this.conjunto = 'todos';       // todos | jornadas | ruta_materna
+    this.hoja = 'todos';           // todos | una de HOJAS
     this.estado = 'todos';         // todos | activo | por_revisar
     this.pagina = 0; this.total = 0; this.filas = [];
     this.pedido = 0;
@@ -87,12 +101,19 @@
       '</div>' +
       '<p class="sub">Lo que trae el cuaderno de cada jornada, aparte del sistema general de pacientes.</p>' +
       '<div class="filtros">' +
-        '<input id="' + i('Busca') + '" type="search" placeholder="Buscar por nombre o cédula…" ' +
+        '<input id="' + i('Busca') + '" type="search" ' +
+          'placeholder="Buscar por nombre, cédula, teléfono, dirección, comuna o tratamiento…" ' +
           'value="' + esc(t.busca) + '">' +
         '<select id="' + i('Conj') + '">' +
           '<option value="todos">Todos los conjuntos</option>' +
           '<option value="jornadas"' + (t.conjunto === 'jornadas' ? ' selected' : '') + '>Jornada de salud</option>' +
           '<option value="ruta_materna"' + (t.conjunto === 'ruta_materna' ? ' selected' : '') + '>Ruta materna</option>' +
+        '</select>' +
+        '<select id="' + i('Hoja') + '">' +
+          '<option value="todos">Todas las hojas</option>' +
+          HOJAS.map(function (h) {
+            return '<option value="' + esc(h.v) + '"' + (t.hoja === h.v ? ' selected' : '') + '>' + esc(h.t) + '</option>';
+          }).join('') +
         '</select>' +
         '<select id="' + i('Est') + '">' +
           '<option value="todos">Todos los estados</option>' +
@@ -108,6 +129,7 @@
       t.busca = t.q('Busca').value.trim(); t.pagina = 0; t.buscar();
     }, 350));
     t.q('Conj').addEventListener('change', function () { t.conjunto = t.q('Conj').value; t.pagina = 0; t.buscar(); });
+    t.q('Hoja').addEventListener('change', function () { t.hoja = t.q('Hoja').value; t.pagina = 0; t.buscar(); });
     t.q('Est').addEventListener('change', function () { t.estado = t.q('Est').value; t.pagina = 0; t.buscar(); });
 
     t.buscar();
@@ -122,9 +144,17 @@
     var qy = t.sb.from('jornadas_registros').select(CAMPOS, { count: 'exact' });
     if (t.busca) {
       var b = t.busca.replace(/[%_]/g, '\\$&');
-      qy = qy.or('nombre.ilike.%' + b + '%,cedula.ilike.%' + b + '%');
+      qy = qy.or(
+        'nombre.ilike.%' + b + '%,' +
+        'cedula.ilike.%' + b + '%,' +
+        'telefono.ilike.%' + b + '%,' +
+        'direccion.ilike.%' + b + '%,' +
+        'tratamiento.ilike.%' + b + '%,' +
+        'item.ilike.%' + b + '%'
+      );
     }
     if (t.conjunto !== 'todos') qy = qy.eq('conjunto', t.conjunto);
+    if (t.hoja !== 'todos') qy = qy.eq('hoja_origen', t.hoja);
     if (t.estado !== 'todos') qy = qy.eq('estado', t.estado);
     qy = qy.order('nombre').range(t.pagina * POR_PAGINA, t.pagina * POR_PAGINA + POR_PAGINA - 1);
 
@@ -136,36 +166,53 @@
     });
   };
 
+  /* Una ficha por persona, con TODO lo que trae el cuaderno -no solo
+     nombre y cédula- para no tener que abrirla nada más para ver el
+     teléfono o la comuna. */
   Jornadas.prototype.pintarLista = function () {
     var t = this, i = function (n) { return t.id(n); };
     var z = t.q('Res');
     if (!t.filas.length) {
       z.innerHTML = '<div class="vacio">' +
-        (t.busca || t.conjunto !== 'todos' || t.estado !== 'todos'
+        (t.busca || t.conjunto !== 'todos' || t.hoja !== 'todos' || t.estado !== 'todos'
           ? 'Nadie coincide con lo que buscas.' : 'Todavía no hay nada cargado.') +
         '</div>';
       t.q('Pag').innerHTML = '';
       return;
     }
-    z.innerHTML = '<table class="tabla-prod"><thead><tr>' +
-      '<th>Nombre</th><th>Cédula</th><th>Fecha</th><th>Edad</th><th>Sexo</th>' +
-      '<th>Tratamiento</th><th>Conjunto</th><th>Estado</th></tr></thead><tbody>' +
-      t.filas.map(function (f) {
-        return '<tr data-id="' + esc(f.id) + '" class="fila-clic">' +
-          '<td>' + esc(f.nombre) + '</td>' +
-          '<td>' + esc(f.cedula || '—') + '</td>' +
-          '<td>' + corta(f.fecha) + '</td>' +
-          '<td>' + esc(f.edad_texto || '') + '</td>' +
-          '<td>' + esc(f.sexo || '') + '</td>' +
-          '<td>' + esc(f.tratamiento || '') + '</td>' +
-          '<td>' + esc(CONJUNTOS[f.conjunto] || f.conjunto) + '</td>' +
-          '<td>' + estadoChip(f.estado) + '</td>' +
-        '</tr>';
-      }).join('') + '</tbody></table>';
+    z.innerHTML =
+      '<p class="conteo">' + t.total + (t.total === 1 ? ' registro' : ' registros') + '</p>' +
+      '<div class="fichas">' + t.filas.map(function (f) {
+        var quien = [];
+        quien.push(f.cedula ? 'C.I. ' + f.cedula : 'Sin cédula');
+        if (f.edad_texto) quien.push(f.edad_texto);
+        if (f.sexo) quien.push(f.sexo === 'F' ? 'Femenino' : 'Masculino');
 
-    z.querySelectorAll('.fila-clic').forEach(function (fila) {
-      fila.addEventListener('click', function () {
-        var f = t.filas.filter(function (x) { return x.id === fila.dataset.id; })[0];
+        var contacto = [];
+        if (f.telefono) contacto.push(f.telefono);
+        if (f.direccion) contacto.push(f.direccion);
+
+        var cuando = [corta(f.fecha), CONJUNTOS[f.conjunto] || f.conjunto];
+        if (f.hoja_origen) cuando.push(HOJAS_TXT[f.hoja_origen] || f.hoja_origen);
+
+        return '<button type="button" class="ficha" data-id="' + esc(f.id) + '">' +
+          '<div class="ficha-nom">' +
+            '<b>' + esc(f.nombre) + '</b>' +
+            '<span class="ficha-pres">' + esc(quien.join(' · ')) + '</span>' +
+            (contacto.length ? '<span class="ficha-pres">' + esc(contacto.join(' · ')) + '</span>' : '') +
+            (f.item ? '<span class="ficha-pres">' + esc(f.item) + '</span>' : '') +
+          '</div>' +
+          '<div class="ficha-datos">' +
+            '<span class="ficha-lotes">' + esc(f.tratamiento || 'Sin tratamiento anotado') + '</span>' +
+            '<span class="ficha-vence">' + esc(cuando.filter(Boolean).join(' · ')) + '</span>' +
+          '</div>' +
+          estadoChip(f.estado) +
+        '</button>';
+      }).join('') + '</div>';
+
+    z.querySelectorAll('[data-id]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var f = t.filas.filter(function (x) { return x.id === b.dataset.id; })[0];
         if (f) { t.modo = 'ficha'; t.quien = f; t.pintar(); }
       });
     });
@@ -174,9 +221,12 @@
     var pz = t.q('Pag');
     if (paginas <= 1) { pz.innerHTML = ''; return; }
     pz.innerHTML =
-      '<button type="button" id="' + i('Ant') + '"' + (t.pagina === 0 ? ' disabled' : '') + '>← Anterior</button>' +
-      '<span>Página ' + (t.pagina + 1) + ' de ' + paginas + ' · ' + t.total + ' en total</span>' +
-      '<button type="button" id="' + i('Sig') + '"' + (t.pagina >= paginas - 1 ? ' disabled' : '') + '>Siguiente →</button>';
+      '<div class="paginador">' +
+        '<button type="button" id="' + i('Ant') + '"' + (t.pagina === 0 ? ' disabled' : '') + '>Anteriores</button>' +
+        '<span>' + (t.pagina * POR_PAGINA + 1) + '–' + Math.min(t.total, (t.pagina + 1) * POR_PAGINA) +
+          ' de ' + t.total + '</span>' +
+        '<button type="button" id="' + i('Sig') + '"' + (t.pagina >= paginas - 1 ? ' disabled' : '') + '>Siguientes</button>' +
+      '</div>';
     var ant = t.q('Ant'), sig = t.q('Sig');
     if (ant) ant.addEventListener('click', function () { t.pagina--; t.buscar(); });
     if (sig) sig.addEventListener('click', function () { t.pagina++; t.buscar(); });
