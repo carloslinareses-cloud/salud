@@ -85,6 +85,7 @@
           '<button type="button" data-p="catalogo">Catálogo</button>' +
           '<button type="button" data-p="alertas">Alertas</button>' +
           '<button type="button" data-p="personas">Personas</button>' +
+          '<button type="button" data-p="jornadas">Jornadas</button>' +
           '<button type="button" data-p="centros">Centros</button>' +
           '<button type="button" data-p="entregas">Lo entregado</button>' +
           '<button type="button" data-p="conteo">Corregir existencia</button>' +
@@ -104,6 +105,7 @@
     else if (pestana === 'catalogo') verCatalogo();
     else if (pestana === 'entregas') verEntregas();
     else if (pestana === 'personas') verPersonas();
+    else if (pestana === 'jornadas') verJornadas();
     else if (pestana === 'centros') verCentros();
     else verConteo();
   }
@@ -122,6 +124,18 @@
       return;
     }
     window.PANTALLA_PERSONAS(sb, z, { prefijo: 'pe' });
+  }
+
+  /* Las jornadas de salud y la ruta materna: una base APARTE del sistema
+     general de pacientes, tal como se cargó del cuaderno de cada jornada. */
+  function verJornadas() {
+    var z = document.getElementById('zonaInv');
+    if (typeof window.PANTALLA_JORNADAS !== 'function') {
+      z.innerHTML = '<div class="aviso warn">La pantalla de jornadas todavía se está ' +
+                    'cargando. Vuelve a entrar en unos segundos.</div>';
+      return;
+    }
+    window.PANTALLA_JORNADAS(sb, z, { prefijo: 'jo' });
   }
 
   /* Los CDI, ambulatorios y consultorios: sus datos, la lista de insumos
