@@ -89,6 +89,7 @@
           '<button type="button" data-p="centros">Centros</button>' +
           '<button type="button" data-p="entregas">Lo entregado</button>' +
           '<button type="button" data-p="conteo">Corregir existencia</button>' +
+          '<button type="button" data-p="dashboard">Dashboard</button>' +
         '</div>' +
         '<div id="zonaInv"></div>' +
         '<div id="avisoInv"></div>' +
@@ -106,6 +107,7 @@
     else if (pestana === 'entregas') verEntregas();
     else if (pestana === 'personas') verPersonas();
     else if (pestana === 'jornadas') verJornadas();
+    else if (pestana === 'dashboard') verDashboard();
     else if (pestana === 'centros') verCentros();
     else verConteo();
   }
@@ -136,6 +138,18 @@
       return;
     }
     window.PANTALLA_JORNADAS(sb, z, { prefijo: 'jo' });
+  }
+
+  /* El dashboard: solo lee, no registra nada. Contabiliza Personas,
+     Jornadas, Centros y Lo entregado, por día, semana y mes. */
+  function verDashboard() {
+    var z = document.getElementById('zonaInv');
+    if (typeof window.PANTALLA_DASHBOARD !== 'function') {
+      z.innerHTML = '<div class="aviso warn">El dashboard todavía se está ' +
+                    'cargando. Vuelve a entrar en unos segundos.</div>';
+      return;
+    }
+    window.PANTALLA_DASHBOARD(sb, z, { prefijo: 'da' });
   }
 
   /* Los CDI, ambulatorios y consultorios: sus datos, la lista de insumos
