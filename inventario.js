@@ -79,7 +79,7 @@
   /* ================================================================ */
   function pintar() {
     ancla.innerHTML =
-      '<div class="tarjeta">' +
+      '<div class="tarjeta panel-con-menu">' +
         '<div class="conmuta">' +
           '<button type="button" data-p="cargar">Registrar lo que llega</button>' +
           '<button type="button" data-p="catalogo">Catálogo</button>' +
@@ -91,8 +91,10 @@
           '<button type="button" data-p="conteo">Corregir existencia</button>' +
           '<button type="button" data-p="dashboard">Dashboard</button>' +
         '</div>' +
-        '<div id="zonaInv"></div>' +
-        '<div id="avisoInv"></div>' +
+        '<div class="panel-contenido">' +
+          '<div id="zonaInv"></div>' +
+          '<div id="avisoInv"></div>' +
+        '</div>' +
       '</div>';
     ancla.querySelectorAll('.conmuta button').forEach(function (b) {
       b.classList.toggle('on', b.dataset.p === pestana);

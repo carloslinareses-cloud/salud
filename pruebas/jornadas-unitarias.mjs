@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const FUENTE = fs.readFileSync(path.join(AQUI, '..', 'jornadas.js'), 'utf8');
@@ -59,6 +60,57 @@ prueba('sin fecha pasa', valida({ ...base(), fecha: null }), null);
 prueba('fecha pasada pasa', valida({ ...base(), fecha: '2020-01-01' }), null);
 prueba('fecha futura no pasa', valida({ ...base(), fecha: '2999-01-01' }), 'La fecha no puede ser futura.');
 prueba('fecha de hoy pasa', valida({ ...base(), fecha: hoyEs() }), null);
+
+/* ================================================================
+   Los totales de una jornada (calcularCifrasEvento): esta vez la
+   función depende de otra privada del mismo archivo (piezasDeUno),
+   así que en vez de sacar solo esa función se corre el módulo
+   ENTERO -tal cual quedó escrito, nunca retipeado- contra un `window`
+   de mentira, y se recoge lo que deja expuesto. FARM sí es la real:
+   comunes.js está pensado para correr en Node.
+================================================================ */
+const require = createRequire(import.meta.url);
+const FARM = require(path.join(AQUI, '..', 'comunes.js'));
+
+function extraerModulo(inicioLiteral) {
+  const i = FUENTE.indexOf(inicioLiteral);
+  if (i < 0) throw new Error('No encontré "' + inicioLiteral + '" en jornadas.js -- ¿cambió el código?');
+  let profundidad = 0, j = FUENTE.indexOf('{', i);
+  for (; j < FUENTE.length; j++) {
+    if (FUENTE[j] === '{') profundidad++;
+    else if (FUENTE[j] === '}') { profundidad--; if (profundidad === 0) break; }
+  }
+  return FUENTE.slice(i, j + 1);
+}
+const cuerpoIIFE = extraerModulo('(function () {') + ')';
+const ventana = {};
+new Function('window', 'return ' + cuerpoIIFE)(ventana)();
+const calcularCifrasEvento = ventana.JORNADAS_CALCULAR_CIFRAS;
+if (typeof calcularCifrasEvento !== 'function') {
+  throw new Error('jornadas.js no dejó "JORNADAS_CALCULAR_CIFRAS" en window -- ¿cambió el nombre?');
+}
+
+grupo('Los totales de una jornada se cuentan solos, no se escriben a mano');
+
+const sinNadie = calcularCifrasEvento(FARM, []);
+prueba('sin personas, todo en cero', [sinNadie.pacientes, sinNadie.totalMedicamentos, sinNadie.recipes].join(','), '0,0,0');
+
+const personas = [
+  { tratamiento: 'SUERO ORAL / ALBENDAZOL / NUTAMIN', recipe: true },
+  { tratamiento: 'NUTAMIN', recipe: false },
+  { tratamiento: 'IBUPROFENO, ACETAMINOFEN', recipe: true },
+  { tratamiento: null, recipe: null },          // se atendió pero no le dieron nada -no revienta-
+  { tratamiento: '', recipe: false }
+];
+const cifras = calcularCifrasEvento(FARM, personas);
+prueba('pacientes atendidos = cuántos se cargaron', cifras.pacientes, 5);
+prueba('medicamentos entregados = la suma de piezas de cada quien (3+1+2)', cifras.totalMedicamentos, 6);
+prueba('récipes = solo los que dijeron que sí', cifras.recipes, 2);
+prueba('NUTAMIN salió dos veces -una por persona, no se funde en una sola-', cifras.meds.NUTAMIN, 2);
+prueba('el detalle va ordenado del que más salió al que menos',
+  cifras.ordenMeds[0], 'NUTAMIN');
+prueba('sin tratamiento anotado no rompe la cuenta ni suma nada',
+  cifras.ordenMeds.join(',').includes('undefined'), false);
 
 console.log('\n' + '='.repeat(60));
 console.log(`Pasaron ${ok} de ${ok + mal} pruebas.`);

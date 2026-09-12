@@ -1,15 +1,20 @@
-/* JORNADAS: registrar, buscar, corregir y borrar un renglón.
+/* JORNADAS: cada jornada es un evento, y sus totales se cuentan solos.
 
-   Comprueba, manejando el navegador de verdad, que la pantalla nueva de
-   Jornadas (aparte de Personas, sin tocar pacientes ni tratamientos):
+   Comprueba, manejando el navegador de verdad:
 
-     · Está en Mercancía, como su propia pestaña.
-     · Deja registrar uno nuevo con todos sus datos.
-     · Se puede buscar por nombre y por cédula.
-     · Se puede abrir y corregir.
-     · Sin cédula o sin sexo, queda marcado "Por revisar" solo -nadie
-       inventa el dato que falta.
-     · Se puede borrar, y no deja rastro.
+     · Que el menú de Mercancía se pasó a la izquierda en pantalla ancha,
+       fijo mientras se hace scroll.
+     · Que "Jornadas" abre la lista de EVENTOS (no de personas), con su
+       botón de "+ Nueva jornada".
+     · Que se crea una jornada con su equipo y sus firmas, SIN pedir los
+       tres totales.
+     · Que al cargarle personas -incluida si llevaron récipe- los tres
+       totales (atendidos, medicamentos, récipes) se cuentan solos, sin
+       que nadie los escriba.
+     · Que la pestaña "Registros" sigue mostrando a todo el mundo, de
+       todas las jornadas, para buscar y corregir -pero SIN un botón de
+       registrar suelto: para cargar gente nueva hay que entrar primero
+       a su jornada.
 
    Todo lo que crea empieza por ZZZ y se borra al terminar.
 
@@ -40,8 +45,10 @@ if (!TOKEN) { console.error('Falta SUPABASE_TOKEN (hace falta para limpiar al fi
 
 const REF = 'tfbzghjjfcaqmkzsxrrs'
 const MARCA = Math.floor(Date.now() / 1000).toString(36).toUpperCase()
-const NOMBRE = 'ZZZ PRUEBA JORNADA ' + MARCA
-const CEDULA = String(9300000 + (Date.now() % 699999)).slice(0, 8)
+const LUGAR = 'ZZZ CDI PRUEBA ' + MARCA
+const NOMBRE1 = 'ZZZ PACIENTE UNO ' + MARCA
+const NOMBRE2 = 'ZZZ PACIENTE DOS ' + MARCA
+const CEDULA1 = String(9100000 + (Date.now() % 899999)).slice(0, 8)
 
 let ok = 0, mal = 0
 const fallos = []
@@ -86,136 +93,169 @@ pag.on('console', (m) => { if (m.type() === 'error') errores.push('console: ' + 
 pag.on('dialog', (d) => d.accept())
 
 const espera = (ms) => new Promise((r) => setTimeout(r, ms))
+const sinCargando = (id) => pag.waitForFunction(
+  (elId) => !/Cargando|Buscando/.test((document.getElementById(elId) || {}).innerText || ''),
+  { timeout: 25000 }, id)
 
 try {
   console.log('='.repeat(64))
-  console.log('JORNADAS: registrar, buscar, corregir y borrar')
+  console.log('JORNADAS: EVENTOS, SU EQUIPO Y SUS TOTALES QUE SE CUENTAN SOLOS')
   console.log('='.repeat(64))
 
-  console.log('\n--- 1. Entrar ---')
+  console.log('\n--- 1. Entrar y abrir Jornadas ---')
   await pag.goto(`http://127.0.0.1:${PUERTO}/`, { waitUntil: 'domcontentloaded' })
   await pag.waitForFunction(() => !document.getElementById('btnEntrar').disabled, { timeout: 25000 })
   await pag.type('#correo', ADMIN)
   await pag.type('#clave', CLAVE)
   await pag.click('#btnEntrar')
   await pag.waitForSelector('.areas', { timeout: 30000 })
-
-  console.log('\n--- 2. Jornadas está en Mercancía, aparte de Personas ---')
   await pag.click('.areas [data-area="inventario"]')
   await espera(500)
   await pag.waitForSelector('#zona-inventario [data-p="jornadas"]', { timeout: 20000 })
-  prueba('la pestaña Jornadas existe', true)
   await pag.click('#zona-inventario [data-p="jornadas"]')
-  await pag.waitForSelector('#joNueva', { timeout: 20000 })
-  prueba('se abre con la lista y el botón de registrar', true)
+  await pag.waitForSelector('#joVistaTop', { timeout: 20000 })
+  await sinCargando('joZona')
 
-  console.log('\n--- 3. Registrar uno nuevo ---')
-  await pag.click('#joNueva')
+  console.log('\n--- 2. El menú de Mercancía quedó a la izquierda ---')
+  const posiciones = await pag.evaluate(() => {
+    const menu = document.querySelector('#zona-inventario .conmuta').getBoundingClientRect()
+    const contenido = document.querySelector('#zona-inventario .panel-contenido').getBoundingClientRect()
+    return { menuDer: menu.right, contenidoIzq: contenido.left, menuArriba: menu.top }
+  })
+  prueba('el menú queda a la izquierda del contenido', posiciones.menuDer <= posiciones.contenidoIzq + 1,
+    JSON.stringify(posiciones))
+  // "No se pierde al bajar" se comprueba más adelante, en Registros: con
+  // 3975 fichas la página sí es más alta que la pantalla de verdad.
+
+  console.log('\n--- 3. "Jornadas" abre EVENTOS, no personas ---')
+  const pestanaOn = await pag.$eval('#joVistaTop [data-v="eventos"]', (b) => b.classList.contains('on'))
+  prueba('la pestaña por defecto es "Jornadas"', pestanaOn, '')
+  prueba('se ve el botón de crear una jornada nueva', !!(await pag.$('#joEvNueva')), '')
+  prueba('todavía no se ve el buscador del listado plano de personas', !(await pag.$('#joBusca')), '')
+
+  console.log('\n--- 4. Crear la jornada, con su equipo y sus firmas ---')
+  await pag.click('#joEvNueva')
+  await pag.waitForSelector('#joEvGuardar', { timeout: 20000 })
+  await pag.click('#joEvFTipo [data-v="ruta_materna"]')
+  await pag.evaluate(() => { document.getElementById('joEvFecha').value = '2026-09-10' })
+  await pag.type('#joEvLugar', LUGAR)
+  await pag.type('#joEvParroquia', 'ZZZ Parroquia Prueba')
+  await pag.type('#joEvDietista', 'ZZZ Magaly Medina')
+  await pag.type('#joEvAutoridad', 'ZZZ Autoridad Prueba')
+  await pag.type('#joEvTrabajador', 'ZZZ Luis Solorzano')
+  await pag.type('#joEvFirmaTxt', 'ZZZ Yuris')
+  await pag.click('#joEvFirmaAgregar')
+  await pag.type('#joEvFirmaTxt', 'ZZZ Juan')
+  await pag.click('#joEvFirmaAgregar')
+  await pag.waitForFunction(() => document.querySelectorAll('#joEvFirmas button').length === 2, { timeout: 10000 })
+  prueba('se pueden agregar firmas antes de guardar', true)
+
+  await pag.click('#joEvGuardar')
+  await pag.waitForFunction(
+    () => /qued[oó] creada/i.test((document.getElementById('joAviso') || {}).textContent || ''),
+    { timeout: 20000 })
+  prueba('la jornada se crea sin pedir los tres totales', true)
+
+  await pag.waitForSelector('#joDetAgregar', { timeout: 20000 })
+  const detInicial = await pag.$eval('#joZona', (e) => e.innerText.replace(/\s+/g, ' '))
+  prueba('al crearla, entra directo a su detalle', detInicial.includes(LUGAR), detInicial.slice(0, 120))
+  prueba('empieza en cero -nada escrito a mano-',
+    /0\s*pacientes atendidos/i.test(detInicial) && /0\s*medicamentos entregados/i.test(detInicial), detInicial.slice(0, 300))
+  prueba('se ve el equipo que se anotó', detInicial.includes('ZZZ Magaly Medina'), detInicial.slice(0, 400))
+  prueba('y quién firmó', detInicial.includes('ZZZ Yuris') && detInicial.includes('ZZZ Juan'), detInicial.slice(0, 400))
+
+  const evento = await sql(`select id, tipo from farmacia.jornadas_eventos where lugar = '${LUGAR}';`)
+  prueba('quedó en la base con el tipo elegido (ruta materna)', evento[0]?.tipo === 'ruta_materna', JSON.stringify(evento[0]))
+  const eventoId = evento[0]?.id
+
+  console.log('\n--- 5. Cargar a la primera persona, con récipe ---')
+  await pag.click('#joDetAgregar')
   await pag.waitForSelector('#joNombre', { timeout: 20000 })
-  prueba('el formulario pide los datos', true)
-
-  await pag.type('#joNombre', NOMBRE)
-  await pag.type('#joCedula', CEDULA)
-  await pag.click('#joSexo button[data-v="F"]')
-  await pag.type('#joTratamiento', 'ZZZ-MEDICINA DE PRUEBA')
-  await pag.type('#joDireccion', 'ZZZ SECTOR DE PRUEBA')
+  const sinConjunto = !(await pag.$('#joConjunto'))
+  prueba('no se pregunta el conjunto -ya lo dice la jornada-', sinConjunto, '')
+  await pag.type('#joNombre', NOMBRE1)
+  await pag.type('#joCedula', CEDULA1)
+  await pag.click('#joSexo [data-v="F"]')
+  await pag.type('#joTratamiento', 'SUERO ORAL / ALBENDAZOL / NUTAMIN')
+  await pag.click('#joRecipe [data-v="si"]')
   await pag.click('#joGuardar')
-
   await pag.waitForFunction(
     () => /qued[oó] registrada/i.test((document.getElementById('joAviso') || {}).textContent || ''),
     { timeout: 20000 })
-  prueba('se registra y avisa', true)
 
-  const base = await sql(`select id, estado, sexo, cedula from farmacia.jornadas_registros where nombre = '${NOMBRE}';`)
-  prueba('quedó en la base, activo (tenía cédula y sexo)',
-    base.length === 1 && base[0].estado === 'activo', JSON.stringify(base))
-  const idNuevo = base[0]?.id
-
-  const sinCargando = () => pag.waitForFunction(
-    () => !/Buscando/.test((document.getElementById('joRes') || {}).innerText || ''),
+  await pag.waitForFunction(
+    () => /1\s*paciente atendido/i.test((document.getElementById('joZona') || {}).innerText || ''),
     { timeout: 20000 })
+  let detalle = await pag.$eval('#joZona', (e) => e.innerText.replace(/\s+/g, ' '))
+  prueba('vuelve sola al detalle de la jornada, ya contando a esta persona',
+    /1\s*paciente atendido/i.test(detalle), detalle.slice(0, 200))
+  prueba('cuenta las 3 piezas de su tratamiento como 3 medicamentos',
+    /3\s*medicamentos entregados/i.test(detalle), detalle.slice(0, 200))
+  prueba('y 1 con récipe', /1\s*con récipe/i.test(detalle), detalle.slice(0, 200))
+  prueba('el detalle muestra NUTAMIN', detalle.includes('NUTAMIN'), detalle.slice(0, 400))
 
-  console.log('\n--- 4. Buscarlo por nombre y por cédula, con toda la información a la vista ---')
-  await pag.waitForSelector('#joBusca', { timeout: 20000 })
-  await pag.type('#joBusca', NOMBRE)
+  console.log('\n--- 6. Segunda persona, sin récipe, con un medicamento repetido ---')
+  await pag.click('#joDetAgregar')
+  await pag.waitForSelector('#joNombre', { timeout: 20000 })
+  await pag.type('#joNombre', NOMBRE2)
+  await pag.click('#joSexo [data-v="M"]')
+  await pag.type('#joTratamiento', 'NUTAMIN')
+  await pag.click('#joRecipe [data-v="no"]')
+  await pag.click('#joGuardar')
   await pag.waitForFunction(
-    (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
-    { timeout: 20000 }, NOMBRE)
-  prueba('aparece buscando por nombre', true)
-
-  const targeta = await pag.$eval('#joRes .ficha', (e) => e.innerText)
-  prueba('la ficha de la lista trae todo -cédula, dirección y tratamiento- sin tener que abrirla',
-    targeta.includes(CEDULA) && targeta.includes('ZZZ SECTOR DE PRUEBA') && targeta.includes('ZZZ-MEDICINA DE PRUEBA'),
-    targeta)
-
-  await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
-  await pag.type('#joBusca', CEDULA)
+    () => /qued[oó] registrada/i.test((document.getElementById('joAviso') || {}).textContent || ''),
+    { timeout: 20000 })
   await pag.waitForFunction(
-    (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
-    { timeout: 20000 }, NOMBRE)
-  prueba('y buscando por cédula', true)
+    () => /2\s*pacientes atendidos/i.test((document.getElementById('joZona') || {}).innerText || ''),
+    { timeout: 20000 })
+  detalle = await pag.$eval('#joZona', (e) => e.innerText.replace(/\s+/g, ' '))
+  prueba('ahora son 2 pacientes atendidos', /2\s*pacientes atendidos/i.test(detalle), detalle.slice(0, 200))
+  prueba('4 medicamentos en total (3 + 1)', /4\s*medicamentos entregados/i.test(detalle), detalle.slice(0, 200))
+  prueba('sigue en 1 con récipe -el segundo dijo que no-', /1\s*con récipe/i.test(detalle), detalle.slice(0, 200))
 
-  console.log('\n--- 4b. La búsqueda avanzada también cubre dirección y tratamiento ---')
-  await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
-  await pag.type('#joBusca', 'ZZZ SECTOR DE PRUEBA')
-  await pag.waitForFunction(
-    (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
-    { timeout: 20000 }, NOMBRE)
-  prueba('se encuentra buscando por la dirección', true)
+  const filaNutamin = await pag.evaluate(() => {
+    const fila = [...document.querySelectorAll('#joZona table tr')].find(tr => tr.innerText.includes('NUTAMIN'))
+    return fila ? fila.innerText.replace(/\s+/g, ' ') : null
+  })
+  prueba('NUTAMIN aparece UNA vez en el detalle, con 2 -no se funde ni se duplica la fila-',
+    filaNutamin === 'NUTAMIN 2', filaNutamin)
 
-  await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
-  await pag.type('#joBusca', 'ZZZ-MEDICINA DE PRUEBA')
-  await pag.waitForFunction(
-    (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
-    { timeout: 20000 }, NOMBRE)
-  prueba('y buscando por el tratamiento', true)
-
-  console.log('\n--- 4c. El filtro de hoja/mes del Excel funciona ---')
-  await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
-  await pag.select('#joHoja', 'JULIO A SEPTIEMBRE')
-  await sinCargando()
-  const totalJulSep = await pag.$eval('#joRes .conteo', (e) => Number((e.textContent.match(/\d+/) || [0])[0]))
-  await pag.select('#joHoja', 'RUTA MATERNA MES JULIO')
-  await sinCargando()
-  const totalRuta = await pag.$eval('#joRes .conteo', (e) => Number((e.textContent.match(/\d+/) || [0])[0]))
-  prueba('el filtro por hoja del Excel de verdad acota la lista',
-    totalJulSep > 0 && totalRuta > 0 && totalJulSep !== totalRuta,
-    `julio-septiembre=${totalJulSep} · ruta materna=${totalRuta}`)
-  await pag.select('#joHoja', 'todos')
-  await sinCargando()
-
-  console.log('\n--- 5. Abrirlo y corregirle el teléfono ---')
-  await pag.evaluate(() => { document.getElementById('joBusca').value = '' })
-  await pag.type('#joBusca', CEDULA)
-  await pag.waitForFunction(
-    (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
-    { timeout: 20000 }, NOMBRE)
-  await pag.click('.ficha')
+  console.log('\n--- 7. Se puede abrir y corregir a alguien desde el detalle de su jornada ---')
+  await pag.evaluate((n) => {
+    [...document.querySelectorAll('#joZona .ficha')].find(b => b.innerText.includes(n)).click()
+  }, NOMBRE1)
   await pag.waitForSelector('#joTelefono', { timeout: 20000 })
   await pag.type('#joTelefono', '04120000000')
   await pag.click('#joGuardar')
   await pag.waitForFunction(
     () => /qued[oó] corregida/i.test((document.getElementById('joAviso') || {}).textContent || ''),
     { timeout: 20000 })
-  const corregido = await sql(`select telefono from farmacia.jornadas_registros where id = '${idNuevo}';`)
-  prueba('el teléfono llegó a la base', corregido[0]?.telefono === '04120000000', JSON.stringify(corregido))
+  await pag.waitForSelector('#joDetAgregar', { timeout: 20000 })
+  prueba('al corregir, vuelve a la jornada -no a Registros-', true)
+  const corregido = await sql(`select telefono from farmacia.jornadas_registros where nombre = '${NOMBRE1}';`)
+  prueba('el cambio llegó a la base', corregido[0]?.telefono === '04120000000', JSON.stringify(corregido))
 
-  console.log('\n--- 6. Sin cédula ni sexo, queda "por revisar" solo ---')
-  await pag.waitForSelector('#joNueva', { timeout: 20000 })
-  await pag.click('#joNueva')
-  await pag.waitForSelector('#joNombre', { timeout: 20000 })
-  const NOMBRE2 = NOMBRE + ' SIN DATOS'
-  await pag.type('#joNombre', NOMBRE2)
-  await pag.click('#joGuardar')
+  console.log('\n--- 8. "Registros" sigue mostrando a todos, sin botón de registrar suelto ---')
+  await pag.click('#joVistaTop [data-v="registros"]')
+  await pag.waitForSelector('#joBusca', { timeout: 20000 })
+  await sinCargando('joZona')
+  prueba('no hay botón de "+Registrar" en el listado plano', !(await pag.$('#joNueva')), '')
+
+  console.log('\n--- 8b. Con las 50 fichas de esta página, el menú no se pierde al bajar ---')
+  await pag.evaluate(() => window.scrollBy(0, 700))
+  await espera(300)
+  const topTrasBajar = await pag.evaluate(() =>
+    document.querySelector('#zona-inventario .conmuta').getBoundingClientRect().top)
+  prueba('sigue pegado arriba después de hacer scroll', topTrasBajar <= 20, 'top: ' + topTrasBajar)
+  await pag.evaluate(() => window.scrollTo(0, 0))
+
+  await pag.type('#joBusca', NOMBRE1)
   await pag.waitForFunction(
-    () => /qued[oó] registrada/i.test((document.getElementById('joAviso') || {}).textContent || ''),
-    { timeout: 20000 })
-  const sinDatos = await sql(`select estado, cedula, sexo, motivo_revision from farmacia.jornadas_registros where nombre = '${NOMBRE2}';`)
-  prueba('queda "por_revisar", sin inventarle cédula ni sexo',
-    sinDatos[0]?.estado === 'por_revisar' && !sinDatos[0]?.cedula && !sinDatos[0]?.sexo, JSON.stringify(sinDatos[0]))
-  prueba('y dice por qué',
-    /cedula vacia/i.test(sinDatos[0]?.motivo_revision || '') && /sexo vacio/i.test(sinDatos[0]?.motivo_revision || ''),
-    sinDatos[0]?.motivo_revision)
+    (n) => (document.getElementById('joRes') || {}).innerText.includes(n),
+    { timeout: 20000 }, NOMBRE1)
+  const fichaEnRegistros = await pag.$eval('#joRes .ficha', (e) => e.innerText)
+  prueba('la persona cargada en la jornada también sale en Registros', fichaEnRegistros.includes(NOMBRE1), fichaEnRegistros)
+  prueba('y dice que tiene récipe', /con récipe/i.test(fichaEnRegistros), fichaEnRegistros)
 
   console.log('\n--- Errores de JavaScript ---')
   const graves = errores.filter((e) => !/favicon|net::ERR|Failed to load resource/i.test(e))
@@ -233,10 +273,16 @@ try {
 }
 
 console.log('\n--- Limpieza ---')
-const limpieza = await sql(`delete from farmacia.jornadas_registros where nombre like 'ZZZ %' returning id;`)
-const quedan = await sql(`select count(*) as n from farmacia.jornadas_registros where nombre like 'ZZZ %';`)
-prueba('no deja nada suyo en la base', Number(quedan[0]?.n) === 0, JSON.stringify(quedan))
-console.log('  (se borraron ' + (Array.isArray(limpieza) ? limpieza.length : 0) + ' registro(s) de prueba)')
+const limpieza = await sql(`
+delete from farmacia.jornadas_registros where nombre like 'ZZZ %';
+`)
+const limpiezaEv = await sql(`delete from farmacia.jornadas_eventos where lugar like 'ZZZ %' returning id;`)
+const quedan = await sql(`select
+  (select count(*) from farmacia.jornadas_registros where nombre like 'ZZZ %') registros,
+  (select count(*) from farmacia.jornadas_eventos where lugar like 'ZZZ %') eventos;`)
+prueba('no deja nada suyo en la base', Number(quedan[0]?.registros) === 0 && Number(quedan[0]?.eventos) === 0,
+  JSON.stringify(quedan[0]))
+console.log('  (se borró ' + (Array.isArray(limpiezaEv) ? limpiezaEv.length : 0) + ' jornada(s) de prueba)')
 
 console.log('\n' + '='.repeat(64))
 if (mal) {

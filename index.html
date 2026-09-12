@@ -148,10 +148,23 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 
 /* ---------- pantalla de entrega ---------- */
 .conmuta{display:flex;flex-wrap:wrap;gap:6px;background:var(--rail);border:1px solid var(--line);
-  border-radius:11px;padding:4px;margin-bottom:16px}
+  border-radius:11px;padding:4px;margin-bottom:16px;
+  position:sticky;top:0;z-index:5}
 .conmuta button{flex:1 1 auto;font:inherit;font-size:14px;font-weight:750;cursor:pointer;
   padding:10px 8px;min-height:44px;border:0;border-radius:8px;background:transparent;color:var(--ink-soft)}
 .conmuta button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+
+/* Con menú lateral: el menú de pestañas se va a la izquierda y queda
+   fijo mientras se hace scroll -así no se pierde al bajar por una
+   lista larga-. En el teléfono no hay espacio para una columna aparte,
+   así que sigue arriba, pegada, igual que antes. */
+@media (min-width:860px){
+  .panel-con-menu{display:flex;align-items:flex-start;gap:18px}
+  .panel-con-menu > .conmuta{flex-direction:column;flex:none;width:210px;
+    margin-bottom:0;top:16px}
+  .panel-con-menu > .conmuta button{text-align:left}
+  .panel-con-menu > .panel-contenido{flex:1;min-width:0}
+}
 
 .lista{margin-top:8px;display:flex;flex-direction:column;gap:6px}
 .lista .item{width:100%;text-align:left;font:inherit;cursor:pointer;padding:11px 13px;
@@ -916,21 +929,21 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <!-- El ?v= de los scripts se sube en cada publicacion: sin el, el
      navegador se queda con la version vieja hasta 10 minutos y la gente
      ve el sitio a medias. Version actual: 20260912a -->
-<script src="config.js?v=20260913a"></script>
-<script src="comunes.js?v=20260913a"></script>
-<script src="logos-base64.js?v=20260913a"></script>
-<script src="pdf-header.js?v=20260913a"></script>
-<script src="reportes.js?v=20260913a"></script>
-<script src="picker.js?v=20260913a"></script>
-<script src="tablero-entregas.js?v=20260913a"></script>
-<script src="personas.js?v=20260913a"></script>
-<script src="jornadas.js?v=20260913a"></script>
-<script src="centros.js?v=20260913a"></script>
-<script src="dashboard.js?v=20260913a"></script>
-<script src="despacho.js?v=20260913a"></script>
-<script src="inventario.js?v=20260913a"></script>
-<script src="admin.js?v=20260913a"></script>
-<script src="asistencia.js?v=20260913a"></script>
-<script src="app.js?v=20260913a"></script>
+<script src="config.js?v=20260913b"></script>
+<script src="comunes.js?v=20260913b"></script>
+<script src="logos-base64.js?v=20260913b"></script>
+<script src="pdf-header.js?v=20260913b"></script>
+<script src="reportes.js?v=20260913b"></script>
+<script src="picker.js?v=20260913b"></script>
+<script src="tablero-entregas.js?v=20260913b"></script>
+<script src="personas.js?v=20260913b"></script>
+<script src="jornadas.js?v=20260913b"></script>
+<script src="centros.js?v=20260913b"></script>
+<script src="dashboard.js?v=20260913b"></script>
+<script src="despacho.js?v=20260913b"></script>
+<script src="inventario.js?v=20260913b"></script>
+<script src="admin.js?v=20260913b"></script>
+<script src="asistencia.js?v=20260913b"></script>
+<script src="app.js?v=20260913b"></script>
 </body>
 </html>
