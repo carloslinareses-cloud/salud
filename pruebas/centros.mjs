@@ -211,11 +211,33 @@ try {
     Number(base[0]?.centros) === 1 && Number(base[0]?.insumos) === 2, JSON.stringify(base[0]))
 
   /* ============================================================
+     2b. EN LA LISTA SE VE LO RECIBIDO AUNQUE SEA CERO
+
+     Antes, si todavia no se le habia entregado nada, el numero de
+     unidades recibidas simplemente no aparecia -como si no se
+     estuviera contando-. Ahora se ve siempre, con su "0" bien puesto.
+  ============================================================ */
+  console.log('\n--- 2b. En la lista se ve "0 unidades recibidas", no se esconde ---')
+  await pag.click('#ceVolver')
+  await pag.waitForSelector('#ceBusca', { timeout: 20000 })
+  await pag.evaluate(() => { document.getElementById('ceBusca').value = '' })
+  await pag.type('#ceBusca', CENTRO)
+  await pag.waitForFunction(t => {
+    const f = document.querySelectorAll('#ceRes .ficha')
+    return f.length === 1 && f[0].innerText.includes(t)
+  }, { timeout: 25000 }, CENTRO)
+  const listaSinEntregas = await pag.$eval('#ceRes .ficha', e => e.innerText.replace(/\s+/g, ' '))
+  prueba('antes de recibir nada, la lista lo dice explícito en vez de escondelo',
+    /0 unidades recibidas/i.test(listaSinEntregas), listaSinEntregas)
+
+  await pag.click('#ceRes .ficha')
+  await pag.waitForFunction(
+    () => document.querySelectorAll('#ceZona [data-cant]').length === 2, { timeout: 25000 })
+
+  /* ============================================================
      3. LAS CANTIDADES Y LA COBERTURA
   ============================================================ */
   console.log('\n--- 3. Cuanto necesita de cada uno ---')
-  await pag.waitForFunction(
-    () => document.querySelectorAll('#ceZona [data-cant]').length === 2, { timeout: 25000 })
   prueba('la ficha deja poner cuanto necesita de cada insumo', true)
 
   const ponCantidad = async (nombre, cant) => {

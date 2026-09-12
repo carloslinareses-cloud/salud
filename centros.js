@@ -204,9 +204,8 @@
               '<em>' + (x.insumos === 1 ? 'insumo' : 'insumos') + '</em></span>' +
             '<span class="ficha-lotes">' + x.entregas +
               (x.entregas === 1 ? ' entrega' : ' entregas') + '</span>' +
-            (x.unidades_recibidas
-              ? '<span class="ficha-vence">' + num(x.unidades_recibidas) + ' unidades</span>'
-              : '') +
+            '<span class="ficha-vence">' + num(x.unidades_recibidas) +
+              (Number(x.unidades_recibidas) === 1 ? ' unidad recibida' : ' unidades recibidas') + '</span>' +
           '</div>' +
           (x.activo ? '' : '<span class="sit gris">Inactivo</span>') +
         '</button>';
