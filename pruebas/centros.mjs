@@ -167,6 +167,16 @@ try {
 
   await pag.click('#zona-inventario [data-p="centros"]')
   await pag.waitForSelector('#ceBusca', { timeout: 25000 })
+
+  await pag.waitForSelector('#ceVistaAn', { timeout: 20000 })
+  const analisisTxt = await pag.$eval('#ceDash', e => e.innerText)
+  prueba('la lista trae el análisis de lo entregado a los centros', /Lo entregado a los centros/i.test(analisisTxt), analisisTxt.slice(0, 80))
+  await pag.click('#ceVistaAn [data-v="mes"]')
+  await pag.waitForFunction(
+    () => document.querySelectorAll('#ceDash table tbody tr').length === 6,
+    { timeout: 20000 })
+  prueba('el selector Por mes trae 6 renglones de tendencia', true)
+
   await pag.click('#ceNuevo')
   await pag.waitForSelector('#ceCrear', { timeout: 20000 })
 
@@ -390,6 +400,73 @@ try {
     const buf = fs.readFileSync(path.join(BAJADAS, pdf))
     prueba('y es un PDF de verdad', buf.slice(0, 4).toString() === '%PDF', buf.slice(0, 8).toString())
   }
+
+  /* ============================================================
+     5c. REGISTRAR UNA ENTREGA DESDE LA FICHA DEL CENTRO
+
+     A esta altura, del récipe/pedido de la sección 4 ya no queda NADA
+     de FALTA (hay 5, el pedido se llevó las 5) y sí quedan 170 de
+     SOBRA (hay 200, el pedido se llevó 30). Sirve para probar los dos
+     casos con datos reales, sin inventar otro escenario.
+  ============================================================ */
+  console.log('\n--- 5c. Registrar una entrega directo desde la ficha del centro ---')
+  await pag.click('#ceIrEntregar')
+  await pag.waitForSelector('#ceEntGuardar', { timeout: 20000 })
+  await pag.type('#ceEntDepto', 'ZZZ ENFERMERIA')
+  await elegirInsumo('ceEnt', SOBRA)
+  await pag.waitForFunction(
+    () => document.querySelectorAll('#ceZona [data-cesta-cant]').length === 1, { timeout: 20000 })
+  await pag.evaluate(() => {
+    const i = document.querySelector('[data-cesta-cant="0"]')
+    i.value = '10'
+    i.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await pag.type('#ceEntRecibe', 'ZZZ Recibe Prueba')
+  await pag.click('#ceEntGuardar')
+  await pag.waitForFunction(
+    () => /Entrega registrada/i.test((document.getElementById('ceAviso') || {}).textContent || ''),
+    { timeout: 25000 })
+  prueba('la entrega se registra directo desde Centros, sin ir a Entregar', true)
+
+  await pag.waitForSelector('#ceIrEntregar', { timeout: 20000 })
+  /* Volver a la ficha repinta con lo viejo primero -para no dejar la
+     pantalla en blanco- y refresca aparte, en cuanto responde la base.
+     Sin esperar ESE refresco, se lee "1 entrega" un instante antes de
+     que llegue el "2". */
+  await pag.waitForFunction(
+    () => /2\s*entregas/i.test((document.getElementById('ceZona') || {}).innerText || ''),
+    { timeout: 20000 })
+  const fichaTrasEntrega = await pag.$eval('#ceZona', e => e.innerText.replace(/\s+/g, ' '))
+  prueba('vuelve a la ficha del centro, ya con la entrega contada', /2\s*entregas/i.test(fichaTrasEntrega), fichaTrasEntrega.slice(0, 200))
+  prueba('y las unidades sumadas (30 de sobra + 5 de falta + 10 nuevas = 45)',
+    fichaTrasEntrega.includes('45'), fichaTrasEntrega.slice(0, 200))
+  prueba('aparece el detalle día por día', /Día por día/i.test(fichaTrasEntrega), '')
+
+  const enBase = await sql(`select departamento, recibe_nombre from farmacia.entregas
+     where institucion_id = (select id from farmacia.instituciones where nombre = '${CENTRO}')
+       and departamento is not null;`)
+  prueba('el departamento y quién recibe llegaron a la base',
+    enBase[0]?.departamento === 'ZZZ ENFERMERIA' && enBase[0]?.recibe_nombre === 'ZZZ Recibe Prueba',
+    JSON.stringify(enBase[0]))
+
+  console.log('\n--- 5d. Sin existencia, no deja registrar la entrega ---')
+  await pag.click('#ceIrEntregar')
+  await pag.waitForSelector('#ceEntGuardar', { timeout: 20000 })
+  await elegirInsumo('ceEnt', FALTA)
+  await pag.waitForFunction(
+    () => document.querySelectorAll('#ceZona [data-cesta-cant]').length === 1, { timeout: 20000 })
+  await pag.type('#ceEntRecibe', 'ZZZ Recibe Sin Stock')
+  await pag.click('#ceEntGuardar')
+  await pag.waitForFunction(
+    () => /No hay existencia disponible/i.test((document.getElementById('ceAviso') || {}).textContent || ''),
+    { timeout: 20000 })
+  prueba('avisa que no hay existencia, en vez de dejarlo entrar en números negativos', true)
+  const noSeCreo = await sql(`select count(*) c from farmacia.entregas
+     where institucion_id = (select id from farmacia.instituciones where nombre = '${CENTRO}')
+       and recibe_nombre = 'ZZZ Recibe Sin Stock';`)
+  prueba('y no queda ninguna entrega a medias en la base', Number(noSeCreo[0]?.c) === 0, JSON.stringify(noSeCreo[0]))
+  await pag.click('#ceEntVolver')
+  await pag.waitForSelector('#ceIrEntregar', { timeout: 20000 })
 
   /* ============================================================
      6. QUITAR UN INSUMO

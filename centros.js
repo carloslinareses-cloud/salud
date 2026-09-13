@@ -47,9 +47,104 @@
     var t; return function () { var a = arguments, s = this;
       clearTimeout(t); t = setTimeout(function () { fn.apply(s, a); }, ms); };
   }
+  function hoyEs() {
+    return window.FARM && window.FARM.hoyCaracas
+      ? window.FARM.hoyCaracas() : new Date().toISOString().slice(0, 10);
+  }
   function sit(c) {
     var m = COBERTURA[c] || { txt: c || '', cl: 'gris' };
     return '<span class="sit ' + m.cl + '">' + esc(m.txt) + '</span>';
+  }
+
+  /* ================================================================
+     EL ANÁLISIS DE LO ENTREGADO A LOS CENTROS -pura, sin DOM ni red-
+
+     Recibe los renglones ya traídos (una fila por medicamento, con
+     `cantidad` en null cuando la entrega no trae detalle) y la vista
+     elegida, y devuelve las cifras y la tendencia. Aparte de la
+     pantalla para poder probarla con datos inventados.
+  ================================================================ */
+  var MESES_AN = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  var VENTANA_AN = { dia: 14, semana: 8, mes: 6 };
+
+  function entregasUnicasCentros(renglones) {
+    var vistos = {}, out = [];
+    (renglones || []).forEach(function (r) {
+      if (r.anulada) return;
+      if (!vistos[r.entrega_id]) { vistos[r.entrega_id] = true; out.push(r); }
+    });
+    return out;
+  }
+  function enRangoAn(fecha, desde, hasta) { return !!fecha && fecha >= desde && fecha <= hasta; }
+  function contarEnRangoAn(filas, desde, hasta) {
+    var n = 0; for (var i = 0; i < filas.length; i++) if (enRangoAn(filas[i].fecha, desde, hasta)) n++;
+    return n;
+  }
+  function sumarEnRangoAn(filas, desde, hasta) {
+    var n = 0;
+    for (var i = 0; i < filas.length; i++) if (enRangoAn(filas[i].fecha, desde, hasta)) n += Number(filas[i].cantidad || 0);
+    return n;
+  }
+  function cortaAn(f) {
+    var p = String(f).slice(0, 10).split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] : String(f);
+  }
+  function ultimosPeriodosAn(FARM, vista, hoy, n) {
+    var out = [];
+    if (vista === 'semana') {
+      var actual = FARM.periodo('semana', hoy);
+      for (var i = n - 1; i >= 0; i--) {
+        var r = FARM.periodo('semana', FARM.sumaDias(actual.desde, -7 * i));
+        out.push({ desde: r.desde, hasta: r.hasta, etiqueta: 'Semana del ' + cortaAn(r.desde) });
+      }
+      return out;
+    }
+    if (vista === 'mes') {
+      var p = hoy.split('-'); var anio = +p[0], mes = +p[1];
+      for (var j = n - 1; j >= 0; j--) {
+        var mm = mes - j, aa = anio;
+        while (mm <= 0) { mm += 12; aa -= 1; }
+        var rm = FARM.periodo('mes', aa + '-' + String(mm).padStart(2, '0') + '-01');
+        out.push({ desde: rm.desde, hasta: rm.hasta, etiqueta: MESES_AN[mm - 1].charAt(0).toUpperCase() + MESES_AN[mm - 1].slice(1) + ' ' + aa });
+      }
+      return out;
+    }
+    for (var k = n - 1; k >= 0; k--) {
+      var d = FARM.sumaDias(hoy, -k);
+      out.push({ desde: d, hasta: d, etiqueta: cortaAn(d) + (d === hoy ? ' (hoy)' : '') });
+    }
+    return out;
+  }
+
+  function calcularAnalisisCentros(FARM, renglonesInstitucion, vista, hoy) {
+    var rHoy = { desde: hoy, hasta: hoy };
+    var rSemana = FARM.periodo('semana', hoy);
+    var rMes = FARM.periodo('mes', hoy);
+
+    var unicas = entregasUnicasCentros(renglonesInstitucion);
+    var conCantidad = (renglonesInstitucion || []).filter(function (r) { return !r.anulada && r.cantidad != null; });
+
+    var periodos = ultimosPeriodosAn(FARM, vista, hoy, VENTANA_AN[vista]);
+    var tendencia = periodos.map(function (r) {
+      return {
+        etiqueta: r.etiqueta,
+        entregas: contarEnRangoAn(unicas, r.desde, r.hasta),
+        unidades: sumarEnRangoAn(conCantidad, r.desde, r.hasta)
+      };
+    });
+
+    return {
+      total: unicas.length,
+      hoy: contarEnRangoAn(unicas, rHoy.desde, rHoy.hasta),
+      semana: contarEnRangoAn(unicas, rSemana.desde, rSemana.hasta),
+      mes: contarEnRangoAn(unicas, rMes.desde, rMes.hasta),
+      unidadesTotal: conCantidad.reduce(function (s, r) { return s + Number(r.cantidad || 0); }, 0),
+      unidadesHoy: sumarEnRangoAn(conCantidad, rHoy.desde, rHoy.hasta),
+      unidadesSemana: sumarEnRangoAn(conCantidad, rSemana.desde, rSemana.hasta),
+      unidadesMes: sumarEnRangoAn(conCantidad, rMes.desde, rMes.hasta),
+      tendencia: tendencia
+    };
   }
 
   var CAMPOS = 'id,nombre,tipo,direccion,responsable,telefono,activo,entregas,' +
@@ -69,6 +164,9 @@
     this.recibido = null;       // lo que se le ha entregado
     this.pendientes = [];       // lo anotado a un centro que aún no existe
     this.abierto = false;       // el buscador de insumos está desplegado
+    this.entregaCesta = [];     // lo que se está por entregar, mientras se llena el formulario
+    this.vistaAn = 'dia';       // dia | semana | mes -- para el análisis de la lista
+    this.analisis = null;       // lo que se ha entregado a TODOS los centros, para el análisis
   }
 
   Centros.prototype.id = function (n) { return this.pfx + n; };
@@ -88,6 +186,7 @@
     t.raiz.innerHTML = '<div id="' + t.id('Zona') + '"></div><div id="' + t.id('Aviso') + '"></div>';
     if (t.modo === 'lista') t.verLista();
     else if (t.modo === 'nuevo') t.verFormulario();
+    else if (t.modo === 'entregar') t.verEntregar();
     else t.pintarFicha();
   };
 
@@ -100,6 +199,7 @@
       '<h2 class="sub-t">Centros de salud</h2>' +
       '<p class="sub">Los CDI, ambulatorios y consultorios a los que se despacha. Cada uno ' +
       'lleva su lista de insumos: al ir a entregarle salen todos con su cantidad ya puesta.</p>' +
+      '<div id="' + i('Dash') + '"></div>' +
       '<div class="busca-fila">' +
         '<div class="busca-campo">' +
           '<label for="' + i('Busca') + '">Buscar</label>' +
@@ -149,6 +249,7 @@
       t.modo = 'nuevo'; t.pendientes = []; t.pintar();
     });
     t.cargarLista();
+    t.cargarAnalisis();
   };
 
   Centros.prototype.cargarLista = function () {
@@ -228,12 +329,75 @@
   };
 
   /* ================================================================
+     EL ANÁLISIS: cuánto se le ha entregado a los centros, en total
+  ================================================================ */
+  Centros.prototype.cargarAnalisis = function () {
+    var t = this;
+    var z = t.q('Dash');
+    if (!z) return;
+    z.innerHTML = '<div class="cargando">Calculando lo entregado…</div>';
+
+    t.sb.from('v_entregas_renglon')
+      .select('entrega_id,fecha,cantidad,anulada')
+      .eq('tipo_destinatario', 'institucion')
+      .limit(5000)
+      .then(function (r) {
+        if (!t.q('Dash')) return;
+        if (r.error) { z.innerHTML = '<div class="aviso bad">No se pudo calcular: ' + esc(r.error.message) + '</div>'; return; }
+        t.renglonesAn = r.data || [];
+        t.pintarAnalisis();
+      });
+  };
+
+  Centros.prototype.pintarAnalisis = function () {
+    var t = this, i = function (n) { return t.id(n); };
+    var z = t.q('Dash');
+    if (!z) return;
+    var FARM = window.FARM || {};
+    var hoy = hoyEs();
+    var a = calcularAnalisisCentros(FARM, t.renglonesAn || [], t.vistaAn, hoy);
+    var VISTA_TXT = { dia: 'Por día', semana: 'Por semana', mes: 'Por mes' };
+
+    z.innerHTML =
+      '<h3 class="sub-t">Lo entregado a los centros</h3>' +
+      '<div class="cifras">' +
+        '<div class="cifra"><b>' + num(a.total) + '</b><span>entregas en total</span></div>' +
+        '<div class="cifra"><b>' + num(a.hoy) + '</b><span>hoy</span></div>' +
+        '<div class="cifra"><b>' + num(a.semana) + '</b><span>esta semana</span></div>' +
+        '<div class="cifra"><b>' + num(a.mes) + '</b><span>este mes</span></div>' +
+        '<div class="cifra"><b>' + num(a.unidadesTotal) + '</b><span>unidades en total</span></div>' +
+      '</div>' +
+      '<div class="chips" id="' + i('VistaAn') + '">' +
+        ['dia', 'semana', 'mes'].map(function (v) {
+          return '<button type="button" data-v="' + v + '"' + (t.vistaAn === v ? ' class="on"' : '') + '>' + VISTA_TXT[v] + '</button>';
+        }).join('') +
+      '</div>' +
+      (a.tendencia.length
+        ? '<div class="tabla-caja"><table class="tabla"><thead><tr>' +
+            '<th>Período</th><th class="der">Entregas</th><th class="der">Unidades</th>' +
+          '</tr></thead><tbody>' +
+          a.tendencia.map(function (r) {
+            return '<tr><td>' + esc(r.etiqueta) + '</td><td class="der num">' + num(r.entregas) +
+              '</td><td class="der num"><b>' + num(r.unidades) + '</b></td></tr>';
+          }).join('') + '</tbody></table></div>'
+        : '');
+
+    t.q('VistaAn').querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (b.dataset.v === t.vistaAn) return;
+        t.vistaAn = b.dataset.v;
+        t.pintarAnalisis();
+      });
+    });
+  };
+
+  /* ================================================================
      FICHA DEL CENTRO
   ================================================================ */
   Centros.prototype.abrir = function (x) {
     var t = this;
     t.quien = x; t.modo = 'ficha'; t.abierto = false;
-    t.insumos = null; t.recibido = null; t.fallo = null;
+    t.insumos = null; t.recibido = null; t.fallo = null; t.entregaCesta = [];
     t.pintar();
     t.cargarAnexos();
   };
@@ -276,6 +440,10 @@
         '</div>' +
       '</div>' +
 
+      '<div class="botonera">' +
+        '<button type="button" class="principal" id="' + i('IrEntregar') + '">+ Registrar entrega</button>' +
+      '</div>' +
+
       t.bloqueInsumos() +
       t.bloqueRecibido() +
 
@@ -287,6 +455,9 @@
 
     t.q('Volver').addEventListener('click', function () {
       t.modo = 'lista'; t.quien = null; t.abierto = false; t.limpiaAviso(); t.pintar();
+    });
+    t.q('IrEntregar').addEventListener('click', function () {
+      t.entregaCesta = []; t.modo = 'entregar'; t.pintar();
     });
     t.engancharCampos();
     t.q('Guardar').addEventListener('click', function () { t.guardarDatos(); });
@@ -506,6 +677,20 @@
     var lista = Object.keys(porMed).map(function (k) { return porMed[k]; })
       .sort(function (a, b) { return b.unidades - a.unidades; });
 
+    /* Lo mismo pero por día, para ver de un vistazo cuándo se le entregó
+       más -la misma "f" ya traída, sin pedirle nada nuevo a la base. */
+    var porDia = {}, diasOrden = [];
+    f.forEach(function (x) {
+      if (!x.fecha) return;
+      if (!(x.fecha in porDia)) { porDia[x.fecha] = { unidades: 0, entregas: {} }; diasOrden.push(x.fecha); }
+      porDia[x.fecha].entregas[x.entrega_id] = 1;
+      if (x.cantidad != null) porDia[x.fecha].unidades += Number(x.cantidad) || 0;
+    });
+    diasOrden.sort(function (a, b) { return a < b ? 1 : -1; });   // más reciente primero
+    t.resumenPorDia = diasOrden.map(function (d) {
+      return { fecha: d, unidades: porDia[d].unidades, entregas: Object.keys(porDia[d].entregas).length };
+    });
+
     t.resumenRecibido = { lista: lista, total: total, entregas: Object.keys(entregas).length };
 
     return '<h3 class="sub-t">Lo que se le ha entregado</h3>' +
@@ -532,6 +717,16 @@
           '<td class="num der" data-col="Veces">' + m.veces + '</td>' +
           '<td data-col="Última vez">' + corta(m.ultima) + '</td>' +
         '</tr>';
+      }).join('') + '</tbody></table></div>' +
+
+      '<p class="sub chico">Día por día</p>' +
+      '<div class="tabla-caja"><table class="tabla datos"><thead><tr>' +
+        '<th>Fecha</th><th class="der">Entregas</th><th class="der">Unidades</th>' +
+      '</tr></thead><tbody>' +
+      t.resumenPorDia.map(function (d) {
+        return '<tr><td data-col="Fecha">' + corta(d.fecha) + '</td>' +
+          '<td class="num der" data-col="Entregas">' + d.entregas + '</td>' +
+          '<td class="num der" data-col="Unidades"><b>' + num(d.unidades) + '</b></td></tr>';
       }).join('') + '</tbody></table></div>';
   };
 
@@ -595,6 +790,178 @@
       ],
       horizontal: true, archivo: titulo,
       vacio: 'Todavía no se le ha entregado nada.'
+    });
+  };
+
+  /* ================================================================
+     REGISTRAR UNA ENTREGA A ESTE CENTRO
+
+     El lote se elige solo -el más próximo a vencer primero, igual que
+     en Entregar-: se saca de v_lotes_para_despachar, que ya viene sin
+     vencidos y ordenada. Aquí no se reimplementa esa regla; se apoya
+     en la misma vista y en el mismo candado de la base (un lote
+     vencido no se puede despachar, lo rechaza un trigger).
+  ================================================================ */
+  Centros.prototype.verEntregar = function () {
+    var t = this, i = function (n) { return t.id(n); };
+    var z = t.q('Zona');
+    var x = t.quien;
+
+    z.innerHTML =
+      '<button type="button" class="volver" id="' + i('EntVolver') + '">← Volver a ' + esc(x.nombre) + '</button>' +
+      '<h2>Registrar entrega</h2>' +
+      '<p class="sub">' + esc(x.nombre) + (x.tipo ? ' · ' + esc(x.tipo) : '') + '</p>' +
+
+      '<div class="dos-columnas">' +
+        '<div><label for="' + i('EntFecha') + '">Fecha</label>' +
+          '<input id="' + i('EntFecha') + '" type="date" value="' + esc(hoyEs()) + '"></div>' +
+        '<div><label for="' + i('EntDepto') + '">Departamento / Servicio <span class="opc">(opcional)</span></label>' +
+          '<input id="' + i('EntDepto') + '" type="text" autocomplete="off" placeholder="Ej: Enfermería"></div>' +
+      '</div>' +
+
+      '<h3 class="sub-t">Qué se entrega</h3>' +
+      '<p class="sub chico">Se busca en lo que ya está en inventario: el lote se elige solo, ' +
+      'el que vence primero.</p>' +
+      '<div id="' + i('EntCestaZona') + '"></div>' +
+      window.FARMPICK.caja(i('Ent'), 'Agregar un insumo', 'Escribe el nombre del insumo…', '') +
+
+      '<h3 class="sub-t">Quién recibe</h3>' +
+      '<div class="dos-columnas">' +
+        '<div><label for="' + i('EntRecibe') + '">Nombre</label>' +
+          '<input id="' + i('EntRecibe') + '" type="text" autocomplete="off"></div>' +
+        '<div><label for="' + i('EntCedula') + '">Cédula <span class="opc">(opcional)</span></label>' +
+          '<input id="' + i('EntCedula') + '" type="text" inputmode="numeric" autocomplete="off"></div>' +
+      '</div>' +
+
+      '<div class="pie-form">' +
+        '<button type="button" class="principal" id="' + i('EntGuardar') + '">Guardar la entrega</button>' +
+      '</div>';
+
+    window.FARMPICK.medicinas(t.sb, i('Ent'), function (p) { t.agregarAEntrega(p); });
+    t.pintarCestaEntrega();
+
+    t.q('EntVolver').addEventListener('click', function () { t.modo = 'ficha'; t.limpiaAviso(); t.pintar(); });
+    t.q('EntGuardar').addEventListener('click', function () { t.guardarEntrega(); });
+  };
+
+  /* Pinta SOLO la cesta, sin retocar el resto del formulario -Fecha,
+     Departamento, Quién recibe-: repintar la pantalla entera cada vez
+     que se agrega un insumo borraba lo que ya se había escrito ahí. */
+  Centros.prototype.pintarCestaEntrega = function () {
+    var t = this, i = function (n) { return t.id(n); };
+    var z = t.q('EntCestaZona');
+    if (!z) return;
+    z.innerHTML = t.entregaCesta.length
+      ? '<div class="tabla-caja"><table class="tabla"><thead><tr>' +
+          '<th>Insumo</th><th class="der">Cantidad</th><th></th>' +
+        '</tr></thead><tbody>' +
+        t.entregaCesta.map(function (c, n) {
+          return '<tr><td class="c-med"><b>' + esc(c.producto) + '</b>' +
+            (c.dosificacion ? '<span class="chico">' + esc(c.dosificacion) + '</span>' : '') +
+            '</td>' +
+            '<td class="num der"><input class="celda" type="number" min="1" step="1" ' +
+              'aria-label="Cuánto se entrega de ' + esc(c.producto) + '" ' +
+              'data-cesta-cant="' + n + '" value="' + esc(c.cantidad) + '"></td>' +
+            '<td><button type="button" class="quitar" data-cesta-quita="' + n + '">Quitar</button></td>' +
+          '</tr>';
+        }).join('') + '</tbody></table></div>'
+      : '<p class="sub chico">Todavía no has agregado ningún insumo.</p>';
+
+    z.querySelectorAll('[data-cesta-quita]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        t.entregaCesta.splice(+b.dataset.cestaQuita, 1);
+        t.pintarCestaEntrega();
+      });
+    });
+    z.querySelectorAll('[data-cesta-cant]').forEach(function (c) {
+      c.addEventListener('change', function () {
+        t.entregaCesta[+c.dataset.cestaCant].cantidad = Math.max(1, parseInt(c.value, 10) || 1);
+      });
+    });
+  };
+
+  Centros.prototype.agregarAEntrega = function (p) {
+    var t = this;
+    if (!p.producto_id) {
+      t.aviso('warn', '«' + p.producto + '» no está en el catálogo: no se puede entregar hasta que se cargue en Mercancía.');
+      return;
+    }
+    if (t.entregaCesta.some(function (c) { return c.producto_id === p.producto_id; })) {
+      t.aviso('warn', '«' + p.producto + '» ya está en la lista. Corrígele la cantidad ahí mismo.');
+      return;
+    }
+    t.entregaCesta.push({ producto_id: p.producto_id, producto: p.producto,
+                          dosificacion: p.dosificacion, cantidad: 1 });
+    t.limpiaAviso();
+    t.pintarCestaEntrega();
+  };
+
+  Centros.prototype.guardarEntrega = function () {
+    var t = this;
+    var fecha = t.q('EntFecha').value || null;
+    var depto = t.q('EntDepto').value.trim() || null;
+    var recibeNombre = t.q('EntRecibe').value.trim();
+    var recibeCedula = t.q('EntCedula').value.replace(/\D/g, '') || null;
+
+    if (!fecha) { t.aviso('warn', 'Falta la fecha.'); return; }
+    if (fecha > hoyEs()) { t.aviso('warn', 'La fecha no puede ser futura.'); return; }
+    if (recibeNombre.length < 3) { t.aviso('warn', 'Escribe el nombre de quien recibe.'); return; }
+    if (!t.entregaCesta.length) { t.aviso('warn', 'Agrega al menos un insumo.'); return; }
+    if (t.entregaCesta.some(function (c) { return !c.cantidad || c.cantidad < 1; })) {
+      t.aviso('warn', 'Falta la cantidad de algún insumo.'); return;
+    }
+
+    var btn = t.q('EntGuardar');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    function falla(msg) {
+      if (t.q('EntGuardar')) { btn.disabled = false; btn.textContent = 'Guardar la entrega'; }
+      t.aviso('bad', msg);
+    }
+
+    Promise.all(t.entregaCesta.map(function (c) {
+      return t.sb.from('v_lotes_para_despachar').select('lote_id,existencia')
+        .eq('producto_id', c.producto_id).limit(1).then(function (r) {
+          return { item: c, lote: (r.data || [])[0] || null, error: r.error };
+        });
+    })).then(function (resueltos) {
+      var conError = resueltos.filter(function (x) { return x.error; });
+      if (conError.length) { falla('No se pudo consultar la existencia: ' + conError[0].error.message); return; }
+
+      var sinLote = resueltos.filter(function (x) { return !x.lote; });
+      if (sinLote.length) {
+        falla('No hay existencia disponible de: ' +
+          sinLote.map(function (x) { return x.item.producto; }).join(', ') + '. Quítalo de la lista.');
+        return;
+      }
+      var faltaCant = resueltos.filter(function (x) { return Number(x.lote.existencia) < x.item.cantidad; });
+      if (faltaCant.length) {
+        falla('No hay suficiente de: ' + faltaCant.map(function (x) {
+          return x.item.producto + ' (hay ' + Math.round(x.lote.existencia) + ')';
+        }).join(', '));
+        return;
+      }
+
+      t.sb.from('entregas').insert({
+        tipo_destinatario: 'institucion', institucion_id: t.quien.id,
+        fecha: fecha, departamento: depto, recibe_nombre: recibeNombre,
+        recibe_cedula: recibeCedula, origen: 'sistema'
+      }).select().single().then(function (r) {
+        if (r.error) { falla('No se pudo registrar: ' + esc(r.error.message)); return; }
+        var entregaId = r.data.id;
+        var detalle = resueltos.map(function (x) {
+          return { entrega_id: entregaId, lote_id: x.lote.lote_id, cantidad: x.item.cantidad };
+        });
+        t.sb.from('entrega_detalle').insert(detalle).then(function (rr) {
+          if (t.q('EntGuardar')) { btn.disabled = false; btn.textContent = 'Guardar la entrega'; }
+          if (rr.error) { t.aviso('bad', 'La entrega quedó registrada pero el detalle falló: ' + esc(rr.error.message)); return; }
+          var nombreCentro = t.quien.nombre;
+          t.modo = 'ficha'; t.entregaCesta = [];
+          t.pintar();
+          t.cargarAnexos();
+          t.aviso('ok', 'Entrega registrada: ' + detalle.length +
+            (detalle.length === 1 ? ' insumo' : ' insumos') + ' a ' + nombreCentro + '.');
+        });
+      });
     });
   };
 
@@ -789,6 +1156,9 @@
   };
 
   /* ---------------------------------------------------------------- entrada */
+  // Se expone para las pruebas unitarias: es lógica pura, sin DOM.
+  window.CENTROS_CALCULAR_ANALISIS = calcularAnalisisCentros;
+
   window.PANTALLA_CENTROS = function (cliente, contenedor, opciones) {
     var o = opciones || {};
     var t = new Centros(cliente, contenedor, o.prefijo || 'ce');
