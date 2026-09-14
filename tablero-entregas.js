@@ -63,6 +63,113 @@
       : corta(d) + ' — ' + corta(h);
   }
 
+  /* ---------------------------------------------------------------- edad y patologías
+
+     La edad y la patología son datos DEL PACIENTE, no del renglón de la
+     entrega: no vienen en v_entregas_renglon (traerlas ahí duplicaría
+     filas por cada patología y rompería las cuentas de unidades que ya
+     existen). Se traen aparte, una sola vez, y se cruzan aquí. */
+  function edadDeFecha(fechaNac, hoyISO) {
+    if (!fechaNac || !hoyISO) return null;
+    var n = new Date(fechaNac + 'T00:00:00');
+    var h = new Date(hoyISO + 'T00:00:00');
+    if (isNaN(n.getTime()) || isNaN(h.getTime())) return null;
+    var edad = h.getFullYear() - n.getFullYear();
+    var m = h.getMonth() - n.getMonth();
+    if (m < 0 || (m === 0 && h.getDate() < n.getDate())) edad--;
+    return edad >= 0 && edad <= 120 ? edad : null;
+  }
+  function edadDeTexto(t) {
+    var m = /(\d{1,3})/.exec(String(t || ''));
+    if (!m) return null;
+    var n = Number(m[1]);
+    return n >= 0 && n <= 120 ? n : null;
+  }
+  var GRUPO_TXT = { ninos: 'Niños (menores de 18)', adultos: 'Adultos (18 o más)', sinEdad: 'Edad no registrada' };
+
+  /* Función pura: de los renglones ya filtrados (mismo período y misma
+     búsqueda que ve la pantalla) arma el resumen por patología, separado
+     en niños y adultos, y el detalle de qué medicamento se le entregó a
+     cada grupo. Si el paciente no tiene ninguna patología registrada, o
+     no tiene edad registrada, se cuenta aparte -nunca se inventa-. */
+  function calcularPatologias(filas, patPorPaciente, edadPorPaciente) {
+    var porPatologia = {};
+    var sinPatologia = { personas: {}, unidades: 0 };
+    var variasPatologias = {};
+    var detalle = {};
+
+    filas.forEach(function (x) {
+      if (x.cantidad == null || !x.paciente_id) return;
+      var c = Number(x.cantidad) || 0;
+      var pid = x.paciente_id;
+      var edad = edadPorPaciente[pid];
+      var grupo = edad == null ? 'sinEdad' : (edad < 18 ? 'ninos' : 'adultos');
+      var pats = patPorPaciente[pid] || [];
+
+      if (!pats.length) {
+        sinPatologia.personas[pid] = 1;
+        sinPatologia.unidades += c;
+        return;
+      }
+      if (pats.length > 1) variasPatologias[pid] = 1;
+
+      pats.forEach(function (pat) {
+        var p = porPatologia[pat] || (porPatologia[pat] = {
+          patologia: pat,
+          ninos: { personas: {}, unidades: 0 },
+          adultos: { personas: {}, unidades: 0 },
+          sinEdad: { personas: {}, unidades: 0 }
+        });
+        p[grupo].personas[pid] = 1;
+        p[grupo].unidades += c;
+
+        var kd = pat + '|' + grupo + '|' + (x.producto_id || x.producto);
+        var d = detalle[kd] || (detalle[kd] = {
+          patologia: pat, grupo: grupo, producto: x.producto, dosificacion: x.dosificacion,
+          unidad: x.unidad, unidades: 0, personas: {}
+        });
+        d.unidades += c;
+        d.personas[pid] = 1;
+      });
+    });
+
+    var contar = function (o) { return Object.keys(o).length; };
+
+    var resumen = Object.keys(porPatologia).map(function (k) {
+      var p = porPatologia[k];
+      var personasTot = {};
+      ['ninos', 'adultos', 'sinEdad'].forEach(function (g) {
+        Object.keys(p[g].personas).forEach(function (id) { personasTot[id] = 1; });
+      });
+      return {
+        patologia: p.patologia,
+        ninosPersonas: contar(p.ninos.personas), ninosUnidades: p.ninos.unidades,
+        adultosPersonas: contar(p.adultos.personas), adultosUnidades: p.adultos.unidades,
+        sinEdadPersonas: contar(p.sinEdad.personas), sinEdadUnidades: p.sinEdad.unidades,
+        totalUnidades: p.ninos.unidades + p.adultos.unidades + p.sinEdad.unidades,
+        totalPersonas: contar(personasTot)
+      };
+    }).sort(function (a, b) { return b.totalUnidades - a.totalUnidades; });
+
+    var detalleLista = Object.keys(detalle).map(function (k) {
+      var d = detalle[k];
+      return {
+        patologia: d.patologia, grupo: GRUPO_TXT[d.grupo], producto: d.producto,
+        dosificacion: d.dosificacion, unidad: d.unidad, unidades: d.unidades, personas: contar(d.personas)
+      };
+    }).sort(function (a, b) {
+      if (a.patologia !== b.patologia) return a.patologia < b.patologia ? -1 : 1;
+      return b.unidades - a.unidades;
+    });
+
+    return {
+      resumen: resumen,
+      detalle: detalleLista,
+      sinPatologia: { personas: contar(sinPatologia.personas), unidades: sinPatologia.unidades },
+      variasPatologias: contar(variasPatologias)
+    };
+  }
+
   /* ================================================================
      Una instancia del tablero
   ================================================================ */
@@ -81,6 +188,8 @@
     this.pedido = 0;          // para descartar respuestas que llegan tarde
     this.espera = null;       // el retardo del buscador
     this.recortado = false;   // el periodo no cupo entero
+    this.patPorPaciente = {}; // paciente_id -> [patologia, ...] (se carga una sola vez)
+    this.edadPorPaciente = {};// paciente_id -> edad en años, o null si no se sabe
   }
 
   Tablero.prototype.id = function (n) { return this.pfx + n; };
@@ -125,6 +234,54 @@
     });
 
     t.cargar();
+    t.cargarPatologias();
+  };
+
+  /* Edad y patología son del paciente, no del período: se traen una
+     sola vez (no en cada cambio de fecha) y si ya llegaron cuando el
+     cuerpo esté pintado, se repinta para que aparezcan. */
+  Tablero.prototype.cargarPatologias = function () {
+    var t = this;
+    var hoy = hoyEs();
+
+    function traeTodo(tabla, campos) {
+      var todo = [];
+      function pag(desde) {
+        return t.sb.from(tabla).select(campos).range(desde, desde + TOPE - 1).then(function (r) {
+          if (r.error) throw r.error;
+          var f = r.data || [];
+          todo = todo.concat(f);
+          if (f.length === TOPE) return pag(desde + TOPE);
+          return todo;
+        });
+      }
+      return pag(0);
+    }
+
+    Promise.all([
+      traeTodo('patologias_paciente', 'paciente_id,patologia,activo'),
+      traeTodo('pacientes', 'id,fecha_nac,edad_texto')
+    ]).then(function (r) {
+      var patologias = r[0], pacientes = r[1];
+      var patPorPaciente = {};
+      patologias.forEach(function (x) {
+        if (!x.activo || !x.paciente_id || !x.patologia) return;
+        var pat = String(x.patologia).trim().toUpperCase();
+        if (!pat) return;
+        (patPorPaciente[x.paciente_id] || (patPorPaciente[x.paciente_id] = [])).push(pat);
+      });
+      var edadPorPaciente = {};
+      pacientes.forEach(function (p) {
+        var e = edadDeFecha(p.fecha_nac, hoy);
+        if (e == null) e = edadDeTexto(p.edad_texto);
+        edadPorPaciente[p.id] = e;
+      });
+      t.patPorPaciente = patPorPaciente;
+      t.edadPorPaciente = edadPorPaciente;
+      if (!t.cargando && t.q('Cuerpo') && t.filas.length) t.pintarCuerpo();
+    }).catch(function (e) {
+      console.warn('[tablero-entregas] No se pudieron cargar patologías/edades:', e);
+    });
   };
 
   Tablero.prototype.cambiaPeriodo = function (cual) {
@@ -299,7 +456,8 @@
       porDia: lista(porDia, function (a, b) { return a.fecha < b.fecha ? 1 : -1; })
                 .map(function (d) { d.nEntregas = cuantas(d.entregas); return d; }),
       porQuien: lista(porQuien, function (a, b) { return cuantas(b.entregas) - cuantas(a.entregas); })
-                .map(function (w) { w.nEntregas = cuantas(w.entregas); return w; })
+                .map(function (w) { w.nEntregas = cuantas(w.entregas); return w; }),
+      patologia: calcularPatologias(f, t.patPorPaciente, t.edadPorPaciente)
     };
   };
 
@@ -368,7 +526,7 @@
       '</div>' +
 
       (hayAlgo
-        ? tablaMed(c) + tablaDia(c) + tablaQuien(c) + t.tablaDetalle(c)
+        ? tablaMed(c) + tablaDia(c) + tablaQuien(c) + tablaPatologiaResumen(c) + tablaPatologiaDetalle(c) + t.tablaDetalle(c)
         : '<div class="vacio"><b>No hubo entregas en este período</b>' +
           '<span>Prueba con otra fecha, o con la semana o el mes.</span></div>');
 
@@ -457,6 +615,58 @@
     }).join('');
     return caja('Quién despachó', '',
       [{ t: 'Quién despachó' }, { t: 'Entregas', der: true }, { t: 'Unidades', der: true }], cuerpo);
+  }
+
+  function tablaPatologiaResumen(c) {
+    var pt = c.patologia;
+    if (!pt || !pt.resumen.length) return '';
+    var cuerpo = pt.resumen.map(function (p) {
+      return '<tr>' +
+        '<td data-col="Patología"><b>' + esc(p.patologia) + '</b></td>' +
+        '<td class="num der" data-col="Niños, personas">' + (p.ninosPersonas || '—') + '</td>' +
+        '<td class="num der" data-col="Niños, unidades">' + (p.ninosUnidades ? num(p.ninosUnidades) : '—') + '</td>' +
+        '<td class="num der" data-col="Adultos, personas">' + (p.adultosPersonas || '—') + '</td>' +
+        '<td class="num der" data-col="Adultos, unidades">' + (p.adultosUnidades ? num(p.adultosUnidades) : '—') + '</td>' +
+        '<td class="num der" data-col="Sin edad, unidades">' + (p.sinEdadUnidades ? num(p.sinEdadUnidades) : '—') + '</td>' +
+        '<td class="num der" data-col="Total unidades"><b>' + num(p.totalUnidades) + '</b></td>' +
+      '</tr>';
+    }).join('');
+    var notas = [];
+    if (pt.variasPatologias) {
+      notas.push(num(pt.variasPatologias) + (pt.variasPatologias === 1
+        ? ' persona tiene más de una patología registrada: lo que se le entregó se cuenta en cada una de sus patologías.'
+        : ' personas tienen más de una patología registrada: lo que se les entregó se cuenta en cada una de sus patologías.'));
+    }
+    if (pt.sinPatologia.unidades) {
+      notas.push(num(pt.sinPatologia.unidades) + ' unidades entregadas a ' + num(pt.sinPatologia.personas) +
+        (pt.sinPatologia.personas === 1 ? ' persona sin' : ' personas sin') +
+        ' ninguna patología registrada no entran en esta tabla.');
+    }
+    return caja('Por patología, niños y adultos',
+      notas.join(' ') || 'Solo cuenta lo que sí tiene cantidad anotada y paciente con patología registrada.',
+      [{ t: 'Patología' }, { t: 'Niños, personas', der: true }, { t: 'Niños, unidades', der: true },
+       { t: 'Adultos, personas', der: true }, { t: 'Adultos, unidades', der: true },
+       { t: 'Sin edad, unidades', der: true }, { t: 'Total unidades', der: true }], cuerpo);
+  }
+
+  function tablaPatologiaDetalle(c) {
+    var pt = c.patologia;
+    if (!pt || !pt.detalle.length) return '';
+    var cuerpo = pt.detalle.map(function (d) {
+      return '<tr>' +
+        '<td data-col="Patología"><b>' + esc(d.patologia) + '</b></td>' +
+        '<td data-col="Grupo">' + esc(d.grupo) + '</td>' +
+        '<td class="c-med" data-col="Medicamento">' + esc(d.producto || 'Sin identificar') +
+          (d.dosificacion ? '<span class="chico">' + esc(d.dosificacion) + '</span>' : '') + '</td>' +
+        '<td class="num der" data-col="Unidades"><b>' + num(d.unidades) + '</b>' +
+          (d.unidad ? '<span class="chico">' + esc(d.unidad) + '</span>' : '') + '</td>' +
+        '<td class="num der" data-col="Personas">' + num(d.personas) + '</td>' +
+      '</tr>';
+    }).join('');
+    return caja('Qué se entregó, por patología',
+      'Una fila por patología, grupo de edad y medicamento.',
+      [{ t: 'Patología' }, { t: 'Grupo' }, { t: 'Medicamento' },
+       { t: 'Unidades', der: true }, { t: 'Personas', der: true }], cuerpo);
   }
 
   Tablero.prototype.tablaDetalle = function (c) {
@@ -561,6 +771,18 @@
       return [w.quien, w.nEntregas, Math.round(w.unidades)];
     });
 
+    var encPatResumen = ['Patología', 'Niños, personas', 'Niños, unidades', 'Adultos, personas',
+                         'Adultos, unidades', 'Sin edad, unidades', 'Total unidades'];
+    var filPatResumen = c.patologia.resumen.map(function (p) {
+      return [p.patologia, p.ninosPersonas, Math.round(p.ninosUnidades), p.adultosPersonas,
+              Math.round(p.adultosUnidades), Math.round(p.sinEdadUnidades), Math.round(p.totalUnidades)];
+    });
+
+    var encPatDet = ['Patología', 'Grupo', 'Medicamento', 'Unidades', 'Personas'];
+    var filPatDet = c.patologia.detalle.map(function (d) {
+      return [d.patologia, d.grupo, d.producto || 'Sin identificar', Math.round(d.unidades), d.personas];
+    });
+
     var encDet = ['Día', 'A quién', 'Tipo', 'Cédula', 'Medicamento', 'Dosificación',
                   'Lote', 'Vence', 'Cantidad', 'Eso es', 'Despachó', 'Origen'];
     var filDet = c.conCantidad.map(function (x) {
@@ -592,6 +814,10 @@
         encabezados: encDia, filas: filDia, anchos: [14, 11, 12, 20] });
       if (filQuien.length) hojas.push({ nombre: 'Quién despachó', titulo: 'Quién despachó · ' + sub,
         encabezados: encQuien, filas: filQuien, anchos: [34, 11, 12] });
+      if (filPatResumen.length) hojas.push({ nombre: 'Por patología', titulo: 'Por patología, niños y adultos · ' + sub,
+        encabezados: encPatResumen, filas: filPatResumen, anchos: [36, 14, 14, 14, 14, 15, 14] });
+      if (filPatDet.length) hojas.push({ nombre: 'Patología y medicamento', titulo: 'Qué se entregó, por patología · ' + sub,
+        encabezados: encPatDet, filas: filPatDet, anchos: [36, 22, 38, 12, 12] });
       if (filDet.length) hojas.push({ nombre: 'Detalle', titulo: 'Renglón por renglón · ' + sub,
         encabezados: encDet, filas: filDet,
         anchos: [12, 32, 12, 13, 34, 15, 16, 12, 11, 20, 24, 10] });
@@ -620,6 +846,20 @@
       titulo: 'Quién despachó', encabezados: encQuien, filas: filQuien,
       columnas: { 0: { cellWidth: 90 }, 1: { cellWidth: 26, halign: 'right' },
                   2: { cellWidth: 26, halign: 'right' } }
+    });
+    if (filPatResumen.length) bloques.push({
+      titulo: 'Por patología, niños y adultos',
+      nota: 'Si una persona tiene más de una patología, lo entregado se cuenta en cada una.',
+      encabezados: encPatResumen, filas: filPatResumen,
+      columnas: { 0: { cellWidth: 60 }, 1: { cellWidth: 27, halign: 'right' },
+                  2: { cellWidth: 27, halign: 'right' }, 3: { cellWidth: 27, halign: 'right' },
+                  4: { cellWidth: 27, halign: 'right' }, 5: { cellWidth: 27, halign: 'right' },
+                  6: { cellWidth: 30, halign: 'right' } }
+    });
+    if (filPatDet.length) bloques.push({
+      titulo: 'Qué se entregó, por patología', encabezados: encPatDet, filas: filPatDet,
+      columnas: { 0: { cellWidth: 55 }, 1: { cellWidth: 45 }, 2: { cellWidth: 70 },
+                  3: { cellWidth: 26, halign: 'right' }, 4: { cellWidth: 26, halign: 'right' } }
     });
     /* Los anchos suman 248 mm. En carta horizontal caben 251: si se pasan,
        autoTable no avisa, recorta o desborda la hoja. Hay que sumarlos a
@@ -663,6 +903,10 @@
   }
 
   /* ---------------------------------------------------------------- entrada */
+  window.TABLERO_CALCULAR_PATOLOGIAS = calcularPatologias;
+  window.TABLERO_EDAD_DE_FECHA = edadDeFecha;
+  window.TABLERO_EDAD_DE_TEXTO = edadDeTexto;
+
   window.TABLERO_ENTREGAS = function (cliente, contenedor, opciones) {
     var o = opciones || {};
     var t = new Tablero(cliente, contenedor, o.prefijo || 'te');
