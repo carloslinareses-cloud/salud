@@ -459,8 +459,8 @@
     z.innerHTML =
       '<h2 class="sub-t">' + (V ? V.titulo : 'Registrar una persona nueva') + '</h2>' +
       '<p class="sub">' + (V ? V.sub + ' ' : '') +
-      'Escribe la cédula y pulsa <b>Buscar en el registro</b>: trae el nombre y la ' +
-      'fecha de nacimiento. Lo demás se completa a mano.</p>' +
+      'Escribe la cédula y pulsa <b>Buscar en el registro</b>: trae el nombre y calcula ' +
+      'la edad. Lo demás se completa a mano.</p>' +
 
       '<label>Nacionalidad</label>' +
       '<div class="chips" id="nNac">' +
@@ -487,8 +487,8 @@
         '<button type="button" data-s="" class="on">No lo dice</button>' +
       '</div>' +
 
-      '<label for="nFecha">Fecha de nacimiento <span class="opc">(opcional)</span></label>' +
-      '<input id="nFecha" type="date">' +
+      '<label for="nEdad">Edad <span class="opc">(opcional, tal como la diga)</span></label>' +
+      '<input id="nEdad" type="text" placeholder="Ej: 34, 2 años, 8 meses">' +
 
       '<label for="nTelefono">Teléfono <span class="opc">(opcional)</span></label>' +
       '<input id="nTelefono" type="tel" inputmode="tel" autocomplete="off" placeholder="0424-1234567">' +
@@ -633,7 +633,13 @@
           var nom = [x.primer_nombre, x.segundo_nombre, x.primer_apellido, x.segundo_apellido]
             .filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
           if (nom) document.getElementById('nNombre').value = nom;
-          if (x.fecha_nac) document.getElementById('nFecha').value = String(x.fecha_nac).slice(0, 10);
+          /* El registro trae la fecha de nacimiento exacta, pero aquí solo se
+             pide la edad: se calcula el año y se deja en el campo, ya lista
+             para revisar -no hace falta que nadie saque la cuenta a mano. */
+          if (x.fecha_nac) {
+            var edadCne = Math.floor((Date.now() - new Date(x.fecha_nac).getTime()) / (365.2425 * 86400000));
+            if (edadCne >= 0 && edadCne < 120) document.getElementById('nEdad').value = String(edadCne);
+          }
           av.innerHTML = '<span class="ok-txt">Encontrada en el registro. Revisa que esté bien y ' +
             'completa lo demás.</span>';
         });
@@ -650,7 +656,7 @@
     var ced = document.getElementById('nCedula').value.replace(/\D/g, '');
     var nac = elegido('nNac', 'n') || 'V';
     var sex = elegido('nSexo', 's') || null;
-    var fnac = document.getElementById('nFecha').value || null;
+    var edadTxt = document.getElementById('nEdad').value.trim() || null;
     var tel = document.getElementById('nTelefono').value.trim() || null;
     var dir = document.getElementById('nDireccion').value.trim() || null;
 
@@ -669,9 +675,6 @@
 
     if (nom.length < 4) { falla('Escribe el nombre y el apellido completos.'); return; }
     if (!/^\d{6,9}$/.test(ced)) { falla('La c\u00e9dula debe tener entre 6 y 9 n\u00fameros.'); return; }
-    if (fnac && fnac > hoyCaracas()) {
-      falla('La fecha de nacimiento no puede ser futura.'); return;
-    }
     /* La base tambien lo exige, para que no dependa solo de esta pantalla. */
     if (via === 'operacion' && motivo.length < 4) {
       falla('Escribe de qu\u00e9 es la operaci\u00f3n. Sin eso, dentro de un a\u00f1o nadie ' +
@@ -686,7 +689,7 @@
 
     sb.from('pacientes').insert({
       nombre: nom, cedula: ced, nacionalidad: nac, cedula_cruda: ced,
-      sexo: sex, fecha_nac: fnac, telefono: tel, direccion: dir, estado: 'activo'
+      sexo: sex, edad_texto: edadTxt, telefono: tel, direccion: dir, estado: 'activo'
     }).select().single().then(function (r) {
       if (r.error) {
         btn.disabled = false; btn.textContent = etiq;

@@ -45,9 +45,16 @@
       clearTimeout(t); t = setTimeout(function () { fn.apply(s, a); }, ms); };
   }
 
-  var CAMPOS = 'id,nombre,nacionalidad,cedula,cedula_cruda,rif_digito,sexo,fecha_nac,edad,' +
+  var CAMPOS = 'id,nombre,nacionalidad,cedula,cedula_cruda,rif_digito,sexo,fecha_nac,edad,edad_texto,' +
                'telefono,direccion,estado,motivo_revision,medicamentos,entregas,ultima_entrega,' +
                'patologias,n_patologias';
+  /* La edad exacta sale de la fecha de nacimiento cuando se tiene. Si
+     no -por ejemplo, a quien se registró rápido por récipe, donde solo
+     se pregunta la edad tal como la dijo- se muestra esa edad tal
+     cual, en vez de dejar el dato capturado sin verse en ningún lado. */
+  function edadTexto(x) {
+    return x.edad != null ? x.edad + ' años' : (x.edad_texto ? x.edad_texto : null);
+  }
 
   /* ================================================================ */
   function Personas(sb, raiz, pfx) {
@@ -160,7 +167,7 @@
         var ced = x.cedula ? (x.nacionalidad || 'V') + '-' + x.cedula
                            : (x.cedula_cruda || 'sin cédula');
         var datos = [];
-        if (x.edad != null) datos.push(x.edad + ' años');
+        if (edadTexto(x)) datos.push(edadTexto(x));
         if (x.telefono) datos.push(x.telefono);
         return '<button type="button" class="ficha" data-p="' + n + '">' +
           '<div class="ficha-nom"><b>' + esc(x.nombre) + '</b>' +
@@ -262,7 +269,7 @@
       '<div class="cabecera-prod">' +
         '<button type="button" class="volver" id="' + i('Volver') + '">← Volver a la lista</button>' +
         '<div class="prod-nom"><b>' + esc(x.nombre) + '</b>' +
-          '<span>' + esc(ced) + (x.edad != null ? ' · ' + x.edad + ' años' : '') + '</span></div>' +
+          '<span>' + esc(ced) + (edadTexto(x) ? ' · ' + esc(edadTexto(x)) : '') + '</span></div>' +
         '<div class="prod-cifras">' +
           '<span><b>' + x.entregas + '</b> ' + (x.entregas === 1 ? 'entrega' : 'entregas') + '</span>' +
           (x.ultima_entrega ? '<span>última: <b>' + corta(x.ultima_entrega) + '</b></span>' : '') +
