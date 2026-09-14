@@ -357,19 +357,59 @@
   function cif(n, txt, clase) {
     return '<div class="cifra ' + (clase || '') + '"><b>' + n + '</b><span>' + esc(txt) + '</span></div>';
   }
-  /* Una barra por cada renglón, con su proporción del total -de un
-     vistazo se ve quién pesa más, no solo el número suelto. */
-  function barraProp(items) {
+
+  /* Un anillo de datos con su leyenda -no barras sueltas-: llena el
+     panel como el de la derecha, y de un vistazo se ve quién pesa
+     más. El "dibujado" empieza vacío (dashoffset = la vuelta entera)
+     y `animarAnillos` lo lleva a su valor real: eso es lo que dibuja
+     el anillo al entrar, en vez de aparecer ya lleno. */
+  var PALETA_DATOS = ['#3b82f6', '#f4c20d', '#22d3ee', '#a78bfa', '#fb7185', '#34d399'];
+  function anillo(items, centroTxt) {
+    items = items.filter(function (x) { return x.cantidad > 0; });
     if (!items.length) return '<p class="sub chico">Todavía no hay nada que contar aquí.</p>';
-    var total = items.reduce(function (s, x) { return s + x.cantidad; }, 0) || 1;
-    return '<div class="barras-prop">' + items.map(function (x) {
+    var total = items.reduce(function (s, x) { return s + x.cantidad; }, 0);
+    var r = 60, circ = 2 * Math.PI * r, acumulado = 0;
+
+    var segmentos = items.map(function (x, i) {
+      var dash = (x.cantidad / total) * circ;
+      var offset = circ - (acumulado / total) * circ;
+      acumulado += x.cantidad;
+      return { color: PALETA_DATOS[i % PALETA_DATOS.length], dash: dash, offset: offset };
+    });
+
+    var svg = '<svg viewBox="0 0 140 140" aria-hidden="true">' +
+      '<circle class="pista" cx="70" cy="70" r="' + r + '"></circle>' +
+      segmentos.map(function (s) {
+        return '<circle class="seg" cx="70" cy="70" r="' + r + '" stroke="' + s.color + '" ' +
+          'stroke-dasharray="' + s.dash.toFixed(1) + ' ' + (circ - s.dash).toFixed(1) + '" ' +
+          'stroke-dashoffset="' + circ.toFixed(1) + '" data-offset="' + s.offset.toFixed(1) + '"></circle>';
+      }).join('') +
+      '</svg>' +
+      '<div class="dash-anillo-centro"><b>' + num(total) + '</b><span>' + esc(centroTxt || 'total') + '</span></div>';
+
+    var leyenda = items.map(function (x, i) {
       var pct = Math.round(x.cantidad / total * 100);
-      return '<div class="barra-prop">' +
-        '<div class="barra-prop-cab"><span>' + esc(x.etiqueta) + '</span><b>' + num(x.cantidad) +
-          ' · ' + pct + '%</b></div>' +
-        '<div class="barra-prop-fondo"><div class="barra-prop-rellena" style="width:' + pct + '%"></div></div>' +
-      '</div>';
-    }).join('') + '</div>';
+      var color = PALETA_DATOS[i % PALETA_DATOS.length];
+      return '<div class="dash-leyenda-fila">' +
+        '<span class="dash-leyenda-punto" style="background:' + color + '"></span>' +
+        '<span>' + esc(x.etiqueta) + '</span><b>' + num(x.cantidad) + ' · ' + pct + '%</b></div>';
+    }).join('');
+
+    return '<div class="dash-anillo-caja"><div class="dash-anillo">' + svg + '</div>' +
+      '<div class="dash-leyenda">' + leyenda + '</div></div>';
+  }
+  /* El primer pintado deja cada anillo en dashoffset = la vuelta
+     entera (invisible). Un instante después -ya en el DOM, para que
+     el navegador tenga algo de qué animar- se lleva cada uno a su
+     valor real, y la transición CSS hace el dibujado. */
+  function animarAnillos(raiz) {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        raiz.querySelectorAll('.dash-anillo .seg').forEach(function (c) {
+          c.style.strokeDashoffset = c.dataset.offset;
+        });
+      });
+    });
   }
   function tablaSimple(enc, filas) {
     if (!filas.length) return '<p class="sub chico">Todavía no hay nada que contar aquí.</p>';
@@ -411,6 +451,8 @@
       seccionCentros(inf.centros, inf.vista) +
       seccionEntregado(inf.entregado, inf.vista);
 
+    animarAnillos(z);
+
     t.q('Vista').querySelectorAll('button').forEach(function (b) {
       b.addEventListener('click', function () {
         if (b.dataset.v === t.vista) return;
@@ -426,7 +468,8 @@
   function nombreSexo(s) { return s === 'F' ? 'Femenino' : s === 'M' ? 'Masculino' : s; }
 
   function seccionPersonas(p, vista) {
-    return '<div class="dash-seccion"><h2><span class="dash-punto"></span>Personas registradas</h2>' +
+    return '<div class="dash-seccion" style="--dash-acento:#3b82f6;--dash-glow:rgba(59,130,246,.18)">' +
+      '<h2><span class="dash-punto"></span>Personas registradas</h2>' +
       '<div class="cifras">' +
         cif(num(p.total), 'personas en total') +
         cif(num(p.hoy), 'nuevas hoy') +
@@ -435,11 +478,11 @@
         cif(num(p.porRevisar), 'por revisar', p.porRevisar ? 'alerta' : '') +
       '</div>' +
       '<div class="dash-grid">' +
-        '<div>' +
+        '<div class="dash-panel">' +
           '<p class="sub chico">Por sexo</p>' +
-          barraProp(p.porSexo.map(function (x) { return { etiqueta: nombreSexo(x.etiqueta), cantidad: x.cantidad }; })) +
+          anillo(p.porSexo.map(function (x) { return { etiqueta: nombreSexo(x.etiqueta), cantidad: x.cantidad }; }), 'personas') +
         '</div>' +
-        '<div>' +
+        '<div class="dash-panel">' +
           '<p class="sub chico">Nuevas, ' + rotuloVista(vista) + '</p>' +
           tablaSimple(['Período', 'Personas nuevas'],
             p.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; })) +
@@ -448,7 +491,8 @@
   }
 
   function seccionJornadas(j, vista) {
-    return '<div class="dash-seccion"><h2><span class="dash-punto"></span>Jornadas y ruta materna</h2>' +
+    return '<div class="dash-seccion" style="--dash-acento:#a78bfa;--dash-glow:rgba(167,139,250,.18)">' +
+      '<h2><span class="dash-punto"></span>Jornadas y ruta materna</h2>' +
       '<div class="cifras">' +
         cif(num(j.total), 'registros en total') +
         cif(num(j.hoy), 'nuevos hoy') +
@@ -457,11 +501,11 @@
         cif(num(j.porRevisar), 'por revisar', j.porRevisar ? 'alerta' : '') +
       '</div>' +
       '<div class="dash-grid">' +
-        '<div>' +
+        '<div class="dash-panel">' +
           '<p class="sub chico">Por conjunto</p>' +
-          barraProp(j.porConjunto) +
+          anillo(j.porConjunto, 'jornadas') +
         '</div>' +
-        '<div>' +
+        '<div class="dash-panel">' +
           '<p class="sub chico">Por hoja del Excel</p>' +
           tablaSimple(['Hoja', 'Registros'], j.porHoja.map(function (x) { return [esc(x.etiqueta), '<b>' + num(x.cantidad) + '</b>']; })) +
           '<p class="sub chico">Registros nuevos, ' + rotuloVista(vista) + '</p>' +
@@ -472,7 +516,8 @@
   }
 
   function seccionCentros(c, vista) {
-    return '<div class="dash-seccion"><h2><span class="dash-punto"></span>Centros de salud</h2>' +
+    return '<div class="dash-seccion" style="--dash-acento:#22d3ee;--dash-glow:rgba(34,211,238,.18)">' +
+      '<h2><span class="dash-punto"></span>Centros de salud</h2>' +
       '<div class="cifras">' +
         cif(num(c.total), 'centros registrados') +
         cif(num(c.activos), 'activos') +
@@ -482,11 +527,11 @@
         cif(num(c.insumosPedidos), 'renglones de insumos que piden (sumado)') +
       '</div>' +
       '<div class="dash-grid">' +
-        '<div>' +
+        '<div class="dash-panel">' +
           '<p class="sub chico">Por tipo de centro</p>' +
-          barraProp(c.porTipo) +
+          anillo(c.porTipo, 'centros') +
         '</div>' +
-        '<div>' +
+        '<div class="dash-panel">' +
           '<p class="sub chico">Los diez centros que más unidades han recibido</p>' +
           tablaSimple(['Centro', 'Unidades recibidas', 'Entregas'],
             c.ranking.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
@@ -497,7 +542,8 @@
   }
 
   function seccionEntregado(e, vista) {
-    return '<div class="dash-seccion"><h2><span class="dash-punto"></span>Lo entregado</h2>' +
+    return '<div class="dash-seccion" style="--dash-acento:#f4c20d;--dash-glow:rgba(244,194,13,.18)">' +
+      '<h2><span class="dash-punto"></span>Lo entregado</h2>' +
       '<div class="cifras">' +
         cif(num(e.total), 'entregas en total') +
         cif(num(e.hoy), 'entregas hoy') +
@@ -515,16 +561,16 @@
           'anotada -no se pueden sumar en unidades, aunque sí cuentan como visita-. Las cifras de unidades de ' +
           'arriba solo suman lo que sí tiene cantidad registrada.</p>' : '') +
       '<div class="dash-grid">' +
-        '<div>' +
+        '<div class="dash-panel">' +
           '<p class="sub chico">Por destinatario</p>' +
-          barraProp([{ etiqueta: 'A personas', cantidad: e.aPacientes }, { etiqueta: 'A centros de salud', cantidad: e.aCentros }]) +
+          anillo([{ etiqueta: 'A personas', cantidad: e.aPacientes }, { etiqueta: 'A centros de salud', cantidad: e.aCentros }], 'entregas') +
           '<p class="sub chico">Entregas, ' + rotuloVista(vista) + '</p>' +
           tablaSimple(['Período', 'Entregas', 'Unidades'],
             e.tendenciaUnidades.map(function (r, idx) {
               return [esc(r.etiqueta), '<b>' + num(e.tendencia[idx].cantidad) + '</b>', unNum(r.unidades)];
             })) +
         '</div>' +
-        '<div>' +
+        '<div class="dash-panel">' +
           '<p class="sub chico">Los diez medicamentos que más han salido, por unidades</p>' +
           tablaSimple(['Medicamento', 'Unidades', 'Entregas'],
             e.topMedicamentos.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
