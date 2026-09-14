@@ -217,6 +217,30 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .cifra.alerta{background:var(--bad-bg); border-color:var(--bad-line)}
 .cifra.alerta b{color:var(--bad-ink)}
 
+/* ---------- dashboard: secciones, columnas y barras de proporción ---------- */
+.dash-seccion{margin-top:32px; padding-top:26px; border-top:1px solid var(--line)}
+.dash-seccion:first-of-type{margin-top:22px; padding-top:0; border-top:0}
+.dash-seccion > h2{display:flex; align-items:center; gap:10px}
+.dash-punto{width:9px; height:9px; border-radius:50%; background:var(--navy-2); flex:none}
+
+.dash-grid{display:grid; gap:22px; margin-top:6px; align-items:start}
+@media (min-width:880px){
+  .dash-grid{grid-template-columns:minmax(0,.9fr) minmax(0,1.15fr)}
+}
+.dash-grid > div{min-width:0}
+.dash-grid .tabla-caja + p.sub{margin-top:18px}
+/* Las tablas de la casa suponen una columna ancha (min-width:600px) y
+   aquí caben en la mitad de la pantalla: sin esto, una tabla de solo
+   dos columnas se ve cortada en vez de simplemente angosta. */
+.dash-grid .tabla{min-width:0}
+
+.barras-prop{margin-top:16px; display:flex; flex-direction:column; gap:13px}
+.barra-prop-cab{display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:13px}
+.barra-prop-cab span{font-weight:700; color:var(--ink); overflow-wrap:anywhere}
+.barra-prop-cab b{font-variant-numeric:tabular-nums; color:var(--ink-soft); flex:none}
+.barra-prop-fondo{height:9px; border-radius:99px; background:var(--rail); overflow:hidden; margin-top:5px}
+.barra-prop-rellena{height:100%; border-radius:99px; background:var(--navy-2)}
+
 /* ---------- botones de filtro ---------- */
 .chips{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 4px}
 .chips button{font:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:9px 15px;
@@ -929,21 +953,21 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <!-- El ?v= de los scripts se sube en cada publicacion: sin el, el
      navegador se queda con la version vieja hasta 10 minutos y la gente
      ve el sitio a medias. Version actual: 20260912a -->
-<script src="config.js?v=20260914a"></script>
-<script src="comunes.js?v=20260914a"></script>
-<script src="logos-base64.js?v=20260914a"></script>
-<script src="pdf-header.js?v=20260914a"></script>
-<script src="reportes.js?v=20260914a"></script>
-<script src="picker.js?v=20260914a"></script>
-<script src="tablero-entregas.js?v=20260914a"></script>
-<script src="personas.js?v=20260914a"></script>
-<script src="jornadas.js?v=20260914a"></script>
-<script src="centros.js?v=20260914a"></script>
-<script src="dashboard.js?v=20260914a"></script>
-<script src="despacho.js?v=20260914a"></script>
-<script src="inventario.js?v=20260914a"></script>
-<script src="admin.js?v=20260914a"></script>
-<script src="asistencia.js?v=20260914a"></script>
-<script src="app.js?v=20260914a"></script>
+<script src="config.js?v=20260914b"></script>
+<script src="comunes.js?v=20260914b"></script>
+<script src="logos-base64.js?v=20260914b"></script>
+<script src="pdf-header.js?v=20260914b"></script>
+<script src="reportes.js?v=20260914b"></script>
+<script src="picker.js?v=20260914b"></script>
+<script src="tablero-entregas.js?v=20260914b"></script>
+<script src="personas.js?v=20260914b"></script>
+<script src="jornadas.js?v=20260914b"></script>
+<script src="centros.js?v=20260914b"></script>
+<script src="dashboard.js?v=20260914b"></script>
+<script src="despacho.js?v=20260914b"></script>
+<script src="inventario.js?v=20260914b"></script>
+<script src="admin.js?v=20260914b"></script>
+<script src="asistencia.js?v=20260914b"></script>
+<script src="app.js?v=20260914b"></script>
 </body>
 </html>

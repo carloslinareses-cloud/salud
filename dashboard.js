@@ -357,6 +357,20 @@
   function cif(n, txt, clase) {
     return '<div class="cifra ' + (clase || '') + '"><b>' + n + '</b><span>' + esc(txt) + '</span></div>';
   }
+  /* Una barra por cada renglón, con su proporción del total -de un
+     vistazo se ve quién pesa más, no solo el número suelto. */
+  function barraProp(items) {
+    if (!items.length) return '<p class="sub chico">Todavía no hay nada que contar aquí.</p>';
+    var total = items.reduce(function (s, x) { return s + x.cantidad; }, 0) || 1;
+    return '<div class="barras-prop">' + items.map(function (x) {
+      var pct = Math.round(x.cantidad / total * 100);
+      return '<div class="barra-prop">' +
+        '<div class="barra-prop-cab"><span>' + esc(x.etiqueta) + '</span><b>' + num(x.cantidad) +
+          ' · ' + pct + '%</b></div>' +
+        '<div class="barra-prop-fondo"><div class="barra-prop-rellena" style="width:' + pct + '%"></div></div>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
   function tablaSimple(enc, filas) {
     if (!filas.length) return '<p class="sub chico">Todavía no hay nada que contar aquí.</p>';
     return '<div class="tabla-caja"><table class="tabla"><thead><tr>' +
@@ -408,8 +422,11 @@
     t.q('Pdf').addEventListener('click', function () { descargarPdf(t.informe); });
   };
 
+  function rotuloVista(vista) { return vista === 'dia' ? 'por día' : vista === 'semana' ? 'por semana' : 'por mes'; }
+  function nombreSexo(s) { return s === 'F' ? 'Femenino' : s === 'M' ? 'Masculino' : s; }
+
   function seccionPersonas(p, vista) {
-    return '<h2 class="sub-t">Personas registradas</h2>' +
+    return '<div class="dash-seccion"><h2><span class="dash-punto"></span>Personas registradas</h2>' +
       '<div class="cifras">' +
         cif(num(p.total), 'personas en total') +
         cif(num(p.hoy), 'nuevas hoy') +
@@ -417,18 +434,21 @@
         cif(num(p.mes), 'nuevas este mes') +
         cif(num(p.porRevisar), 'por revisar', p.porRevisar ? 'alerta' : '') +
       '</div>' +
-      '<div class="renglones">' +
-        p.porSexo.map(function (x) {
-          return '<div class="renglon"><div class="que"><b>' + esc(x.etiqueta === 'F' ? 'Femenino' :
-            x.etiqueta === 'M' ? 'Masculino' : x.etiqueta) + '</b></div><span class="pill">' + num(x.cantidad) + '</span></div>';
-        }).join('') +
-      '</div>' +
-      tablaSimple(['Período', 'Personas nuevas'],
-        p.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; }));
+      '<div class="dash-grid">' +
+        '<div>' +
+          '<p class="sub chico">Por sexo</p>' +
+          barraProp(p.porSexo.map(function (x) { return { etiqueta: nombreSexo(x.etiqueta), cantidad: x.cantidad }; })) +
+        '</div>' +
+        '<div>' +
+          '<p class="sub chico">Nuevas, ' + rotuloVista(vista) + '</p>' +
+          tablaSimple(['Período', 'Personas nuevas'],
+            p.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; })) +
+        '</div>' +
+      '</div></div>';
   }
 
   function seccionJornadas(j, vista) {
-    return '<h2 class="sub-t">Jornadas y ruta materna</h2>' +
+    return '<div class="dash-seccion"><h2><span class="dash-punto"></span>Jornadas y ruta materna</h2>' +
       '<div class="cifras">' +
         cif(num(j.total), 'registros en total') +
         cif(num(j.hoy), 'nuevos hoy') +
@@ -436,19 +456,23 @@
         cif(num(j.mes), 'nuevos este mes') +
         cif(num(j.porRevisar), 'por revisar', j.porRevisar ? 'alerta' : '') +
       '</div>' +
-      '<div class="renglones">' +
-        j.porConjunto.map(function (x) {
-          return '<div class="renglon"><div class="que"><b>' + esc(x.etiqueta) + '</b></div><span class="pill">' + num(x.cantidad) + '</span></div>';
-        }).join('') +
-      '</div>' +
-      '<p class="sub chico">Por hoja del Excel</p>' +
-      tablaSimple(['Hoja', 'Registros'], j.porHoja.map(function (x) { return [esc(x.etiqueta), '<b>' + num(x.cantidad) + '</b>']; })) +
-      tablaSimple(['Período', 'Registros nuevos'],
-        j.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; }));
+      '<div class="dash-grid">' +
+        '<div>' +
+          '<p class="sub chico">Por conjunto</p>' +
+          barraProp(j.porConjunto) +
+        '</div>' +
+        '<div>' +
+          '<p class="sub chico">Por hoja del Excel</p>' +
+          tablaSimple(['Hoja', 'Registros'], j.porHoja.map(function (x) { return [esc(x.etiqueta), '<b>' + num(x.cantidad) + '</b>']; })) +
+          '<p class="sub chico">Registros nuevos, ' + rotuloVista(vista) + '</p>' +
+          tablaSimple(['Período', 'Registros nuevos'],
+            j.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; })) +
+        '</div>' +
+      '</div></div>';
   }
 
   function seccionCentros(c, vista) {
-    return '<h2 class="sub-t">Centros de salud</h2>' +
+    return '<div class="dash-seccion"><h2><span class="dash-punto"></span>Centros de salud</h2>' +
       '<div class="cifras">' +
         cif(num(c.total), 'centros registrados') +
         cif(num(c.activos), 'activos') +
@@ -457,21 +481,23 @@
         cif(unNum(c.unidadesRecibidas), 'unidades recibidas en total') +
         cif(num(c.insumosPedidos), 'renglones de insumos que piden (sumado)') +
       '</div>' +
-      '<div class="renglones">' +
-        c.porTipo.map(function (x) {
-          return '<div class="renglon"><div class="que"><b>' + esc(x.etiqueta) +
-            '</b></div><span class="pill">' + num(x.cantidad) + '</span></div>';
-        }).join('') +
-      '</div>' +
-      '<p class="sub chico">Los diez centros que más unidades han recibido</p>' +
-      tablaSimple(['Centro', 'Unidades recibidas', 'Entregas'],
-        c.ranking.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
-      '<p class="sub chico">Entregas a centros, ' + (vista === 'dia' ? 'por día' : vista === 'semana' ? 'por semana' : 'por mes') + '</p>' +
-      tablaSimple(['Período', 'Entregas'], c.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; }));
+      '<div class="dash-grid">' +
+        '<div>' +
+          '<p class="sub chico">Por tipo de centro</p>' +
+          barraProp(c.porTipo) +
+        '</div>' +
+        '<div>' +
+          '<p class="sub chico">Los diez centros que más unidades han recibido</p>' +
+          tablaSimple(['Centro', 'Unidades recibidas', 'Entregas'],
+            c.ranking.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
+          '<p class="sub chico">Entregas a centros, ' + rotuloVista(vista) + '</p>' +
+          tablaSimple(['Período', 'Entregas'], c.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; })) +
+        '</div>' +
+      '</div></div>';
   }
 
   function seccionEntregado(e, vista) {
-    return '<h2 class="sub-t">Lo entregado</h2>' +
+    return '<div class="dash-seccion"><h2><span class="dash-punto"></span>Lo entregado</h2>' +
       '<div class="cifras">' +
         cif(num(e.total), 'entregas en total') +
         cif(num(e.hoy), 'entregas hoy') +
@@ -488,21 +514,25 @@
         ? '<p class="sub chico ojo">' + num(e.sinDetalle) + ' entregas del cuaderno viejo no traen la cantidad ' +
           'anotada -no se pueden sumar en unidades, aunque sí cuentan como visita-. Las cifras de unidades de ' +
           'arriba solo suman lo que sí tiene cantidad registrada.</p>' : '') +
-      '<div class="renglones">' +
-        '<div class="renglon"><div class="que"><b>A personas</b></div><span class="pill">' + num(e.aPacientes) + '</span></div>' +
-        '<div class="renglon"><div class="que"><b>A centros de salud</b></div><span class="pill">' + num(e.aCentros) + '</span></div>' +
-      '</div>' +
-      '<p class="sub chico">Los diez medicamentos que más han salido, por unidades</p>' +
-      tablaSimple(['Medicamento', 'Unidades', 'Entregas'],
-        e.topMedicamentos.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
-      '<p class="sub chico">Cuánto ha entregado cada quien despacha (solo lo que trae cantidad)</p>' +
-      tablaSimple(['Quién despachó', 'Unidades', 'Renglones'],
-        e.porDespachador.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
-      '<p class="sub chico">Entregas, ' + (vista === 'dia' ? 'por día' : vista === 'semana' ? 'por semana' : 'por mes') + '</p>' +
-      tablaSimple(['Período', 'Entregas', 'Unidades'],
-        e.tendenciaUnidades.map(function (r, idx) {
-          return [esc(r.etiqueta), '<b>' + num(e.tendencia[idx].cantidad) + '</b>', unNum(r.unidades)];
-        }));
+      '<div class="dash-grid">' +
+        '<div>' +
+          '<p class="sub chico">Por destinatario</p>' +
+          barraProp([{ etiqueta: 'A personas', cantidad: e.aPacientes }, { etiqueta: 'A centros de salud', cantidad: e.aCentros }]) +
+          '<p class="sub chico">Entregas, ' + rotuloVista(vista) + '</p>' +
+          tablaSimple(['Período', 'Entregas', 'Unidades'],
+            e.tendenciaUnidades.map(function (r, idx) {
+              return [esc(r.etiqueta), '<b>' + num(e.tendencia[idx].cantidad) + '</b>', unNum(r.unidades)];
+            })) +
+        '</div>' +
+        '<div>' +
+          '<p class="sub chico">Los diez medicamentos que más han salido, por unidades</p>' +
+          tablaSimple(['Medicamento', 'Unidades', 'Entregas'],
+            e.topMedicamentos.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
+          '<p class="sub chico">Cuánto ha entregado cada quien despacha (solo lo que trae cantidad)</p>' +
+          tablaSimple(['Quién despachó', 'Unidades', 'Renglones'],
+            e.porDespachador.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
+        '</div>' +
+      '</div></div>';
   }
 
   /* ================================================================
