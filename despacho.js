@@ -81,6 +81,17 @@
      anotado. Se limpia siempre al salir del formulario. */
   var formVia = null;
 
+  /* VARIOS NIÑOS CON EL MISMO RÉCIPE: cuando un adulto trae a varios
+     niños de una sola vez. Cada niño queda con su propia ficha -una
+     persona, una ficha, igual que el resto del sistema- pero se
+     registran todos juntos para no repetir la búsqueda cinco veces.
+     El adulto que los trae NO se registra como paciente: solo queda
+     anotado como referencia en la solicitud de cada niño. */
+  var NINOS_TOPE = 8;
+  var ninosLista = [];
+  var ninosTrae = { nombre: '', cedula: '', telefono: '' };
+  var ninosIndicado = '';
+
   /* Los campos de la ficha, en un solo sitio: estaban escritos tres
      veces y al ampliar la vista habia que acordarse de las tres. */
   var CAMPOS_FICHA =
@@ -232,6 +243,7 @@
         ? '<div class="vias"><span class="vias-lbl">\u00bfViene con un papel?</span>' +
           '<button type="button" class="suave" data-via="recipe">Por r\u00e9cipe</button>' +
           '<button type="button" class="suave" data-via="operacion">Para una operaci\u00f3n</button>' +
+          '<button type="button" class="suave" id="btnVariosNinos">Varios ni\u00f1os con el mismo r\u00e9cipe</button>' +
           '</div>'
         : '') +
       '<div id="resultados"></div>' +
@@ -250,6 +262,8 @@
         formNuevoPaciente(bus.busca, b.dataset.via);
       });
     });
+    var btnVarios = document.getElementById('btnVariosNinos');
+    if (btnVarios) btnVarios.addEventListener('click', function () { formVariosNinos(); });
     cargarDestinos();
   }
 
@@ -847,6 +861,313 @@
         });
       });
     });
+  }
+
+  /* ================================================================
+     VARIOS NIÑOS CON EL MISMO RÉCIPE
+     Un adulto trae a varios niños de una vez. Se registra cada uno con
+     su propia ficha -nunca se mete a dos niños en una sola ficha- y lo
+     que necesita queda anotado como una solicitud por récipe, igual que
+     si se hubiera hecho uno por uno. Después, la entrega de verdad (la
+     que descuenta el inventario) se hace desde la ficha de cada niño,
+     como con cualquier otro paciente: aquí solo se deja anotado lo que
+     hace falta, para no repetir la búsqueda y los datos del adulto
+     cuatro veces.
+  ================================================================ */
+  function formVariosNinos() {
+    formVia = 'recipe';
+    ninosLista = [{ nombre: '', cedula: '', sexo: '', edad: '', trat: [], busca: '' }];
+    ninosTrae = { nombre: '', cedula: '', telefono: '' };
+    ninosIndicado = '';
+    document.getElementById('resultados').innerHTML = '';
+    pintarFormVariosNinos();
+  }
+
+  function trazasTratNino(trat, i) {
+    if (!trat.length) return '<p class="sub chico">Todavía no se ha anotado ninguna.</p>';
+    return '<div class="trat-lista">' + trat.map(function (x, k) {
+      return '<span class="trat-par"><span class="trat-texto' +
+        (x.producto_id ? ' del-catalogo' : '') + '">' + esc(x.producto) +
+        (x.dosificacion ? ' <em>' + esc(x.dosificacion) + '</em>' : '') +
+        (x.producto_id ? '' : ' <em class="a-mano">a mano</em>') + '</span>' +
+        '<button type="button" class="trat-quita" data-saca-nino="' + i + '" data-saca-k="' + k + '" ' +
+        'aria-label="Quitar ' + esc(x.producto) + '">&#10005;</button></span>';
+    }).join('') + '</div>';
+  }
+
+  function pintarNinoTrat(i) {
+    var n = ninosLista[i];
+    var z = document.getElementById('nino' + i + 'Elegidos');
+    if (!z || !n) return;
+    z.innerHTML = trazasTratNino(n.trat, i);
+    z.querySelectorAll('[data-saca-nino]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var ni = +b.dataset.sacaNino, k = +b.dataset.sacaK;
+        if (!ninosLista[ni]) return;
+        ninosLista[ni].trat.splice(k, 1);
+        pintarNinoTrat(ni);
+      });
+    });
+  }
+
+  function bloqueNino(n, i) {
+    var pfx = 'nino' + i;
+    return '<div class="ficha-nino">' +
+      '<div class="ficha-nino-cab"><b>Niño ' + (i + 1) + '</b>' +
+        (ninosLista.length > 1
+          ? '<button type="button" class="quitar" data-quitar-nino="' + i + '">Quitar</button>'
+          : '') +
+      '</div>' +
+      '<label for="' + pfx + 'Nombre">Nombre y apellido</label>' +
+      '<input id="' + pfx + 'Nombre" type="text" autocomplete="off" value="' + esc(n.nombre) + '">' +
+      '<label for="' + pfx + 'Cedula">Cédula <span class="opc">(opcional, si tiene)</span></label>' +
+      '<input id="' + pfx + 'Cedula" type="text" inputmode="numeric" autocomplete="off" value="' + esc(n.cedula) + '">' +
+      '<label>Sexo</label>' +
+      '<div class="chips" id="' + pfx + 'Sexo">' +
+        '<button type="button" data-s="F"' + (n.sexo === 'F' ? ' class="on"' : '') + '>Femenino</button>' +
+        '<button type="button" data-s="M"' + (n.sexo === 'M' ? ' class="on"' : '') + '>Masculino</button>' +
+        '<button type="button" data-s=""' + (n.sexo ? '' : ' class="on"') + '>No lo dice</button>' +
+      '</div>' +
+      '<label for="' + pfx + 'Edad">Edad <span class="opc">(opcional, tal como la diga)</span></label>' +
+      '<input id="' + pfx + 'Edad" type="text" value="' + esc(n.edad) + '" placeholder="Ej: 2 años, 8 meses">' +
+      '<label>Qué medicinas necesita <span class="opc">(opcional)</span></label>' +
+      '<div id="' + pfx + 'Elegidos">' + trazasTratNino(n.trat, i) + '</div>' +
+      window.FARMPICK.caja(pfx, 'Buscar la medicina', 'Escribe el nombre del medicamento…', n.busca) +
+    '</div>';
+  }
+
+  function engancharBloqueNino(i) {
+    var pfx = 'nino' + i;
+    var n = ninosLista[i];
+    if (!n) return;
+
+    var elNombre = document.getElementById(pfx + 'Nombre');
+    if (elNombre) elNombre.addEventListener('input', function () { n.nombre = this.value; });
+    var elCedula = document.getElementById(pfx + 'Cedula');
+    if (elCedula) elCedula.addEventListener('input', function () { n.cedula = this.value; });
+    var elEdad = document.getElementById(pfx + 'Edad');
+    if (elEdad) elEdad.addEventListener('input', function () { n.edad = this.value; });
+
+    var grpSexo = document.getElementById(pfx + 'Sexo');
+    if (grpSexo) grpSexo.querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        grpSexo.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+        n.sexo = b.dataset.s || '';
+      });
+    });
+
+    var quitar = document.querySelector('[data-quitar-nino="' + i + '"]');
+    if (quitar) quitar.addEventListener('click', function () {
+      ninosLista.splice(i, 1);
+      pintarFormVariosNinos();
+    });
+
+    var elBusca = document.getElementById(pfx + 'Busca');
+    if (elBusca) elBusca.addEventListener('input', function () { n.busca = this.value; });
+    if (elBusca) {
+      window.FARMPICK.medicinas(sb, pfx, function (x) {
+        if (yaLoTiene(n.trat, x)) return;
+        n.trat.push(x);
+        pintarNinoTrat(i);
+      });
+    }
+  }
+
+  function pintarFormVariosNinos() {
+    var z = document.getElementById('formDestino');
+    if (!z) return;
+
+    z.innerHTML =
+      '<h2 class="sub-t">Varios niños con el mismo récipe</h2>' +
+      '<p class="sub">Para cuando un adulto trae a varios niños de una sola vez. Cada niño ' +
+      'queda con su propia ficha y lo que necesita anotado; la entrega de verdad se hace ' +
+      'después, desde la ficha de cada uno.</p>' +
+
+      '<h2 class="sub-t">Quién los trae</h2>' +
+      '<p class="sub">No queda registrado como paciente: es solo para saber quién los trajo.</p>' +
+      '<label for="traeNombre">Nombre y apellido <span class="opc">(opcional)</span></label>' +
+      '<input id="traeNombre" type="text" autocomplete="off" value="' + esc(ninosTrae.nombre) + '">' +
+      '<label for="traeCedula">Cédula <span class="opc">(opcional)</span></label>' +
+      '<input id="traeCedula" type="text" inputmode="numeric" autocomplete="off" value="' + esc(ninosTrae.cedula) + '">' +
+      '<label for="traeTelefono">Teléfono <span class="opc">(opcional)</span></label>' +
+      '<input id="traeTelefono" type="tel" inputmode="tel" autocomplete="off" value="' + esc(ninosTrae.telefono) + '">' +
+
+      '<label for="ninosIndicado">Quién indicó el récipe <span class="opc">(opcional, aplica a todos)</span></label>' +
+      '<input id="ninosIndicado" type="text" autocomplete="off" value="' + esc(ninosIndicado) +
+        '" placeholder="Médico o centro que firma el récipe">' +
+
+      '<h2 class="sub-t">Los niños</h2>' +
+      '<div id="ninosCaja">' + ninosLista.map(bloqueNino).join('') + '</div>' +
+      (ninosLista.length < NINOS_TOPE
+        ? '<button type="button" class="secundario" id="ninoAgregar">+ Agregar otro niño</button>'
+        : '') +
+
+      '<div class="botonera">' +
+        '<button type="button" class="principal" id="ninosGuardar">Registrar a los niños</button>' +
+        '<button type="button" class="secundario" id="ninosCancelar">Cancelar</button>' +
+      '</div>' +
+      '<div id="errNinos" class="aviso bad" hidden></div>' +
+      '<div id="ninosResultado"></div>';
+
+    document.getElementById('traeNombre').addEventListener('input', function () { ninosTrae.nombre = this.value; });
+    document.getElementById('traeCedula').addEventListener('input', function () { ninosTrae.cedula = this.value; });
+    document.getElementById('traeTelefono').addEventListener('input', function () { ninosTrae.telefono = this.value; });
+    document.getElementById('ninosIndicado').addEventListener('input', function () { ninosIndicado = this.value; });
+
+    ninosLista.forEach(function (n, i) { engancharBloqueNino(i); });
+
+    var btnAgregar = document.getElementById('ninoAgregar');
+    if (btnAgregar) btnAgregar.addEventListener('click', function () {
+      if (ninosLista.length >= NINOS_TOPE) return;
+      ninosLista.push({ nombre: '', cedula: '', sexo: '', edad: '', trat: [], busca: '' });
+      pintarFormVariosNinos();
+    });
+
+    document.getElementById('ninosCancelar').addEventListener('click', function () {
+      formVia = null; ninosLista = []; ninosTrae = { nombre: '', cedula: '', telefono: '' }; ninosIndicado = '';
+      pintarDestino();
+    });
+    document.getElementById('ninosGuardar').addEventListener('click', guardarVariosNinos);
+  }
+
+  /* Valida y guarda uno por uno -no en paralelo, para poder contar bien
+     qué pasó con cada quien y no saturar la base con envíos a la vez. */
+  function guardarVariosNinos() {
+    var err = document.getElementById('errNinos');
+    err.hidden = true;
+
+    var traeNombre = (ninosTrae.nombre || '').trim().replace(/\s+/g, ' ');
+    var traeCedula = (ninosTrae.cedula || '').replace(/\D/g, '');
+    var indicado = (ninosIndicado || '').trim() || null;
+
+    var validos = [];
+    for (var i = 0; i < ninosLista.length; i++) {
+      var n = ninosLista[i];
+      var nom = (n.nombre || '').trim().replace(/\s+/g, ' ');
+      if (!nom) continue;
+      if (nom.length < 4) {
+        err.innerHTML = 'El nombre del niño ' + (i + 1) + ' está incompleto: escribe nombre y apellido.';
+        err.hidden = false;
+        return;
+      }
+      var ced = (n.cedula || '').replace(/\D/g, '');
+      if (ced && !/^\d{6,9}$/.test(ced)) {
+        err.innerHTML = 'La cédula del niño ' + (i + 1) + ' debe tener entre 6 y 9 números, o déjala vacía si no tiene.';
+        err.hidden = false;
+        return;
+      }
+      validos.push({
+        nombre: nom, cedula: ced || null, sexo: n.sexo || null,
+        edad: (n.edad || '').trim() || null, trat: n.trat
+      });
+    }
+    if (!validos.length) {
+      err.innerHTML = 'Escribe el nombre de al menos un niño.';
+      err.hidden = false;
+      return;
+    }
+
+    var btn = document.getElementById('ninosGuardar');
+    btn.disabled = true; btn.textContent = 'Registrando…';
+
+    /* No hay dónde anotar "quién lo trae" en la ficha del niño -eso
+       cambiaría de un récipe a otro-, así que queda en el motivo de
+       ESTA solicitud, que es justo lo que es: el porqué de este pedido. */
+    var motivoTrae = traeNombre
+      ? 'Traído por: ' + traeNombre + (traeCedula ? ' (C.I. ' + traeCedula + ')' : '')
+      : null;
+
+    var resultados = [];
+    function unoAUno(idx) {
+      if (idx >= validos.length) { terminar(); return; }
+      var n = validos[idx];
+      sb.from('pacientes').insert({
+        nombre: n.nombre, cedula: n.cedula, nacionalidad: 'V', cedula_cruda: n.cedula,
+        sexo: n.sexo, edad_texto: n.edad, estado: 'activo'
+      }).select().single().then(function (r) {
+        if (r.error) {
+          resultados.push({
+            nombre: n.nombre, ok: false,
+            motivo: r.error.code === '23505'
+              ? 'esa cédula ya está registrada; búscalo arriba y anótale el récipe desde su ficha'
+              : r.error.message
+          });
+          unoAUno(idx + 1);
+          return;
+        }
+        var pid = r.data.id;
+        sb.from('solicitudes').insert({
+          paciente_id: pid, via: 'recipe', motivo: motivoTrae, indicado_por: indicado
+        }).select().single().then(function (sr) {
+          var sid = sr && sr.data ? sr.data.id : null;
+          var medicinas = (n.trat || []).map(function (x) {
+            var fila = { paciente_id: pid, activo: true, origen: 'recipe' };
+            if (x.producto_id) fila.producto_id = x.producto_id; else fila.texto_original = x.texto_original;
+            if (sid) fila.solicitud_id = sid;
+            return fila;
+          });
+          var guarda = medicinas.length
+            ? sb.from('tratamientos_paciente').insert(medicinas)
+            : Promise.resolve({ error: null });
+          guarda.then(function (tr) {
+            resultados.push({
+              nombre: n.nombre, ok: true, id: pid,
+              avisoSol: sr && sr.error ? sr.error.message : null,
+              avisoTrat: tr && tr.error ? tr.error.message : null
+            });
+            unoAUno(idx + 1);
+          });
+        });
+      });
+    }
+
+    function terminar() {
+      btn.disabled = false; btn.textContent = 'Registrar a los niños';
+      pintarResultadoNinos(resultados);
+    }
+    unoAUno(0);
+  }
+
+  function pintarResultadoNinos(resultados) {
+    var z = document.getElementById('ninosResultado');
+    if (!z) return;
+    var ok = resultados.filter(function (r) { return r.ok; }).length;
+    var mal = resultados.length - ok;
+
+    z.innerHTML =
+      '<div class="aviso ' + (mal ? 'warn' : 'ok') + '">' +
+        '<b>' + ok + ' de ' + resultados.length +
+        (resultados.length === 1 ? ' niño registrado.' : ' niños registrados.') + '</b>' +
+      '</div>' +
+      resultados.map(function (r) {
+        return '<div class="ficha-nino-resultado">' +
+          '<b>' + esc(r.nombre) + '</b> ' +
+          (r.ok
+            ? '<span class="ok-txt">registrado' +
+              ((r.avisoSol || r.avisoTrat) ? ' (revisa su ficha: algo no se guardó del todo)' : '') +
+              '</span> <button type="button" class="enlace" data-ver-id="' + esc(r.id) + '">Ver su ficha</button>'
+            : '<span class="ojo">no se registró: ' + esc(r.motivo) + '</span>') +
+        '</div>';
+      }).join('') +
+      '<div class="botonera"><button type="button" class="secundario" id="ninosOtroGrupo">Registrar a otro grupo</button></div>';
+
+    z.querySelectorAll('[data-ver-id]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var pid = b.dataset.verId;
+        b.disabled = true; b.textContent = 'Abriendo…';
+        sb.from('v_pacientes_ficha').select(CAMPOS_FICHA).eq('id', pid).single().then(function (f) {
+          if (f.error || !f.data) {
+            aviso('warn', 'No se pudo abrir la ficha' + (f.error ? ': ' + f.error.message : '') + '.');
+            b.disabled = false; b.textContent = 'Ver su ficha';
+            return;
+          }
+          formVia = null; ninosLista = []; ninosTrae = { nombre: '', cedula: '', telefono: '' }; ninosIndicado = '';
+          elegirDestino(f.data);
+        });
+      });
+    });
+    var otro = document.getElementById('ninosOtroGrupo');
+    if (otro) otro.addEventListener('click', function () { formVariosNinos(); });
   }
 
   /* El dia de hoy en Venezuela, que es el que cuenta aqui. */

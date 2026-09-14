@@ -409,6 +409,17 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .vias button{font:inherit; font-size:13.5px; padding:0 14px; min-height:44px;
   flex:1 1 auto}
 .via-caja{border-color:var(--warn-line)}
+
+/* VARIOS NIÑOS CON EL MISMO RÉCIPE: una tarjeta por niño, para que se
+   vea claro dónde empieza uno y termina el otro. */
+.ficha-nino{background:var(--rail); border:1px solid var(--line); border-radius:var(--r);
+  padding:var(--pad); margin:14px 0}
+.ficha-nino-cab{display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:6px}
+.ficha-nino-cab b{font-size:14px}
+.ficha-nino-resultado{padding:9px 0; border-bottom:1px solid var(--line);
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.ficha-nino-resultado:last-child{border-bottom:0}
 .via-linea{display:flex; flex-wrap:wrap; align-items:center; gap:9px; margin-top:8px}
 .via-linea b{font-size:14px; font-weight:750; line-height:1.3; overflow-wrap:anywhere}
 
@@ -995,21 +1006,21 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <!-- El ?v= de los scripts se sube en cada publicacion: sin el, el
      navegador se queda con la version vieja hasta 10 minutos y la gente
      ve el sitio a medias. Version actual: 20260912a -->
-<script src="config.js?v=20260914e"></script>
-<script src="comunes.js?v=20260914e"></script>
-<script src="logos-base64.js?v=20260914e"></script>
-<script src="pdf-header.js?v=20260914e"></script>
-<script src="reportes.js?v=20260914e"></script>
-<script src="picker.js?v=20260914e"></script>
-<script src="tablero-entregas.js?v=20260914e"></script>
-<script src="personas.js?v=20260914e"></script>
-<script src="jornadas.js?v=20260914e"></script>
-<script src="centros.js?v=20260914e"></script>
-<script src="dashboard.js?v=20260914e"></script>
-<script src="despacho.js?v=20260914e"></script>
-<script src="inventario.js?v=20260914e"></script>
-<script src="admin.js?v=20260914e"></script>
-<script src="asistencia.js?v=20260914e"></script>
-<script src="app.js?v=20260914e"></script>
+<script src="config.js?v=20260914f"></script>
+<script src="comunes.js?v=20260914f"></script>
+<script src="logos-base64.js?v=20260914f"></script>
+<script src="pdf-header.js?v=20260914f"></script>
+<script src="reportes.js?v=20260914f"></script>
+<script src="picker.js?v=20260914f"></script>
+<script src="tablero-entregas.js?v=20260914f"></script>
+<script src="personas.js?v=20260914f"></script>
+<script src="jornadas.js?v=20260914f"></script>
+<script src="centros.js?v=20260914f"></script>
+<script src="dashboard.js?v=20260914f"></script>
+<script src="despacho.js?v=20260914f"></script>
+<script src="inventario.js?v=20260914f"></script>
+<script src="admin.js?v=20260914f"></script>
+<script src="asistencia.js?v=20260914f"></script>
+<script src="app.js?v=20260914f"></script>
 </body>
 </html>
