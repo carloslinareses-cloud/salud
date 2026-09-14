@@ -94,6 +94,26 @@ const datos = {
     { entrega_id: 'e2', fecha: '2026-09-14', tipo_destinatario: 'institucion', anulada: false, cantidad: 50, producto: 'LOSARTAN', destinatario: 'CDI Uno', entregado_por: 'Carlos' },
     { entrega_id: 'e3', fecha: '2026-09-07', tipo_destinatario: 'paciente', anulada: false, cantidad: null, producto: null, destinatario: 'Maria Lopez', entregado_por: 'No consta (viene del Excel)' },
     { entrega_id: 'e4', fecha: '2026-09-16', tipo_destinatario: 'paciente', anulada: true, cantidad: 99, producto: 'DEBE IGNORARSE', destinatario: 'X', entregado_por: 'Ana' }
+  ],
+  // R1 y R2 son hoy, pero del MISMO paciente p1: los récipes se cuentan
+  // 2, pero los pacientes distintos de hoy son 1, no 2.
+  recipes: [
+    { id: 'R1', paciente_id: 'p1', creado_en: '2026-09-16T15:00:00Z' },
+    { id: 'R2', paciente_id: 'p1', creado_en: '2026-09-16T18:00:00Z' },
+    { id: 'R3', paciente_id: 'p2', creado_en: '2026-09-14T12:00:00Z' },  // lunes de esta semana
+    { id: 'R4', paciente_id: 'p3', creado_en: '2026-08-25T12:00:00Z' }   // mes pasado
+  ],
+  tratRecipe: [
+    { solicitud_id: 'R1', producto_id: 'prod1', texto_original: null },
+    { solicitud_id: 'R1', producto_id: 'prod1', texto_original: null },     // mismo insumo repetido: no debe contarse 2 veces en "distintos"
+    { solicitud_id: 'R1', producto_id: null, texto_original: 'JARABE PARA LA TOS' },
+    { solicitud_id: 'R2', producto_id: 'prod2', texto_original: null },
+    { solicitud_id: 'R4', producto_id: 'prod1', texto_original: null },
+    { solicitud_id: 'R99-NO-EXISTE', producto_id: 'prod1', texto_original: null }  // huérfano: debe ignorarse, no reventar
+  ],
+  productos: [
+    { id: 'prod1', nombre: 'LOSARTAN' },
+    { id: 'prod2', nombre: 'IBUPROFENO' }
   ]
 };
 
@@ -132,6 +152,24 @@ prueba('unidades recibidas en total', inf.centros.unidadesRecibidas, 120);
 prueba('el ranking deja afuera al que no ha recibido nada',
   inf.centros.ranking, [{ etiqueta: 'CDI Uno', unidades: 120, veces: 3 }]);
 prueba('las entregas a centros son solo las de tipo institución', inf.centros.entregasTotal, 1);
+
+/* ---------------------------------------------------------------
+   Récipes: lo que se PIDIÓ, no lo ya entregado
+--------------------------------------------------------------- */
+grupo('Récipes: pacientes distintos (no filas) y huérfanos que se ignoran');
+prueba('total de récipes registrados', inf.recipes.total, 4);
+prueba('récipes de hoy (R1 y R2, del mismo paciente)', inf.recipes.hoy, 2);
+prueba('récipes de esta semana (R1, R2 y R3)', inf.recipes.semana, 3);
+prueba('récipes de este mes (R1, R2 y R3; R4 es de agosto)', inf.recipes.mes, 3);
+prueba('pacientes distintos en total (p1, p2, p3)', inf.recipes.pacientes, 3);
+prueba('pacientes distintos hoy: 1, aunque haya 2 récipes (mismo paciente)', inf.recipes.pacientesHoy, 1);
+prueba('pacientes distintos esta semana: p1 y p2', inf.recipes.pacientesSemana, 2);
+prueba('insumos distintos pedidos (LOSARTAN, JARABE PARA LA TOS, IBUPROFENO; sin contar el huérfano ni el repetido)',
+  inf.recipes.insumosDistintos, 3);
+prueba('renglones pedidos en total (5; el huérfano con solicitud_id inexistente se ignora, no revienta)',
+  inf.recipes.renglonesTotal, 5);
+prueba('el insumo más pedido es LOSARTAN (2 veces en R1 + 1 en R4)',
+  inf.recipes.topInsumos[0], { etiqueta: 'LOSARTAN', cantidad: 3 });
 
 /* ---------------------------------------------------------------
    Lo entregado

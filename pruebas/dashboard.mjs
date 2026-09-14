@@ -115,6 +115,19 @@ try {
   prueba('sale la sección de Jornadas', /Jornadas y ruta materna/i.test(texto), '')
   prueba('sale la sección de Centros', /Centros de salud/i.test(texto), '')
   prueba('sale la sección de Lo entregado', /Lo entregado/i.test(texto), '')
+  prueba('sale la sección de Récipes', /Récipes\s/.test(texto) && /récipes registrados/i.test(texto), '')
+  prueba('Récipes aclara que es lo pedido, no lo ya entregado', /lo que se pidió por récipe/i.test(texto), '')
+  const recipesTotal = await pag.$$eval('#daZona .cifra', (cs) => {
+    const c = cs.find((x) => /récipes registrados/i.test(x.innerText))
+    return c ? Number(c.querySelector('b').textContent.replace(/\D/g, '')) : -1
+  })
+  prueba('el total de récipes es un número real, mayor que cero', recipesTotal > 0, String(recipesTotal))
+  const pacRecipe = await pag.$$eval('#daZona .cifra', (cs) => {
+    const c = cs.find((x) => /pacientes atendidos por récipe/i.test(x.innerText))
+    return c ? Number(c.querySelector('b').textContent.replace(/\D/g, '')) : -1
+  })
+  prueba('los pacientes distintos no pasan del total de récipes', pacRecipe > 0 && pacRecipe <= recipesTotal,
+    pacRecipe + ' de ' + recipesTotal)
 
   console.log('\n--- 2. Los números son de verdad, no ceros en blanco ---')
   const cifras = await pag.$$eval('#daZona .cifras .cifra b', (bs) => bs.map((b) => b.textContent.trim()))
