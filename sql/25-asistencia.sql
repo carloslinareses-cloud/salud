@@ -592,8 +592,14 @@ begin
   insert into farmacia.asistencia_personal (cedula, nombre, telefono, correo, clave_hash, debe_cambiar_clave, activo)
   values (regexp_replace(p_cedula, '\D', '', 'g'), p_nombre, p_telefono, p_correo,
           extensions.crypt(p_clave_inicial, extensions.gen_salt('bf')), true, true)
+  -- Si la cédula ya existía, la clave que escribió el admin TAMBIÉN se
+  -- aplica (y vuelve a pedir cambiarla al entrar). Antes solo se
+  -- actualizaban nombre y teléfono: el panel decía "guardado" y la
+  -- persona seguía con la clave vieja, así que en el teléfono le salía
+  -- "clave incorrecta" con la clave que le habían dado.
   on conflict (cedula) do update set
     nombre = excluded.nombre, telefono = excluded.telefono, correo = excluded.correo,
+    clave_hash = excluded.clave_hash, debe_cambiar_clave = true,
     activo = true, actualizado_en = now();
   return true;
 end $$;
