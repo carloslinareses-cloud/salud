@@ -409,7 +409,7 @@
         .eq('institucion_id', cid).order('producto', { nullsFirst: false }),
       t.sb.from('v_entregas_renglon')
         .select('entrega_id,fecha,cantidad,producto,dosificacion,en_cajas,lote,vence,' +
-                'entregado_por,recibe_nombre,anulada')
+                'entregado_por,recibe_nombre,anulada,lo_entregado,origen,departamento')
         .eq('institucion_id', cid).order('fecha', { ascending: false }).limit(1000)
     ]).then(function (r) {
       if (!t.quien || t.quien.id !== cid || t.modo !== 'ficha') return;
@@ -691,6 +691,8 @@
       return { fecha: d, unidades: porDia[d].unidades, entregas: Object.keys(porDia[d].entregas).length };
     });
 
+    var historicas = t.resumenHistoricas = calcularHistoricas(f);
+
     t.resumenRecibido = { lista: lista, total: total, entregas: Object.keys(entregas).length };
 
     return '<h3 class="sub-t">Lo que se le ha entregado</h3>' +
@@ -727,8 +729,50 @@
         return '<tr><td data-col="Fecha">' + corta(d.fecha) + '</td>' +
           '<td class="num der" data-col="Entregas">' + d.entregas + '</td>' +
           '<td class="num der" data-col="Unidades"><b>' + num(d.unidades) + '</b></td></tr>';
-      }).join('') + '</tbody></table></div>';
+      }).join('') + '</tbody></table></div>' +
+
+      (historicas.length ? bloqueHistoricas(historicas) : '');
   };
+
+  /* Las entregas migradas del cuaderno viejo no traen un renglón por
+     insumo -solo el texto tal como se anotó, con una cantidad para
+     TODOS juntos-. Aquí se separan uno por uno para poder leerlos,
+     pero la cantidad no se reparte entre ellos: eso sería inventar
+     un número que el cuaderno no daba. */
+  function calcularHistoricas(f) {
+    var vistas = {}, out = [];
+    (f || []).forEach(function (x) {
+      if (x.origen !== 'migracion_excel' || x.cantidad != null || !x.lo_entregado) return;
+      if (vistas[x.entrega_id]) return;
+      vistas[x.entrega_id] = true;
+      var partes = String(x.lo_entregado).split('  —  ');
+      var piezas = (window.FARM && window.FARM.piezasTratamiento) ? window.FARM.piezasTratamiento(partes[0]) : [];
+      out.push({ fecha: x.fecha, departamento: x.departamento, recibe: x.recibe_nombre,
+                piezas: piezas, nota: partes[1] || '' });
+    });
+    return out.sort(function (a, b) { return a.fecha < b.fecha ? 1 : -1; });
+  }
+
+  /* Una tarjeta por entrega migrada, con sus insumos listados uno por
+     uno -pero sin ponerles cantidad: el cuaderno solo daba un total
+     para el renglón entero, no por insumo-. */
+  function bloqueHistoricas(historicas) {
+    return '<p class="sub chico">Del cuaderno, de antes de este sistema -cada insumo, uno por uno-</p>' +
+      '<div class="fichas">' + historicas.map(function (h) {
+        var sub = [corta(h.fecha)];
+        if (h.departamento) sub.push(h.departamento);
+        if (h.recibe) sub.push('Recibió: ' + h.recibe);
+        return '<div class="ficha ficha-venc" style="cursor:default">' +
+          '<div class="ficha-nom">' +
+            '<b>' + esc(sub.join(' · ')) + '</b>' +
+            '<span class="ficha-pres">' + h.piezas.map(esc).join(' · ') + '</span>' +
+            (h.nota ? '<span class="ficha-pres">' + esc(h.nota) + '</span>' : '') +
+          '</div>' +
+          '<div class="ficha-datos"><span class="ficha-lotes">' + h.piezas.length +
+            (h.piezas.length === 1 ? ' insumo' : ' insumos') + '</span></div>' +
+        '</div>';
+      }).join('') + '</div>';
+  }
 
   Centros.prototype.engancharRecibido = function () {
     var t = this;
@@ -756,13 +800,26 @@
                 y.recibe_nombre || '', y.entregado_por || ''];
       });
 
+    var encHist = ['Día', 'Departamento', 'Insumo', 'Recibió', 'Nota'];
+    var filHist = [];
+    (t.resumenHistoricas || []).forEach(function (h) {
+      h.piezas.forEach(function (pieza, idx) {
+        filHist.push([corta(h.fecha), h.departamento || '', pieza, h.recibe || '', idx === 0 ? h.nota : '']);
+      });
+    });
+
     if (formato === 'excel') {
-      window.FARMREP.excel(titulo, [
+      var hojas = [
         { nombre: 'Por insumo', titulo: titulo + ' · resumen por insumo',
           encabezados: encRes, filas: filRes, anchos: [42, 12, 10, 14] },
         { nombre: 'Detalle', titulo: titulo + ' · renglón por renglón',
           encabezados: encDet, filas: filDet, anchos: [12, 40, 16, 16, 12, 11, 26, 26] }
-      ]);
+      ];
+      if (filHist.length) {
+        hojas.push({ nombre: 'Del cuaderno', titulo: titulo + ' · de antes de este sistema, sin cantidad por insumo',
+          encabezados: encHist, filas: filHist, anchos: [12, 20, 40, 26, 70] });
+      }
+      window.FARMREP.excel(titulo, hojas);
       return;
     }
 
@@ -787,7 +844,13 @@
                       3: { cellWidth: 24 }, 4: { cellWidth: 20 },
                       5: { cellWidth: 19, halign: 'right' },
                       6: { cellWidth: 40 }, 7: { cellWidth: 40 } } }
-      ],
+      ].concat(filHist.length ? [{
+        titulo: 'Del cuaderno, de antes de este sistema',
+        nota: 'Cada insumo va uno por uno, pero sin cantidad: el cuaderno solo anotaba un total para todo el renglón junto.',
+        encabezados: encHist, filas: filHist,
+        columnas: { 0: { cellWidth: 18 }, 1: { cellWidth: 30 }, 2: { cellWidth: 55 },
+                    3: { cellWidth: 38 }, 4: { cellWidth: 100 } }
+      }] : []),
       horizontal: true, archivo: titulo,
       vacio: 'Todavía no se le ha entregado nada.'
     });
