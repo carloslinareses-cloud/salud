@@ -167,6 +167,10 @@ try {
   prueba('"AIRON 60/400MG" quedó entero', filasDet.some(f => f[1] === 'AIRON 60/400MG'))
   prueba('los insumos del Excel no tienen cantidad inventada (—)', filasDet.every(f => f[2] === '—'))
   prueba('dice la Cantidad Entregada total (34) y que no se reparte', /Cantidad Entregada: 34 en total/.test(det) && /No se reparte/.test(det), det.slice(0, 300))
+  prueba('cómo se registró: del Excel, fila 6, y cómo venía escrito (visible)', /hoja REGISTRO DE ENTREGAS C\.D\.S, fila 6/.test(det) &&
+    /Así venía escrito en el Excel[\s\S]*AIRON 60\/400 MG/i.test(det), det.slice(0, 900))
+  await pag.waitForFunction(() => /Historial de cambios/.test((document.getElementById('inHistorial') || {}).textContent || ''), { timeout: 20000 })
+  prueba('el historial dice que la cargó el sistema con sus 7 insumos', /creó la entrega · puso 7 insumos/.test(await texto('#inHistorial')), await texto('#inHistorial'))
   await pag.click('#inVolver')
   await escribir('#inBusca', '')
   await pag.click('#inFiltro [data-f="todas"]')
@@ -229,6 +233,13 @@ try {
   prueba('la corrección quedó: 3 insumos y la cantidad nueva', JSON.stringify(tras[0].items) ===
     JSON.stringify([['ZZZ ACETAMINOFEN 500MG', '40.00'], ['ZZZ JERINGA # 5', '100.00'], ['ZZZ AIRON 60/400MG', '12.00']]), JSON.stringify(tras))
   prueba('el administrador ve el botón Anular', await pag.$eval('#inAnular', e => !e.hidden))
+  await pag.waitForFunction(() => /Historial de cambios/.test((document.getElementById('inHistorial') || {}).textContent || ''), { timeout: 20000 })
+  const fichaZ = await texto('#inZona')
+  prueba('la ficha dice cómo se registró: a mano, por quién y cuándo', /Cómo se registró/.test(fichaZ) &&
+    /Registrada a mano en el sistema/.test(fichaZ) && /Registrada por[\s\S]*Carlos Linares · \d{2}\/\d{2}\/\d{4} a las \d{1,2}:\d{2} [ap]\. m\./.test(fichaZ), fichaZ.slice(0, 600))
+  const hist = await texto('#inHistorial')
+  prueba('el historial muestra la creación y la corrección, con quién', /creó la entrega · puso 4 insumos/.test(hist) &&
+    /quitó 4 insumos · puso 3 insumos/.test(hist) && /Carlos Linares \(admin\)/.test(hist), hist)
 
   console.log('\n--- 5. Excel y PDF ---')
   await pag.click('#inVolver')

@@ -392,8 +392,6 @@
         dato('Centro de Salud / Destino', e.destino || 'No consta en el Excel') +
         (e.departamento ? dato('Departamento / Servicio', e.departamento) : '') +
         dato('Recibido Por (Responsable)', e.recibido_por || 'No consta en el Excel') +
-        dato('Registrada', e.origen === 'excel' ? 'Cargada del Excel (fila ' + e.fila_excel + ')'
-                                                : 'Aquí' + (e.registrado_por_nombre ? ', por ' + e.registrado_por_nombre : '')) +
       '</div>' +
       '<h3 class="sub-t">Descripción del Insumo</h3>' +
       (items.length
@@ -412,8 +410,8 @@
         ? '<div class="aviso warn"><b>Cantidad Entregada: ' + num(e.cantidad_total_excel) + ' en total</b>' +
           '<span>Así la anota el Excel: una sola cantidad para todos los insumos de este renglón. No se reparte entre ellos ' +
           'porque sería inventar números. Si sabes cuánto fue de cada uno, usa «Corregir».</span></div>' : '') +
-      (e.texto_original ? '<details style="margin-top:12px"><summary class="sub">Cómo venía escrito en el Excel</summary>' +
-        '<p class="sub" style="overflow-wrap:anywhere">' + esc(e.texto_original) + '</p></details>' : '') +
+      comoSeRegistro(e) +
+      '<div id="' + i('Historial') + '"></div>' +
       (e.anulada ? '' :
         '<div class="botonera"><button type="button" class="secundario" id="' + i('Corregir') + '">Corregir</button>' +
         '<button type="button" class="secundario" id="' + i('Anular') + '" hidden>Anular</button></div>' +
@@ -422,6 +420,7 @@
         '<button type="button" class="principal" id="' + i('ConfirmaAnular') + '">Anular esta entrega</button></div>');
 
     t.q('Volver').addEventListener('click', function () { t.modo = 'lista'; t.pintar(); });
+    t.cargarHistorial(e);
     if (e.anulada) return;
     t.q('Corregir').addEventListener('click', function () { t.abrirFormulario(e); });
     if (t.esAdmin) t.q('Anular').hidden = false;
@@ -437,6 +436,92 @@
         t.aviso('ok', 'La entrega quedó anulada. Se puede ver en el filtro «Anuladas».');
       });
     });
+  };
+
+  /* ---------------------------------------------------------------
+     CÓMO SE REGISTRÓ: de dónde vino, quién, cuándo y cómo venía escrito.
+  --------------------------------------------------------------- */
+  function cuando(iso) {
+    return iso ? F().muestraFecha(F().hoyCaracas(iso)) + ' a las ' + F().horaCaracas(iso) : '';
+  }
+
+  function comoSeRegistro(e) {
+    var corregida = e.actualizado_en && e.creado_en &&
+                    (new Date(e.actualizado_en).getTime() - new Date(e.creado_en).getTime()) > 60000;
+    var filas = [
+      dato('Origen', e.origen === 'excel'
+        ? 'Cargada del Excel «insumos_cdi.xlsx», hoja REGISTRO DE ENTREGAS C.D.S, fila ' + e.fila_excel
+        : 'Registrada a mano en el sistema'),
+      dato(e.origen === 'excel' ? 'Cargada al sistema' : 'Registrada por',
+        e.origen === 'excel' ? cuando(e.creado_en) + ' (carga única del Excel)'
+                             : (e.registrado_por_nombre || 'No consta') + ' · ' + cuando(e.creado_en)),
+      corregida ? dato('Última corrección', cuando(e.actualizado_en)) : '',
+      dato('Insumos', e.insumos + (e.insumos === 1 ? ' insumo' : ' insumos') +
+        (e.por_revisar ? ' · ' + e.por_revisar + ' por revisar' : '') +
+        (e.suma_cantidades != null ? ' · ' + num(e.suma_cantidades) + ' unidades' : '')),
+      e.cantidad_total_excel != null
+        ? dato('Cantidad Entregada según el Excel', num(e.cantidad_total_excel) + ' en total (una sola cifra para todo el renglón)') : '',
+      e.anulada ? dato('Anulada', cuando(e.anulada_en) + ' · ' + (e.anulada_motivo || '')) : ''
+    ].join('');
+    return '<h3 class="sub-t">Cómo se registró</h3><div class="renglones">' + filas + '</div>' +
+      (e.texto_original
+        ? '<div class="trat"><span class="lbl">Así venía escrito en el Excel (celda «Descripción del Insumo»)</span>' +
+          '<span style="overflow-wrap:anywhere">' + esc(e.texto_original) + '</span></div>'
+        : (e.origen === 'excel' ? '<div class="trat"><span class="lbl">En el Excel</span>Este renglón no traía insumos.</div>' : ''));
+  }
+
+  /* El historial de cambios sale de la bitácora. Solo el administrador la
+     puede leer (así está en la base); a los demás no se les muestra. */
+  var CAMPOS = { fecha: 'Fecha', destino: 'Centro de Salud / Destino', recibido_por: 'Recibido Por', institucion_id: 'centro enlazado',
+                 anulada: 'anulada', anulada_motivo: 'motivo de anulación', anulada_por: 'quién anuló', anulada_en: 'cuándo se anuló',
+                 descripcion: 'descripción', cantidad: 'cantidad', revisar: 'marca de revisar', revisar_motivo: 'pregunta de revisión', orden: 'orden' };
+
+  function resumenHistorial(filas) {
+    var grupos = [], por = {};
+    (filas || []).forEach(function (b) {
+      var k = String(b.momento).slice(0, 19) + '|' + (b.usuario_nombre || '');
+      var g = por[k];
+      if (!g) { g = por[k] = { momento: b.momento, quien: b.usuario_nombre, rol: b.usuario_rol, partes: {} }; grupos.push(g); }
+      var tabla = /items$/.test(b.tabla) ? 'insumo' : 'entrega';
+      var op = String(b.operacion || '').toUpperCase();
+      var p = g.partes[tabla + op] || (g.partes[tabla + op] = { n: 0, campos: {} });
+      p.n++;
+      (b.campos || []).forEach(function (c) { if (c !== 'actualizado_en') p.campos[c] = 1; });
+    });
+    var ORDEN = ['entregaINSERT', 'entregaUPDATE', 'insumoDELETE', 'insumoINSERT', 'insumoUPDATE', 'entregaDELETE'];
+    return grupos.map(function (g) {
+      var que = ORDEN.filter(function (o) { return g.partes[o]; }).map(function (o) {
+        var p = g.partes[o];
+        var campos = Object.keys(p.campos).map(function (c) { return CAMPOS[c] || c; });
+        var cuantos = p.n + (p.n === 1 ? ' insumo' : ' insumos');
+        if (o === 'entregaINSERT') return 'creó la entrega';
+        if (o === 'entregaUPDATE') return 'cambió ' + (campos.length ? campos.join(', ') : 'la entrega');
+        if (o === 'insumoDELETE') return 'quitó ' + cuantos;
+        if (o === 'insumoINSERT') return 'puso ' + cuantos;
+        if (o === 'insumoUPDATE') return 'cambió ' + (campos.length ? campos.join(', ') : 'datos') + ' en ' + cuantos;
+        return 'borró la entrega';
+      });
+      return { momento: g.momento, quien: g.quien || null, rol: g.rol || null, que: que.join(' · ') };
+    });
+  }
+
+  Insumos.prototype.cargarHistorial = function (e) {
+    var t = this;
+    if (!t.esAdmin) return;
+    t.sb.from('bitacora').select('momento, usuario_nombre, usuario_rol, tabla, operacion, campos')
+      .in('tabla', ['insumos_entregas_cds', 'insumos_entregas_cds_items'])
+      .or('registro_id.eq.' + e.id + ',despues->>entrega_id.eq.' + e.id + ',antes->>entrega_id.eq.' + e.id)
+      .order('momento', { ascending: true }).limit(3000)
+      .then(function (r) {
+        var z = t.q('Historial');
+        if (!z || r.error || !r.data || !r.data.length) return;
+        z.innerHTML = '<h3 class="sub-t">Historial de cambios <span class="opc">(solo lo ve el administrador)</span></h3>' +
+          '<div class="renglones">' + resumenHistorial(r.data).map(function (x) {
+            return '<div class="renglon"><div class="que"><b>' + esc(x.que) + '</b><span>' + esc(cuando(x.momento)) + ' · ' +
+              esc(x.quien ? x.quien + (x.rol ? ' (' + x.rol + ')' : '') : 'El sistema (carga del Excel o ajuste directo en la base)') +
+              '</span></div></div>';
+          }).join('') + '</div>';
+      });
   };
 
   function dato(rotulo, valor) {
