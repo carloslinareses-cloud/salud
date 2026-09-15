@@ -145,3 +145,30 @@ grant execute on function farmacia.monitor_personal_asistencia(text) to anon;
 grant execute on function farmacia.monitor_restablecer_clave_asistencia(text, text, text) to anon;
 
 notify pgrst, 'reload schema';
+
+-- ---------------------------------------------------------------------
+-- 4. Llaves aparte para las PRUEBAS locales (15/09/2026).
+-- Antes solo había una llave: probar el panel en la PC generaba una nueva
+-- y dejaba al panel publicado sin poder leer la farmacia. Ahora cada
+-- lugar tiene la suya: 'produccion' sigue en monitor_config y las pruebas
+-- van aquí, con su propio nombre. Borrar una no toca a la otra.
+-- ---------------------------------------------------------------------
+create table if not exists farmacia.monitor_llaves (
+  nombre         text primary key check (nombre ~ '^[a-z0-9-]{3,40}$'),
+  token_hash     text not null,
+  actualizado_en timestamptz not null default now()
+);
+alter table farmacia.monitor_llaves enable row level security;
+revoke all on farmacia.monitor_llaves from anon, authenticated;
+
+create or replace function farmacia.monitor_llave_valida(p_token text)
+returns boolean
+language sql stable security definer set search_path = '' as $$
+  select coalesce(length(p_token) >= 40 and (
+    exists (select 1 from farmacia.monitor_config c
+             where c.token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex'))
+    or exists (select 1 from farmacia.monitor_llaves l
+             where l.token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex'))
+  ), false);
+$$;
+revoke all on function farmacia.monitor_llave_valida(text) from public, anon, authenticated;
