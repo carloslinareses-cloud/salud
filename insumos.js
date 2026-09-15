@@ -187,6 +187,7 @@
       '<h3 class="sub-t">REGISTRO DE ENTREGAS C.D.S</h3>' +
       '<p class="sub">Lo que se le entregó a cada centro de salud o destino, insumo por insumo. ' +
         'Es un registro: no descuenta del inventario.</p>' +
+      '<div id="' + i('Dudas') + '"></div>' +
       '<button type="button" class="principal" id="' + i('Nueva') + '">Registrar una entrega +</button>' +
       '<label for="' + i('Busca') + '">Buscar</label>' +
       '<input id="' + i('Busca') + '" type="search" autocomplete="off" placeholder="Centro, insumo o responsable" value="' + esc(t.busca) + '">' +
@@ -219,6 +220,56 @@
     t.q('Excel').addEventListener('click', function () { t.descargar('excel', this); });
     t.q('Pdf').addEventListener('click', function () { t.descargar('pdf', this); });
     t.buscar();
+    t.cargarDudas();
+  };
+
+  /* LAS DUDAS DEL EXCEL, para que inventario las revise a mano.
+     Son los insumos marcados "revisar" (cada uno con su pregunta) y las
+     entregas del Excel que llegaron incompletas (sin insumos o sin destino).
+     Se van quitando solas a medida que se corrigen. */
+  Insumos.prototype.cargarDudas = function () {
+    var t = this;
+    Promise.all([
+      t.sb.from('insumos_entregas_cds_items')
+        .select('id, descripcion, revisar_motivo, entrega_id, insumos_entregas_cds!inner(fecha, destino, anulada)')
+        .eq('revisar', true).eq('insumos_entregas_cds.anulada', false),
+      t.sb.from('v_insumos_entregas_cds').select('id, fecha, destino, insumos')
+        .eq('anulada', false).or('insumos.eq.0,destino.is.null')
+    ]).then(function (r) {
+      var z = t.q('Dudas');
+      if (!z) return;
+      if (r[0].error || r[1].error) { z.innerHTML = ''; return; }
+      var dudas = (r[0].data || []).map(function (x) {
+        var e = x.insumos_entregas_cds || {};
+        return { entrega: x.entrega_id, fecha: e.fecha, destino: e.destino, texto: x.descripcion, pregunta: x.revisar_motivo || 'Revisar este insumo' };
+      }).concat((r[1].data || []).map(function (e) {
+        return { entrega: e.id, fecha: e.fecha, destino: e.destino, texto: e.insumos ? '' : '(sin insumos)',
+                 pregunta: !e.insumos ? 'El Excel no dice qué se entregó ni cuánto. ¿Qué se entregó?' : 'El Excel no dice a qué centro o destino fue.' };
+      }));
+      dudas.sort(function (a, b) { return String(a.fecha).localeCompare(String(b.fecha)); });
+      if (!dudas.length) { z.innerHTML = ''; return; }
+      z.innerHTML =
+        '<div class="aviso warn dudas-caja"><b>Dudas del Excel para revisar: ' + dudas.length + '</b>' +
+        '<span>Estos datos vinieron del Excel y no se entiende qué quisieron poner. Abre cada uno, míralo y ' +
+        'corrígelo con «Corregir» (separar, cambiar el nombre, poner el destino…). Si ya está bien como vino, ' +
+        'toca «Está bien así». Cada duda desaparece de aquí cuando se resuelve.</span>' +
+        '<div class="renglones">' + dudas.map(function (d) {
+          return '<div class="renglon"><div class="que">' +
+            '<b>' + esc(F().muestraFecha(d.fecha)) + ' · ' + esc(d.destino || 'Destino no consta') + (d.texto ? ' · ' + esc(d.texto) : '') + '</b>' +
+            '<span>' + esc(d.pregunta) + '</span></div>' +
+            '<button type="button" class="quitar" data-duda="' + esc(d.entrega) + '">Revisar</button></div>';
+        }).join('') + '</div></div>';
+      z.querySelectorAll('[data-duda]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          b.disabled = true;
+          t.sb.from('v_insumos_entregas_cds').select('*').eq('id', b.dataset.duda).single().then(function (v) {
+            b.disabled = false;
+            if (v.error || !v.data) { t.aviso('bad', 'No se pudo abrir: ' + F().traduceError(v.error || 'no encontrada')); return; }
+            t.actual = v.data; t.modo = 'detalle'; t.pintar();
+          });
+        });
+      });
+    });
   };
 
   Insumos.prototype.consulta = function (conConteo) {
@@ -226,7 +277,7 @@
     var qy = t.sb.from('v_insumos_entregas_cds').select('*', conConteo ? { count: 'exact' } : undefined);
     if (t.filtro === 'anuladas') qy = qy.eq('anulada', true);
     else qy = qy.eq('anulada', false);
-    if (t.filtro === 'revisar') qy = qy.gt('por_revisar', 0);
+    if (t.filtro === 'revisar') qy = qy.or('por_revisar.gt.0,insumos.eq.0,destino.is.null');
     if (t.filtro === 'excel') qy = qy.eq('origen', 'excel');
     if (t.filtro === 'manual') qy = qy.eq('origen', 'manual');
     if (t.desde) qy = qy.gte('fecha', t.desde);
@@ -333,6 +384,9 @@
       '<button type="button" class="volver" id="' + i('Volver') + '">← Volver a la lista</button>' +
       '<h3 class="sub-t">Entrega del ' + esc(F().muestraFecha(e.fecha)) + '</h3>' +
       (e.anulada ? '<div class="aviso bad"><b>Anulada</b><span>' + esc(e.anulada_motivo || '') + '</span></div>' : '') +
+      (!e.anulada && (e.por_revisar || (e.origen === 'excel' && (!e.insumos || !e.destino)))
+        ? '<div class="aviso warn"><b>Esta entrega tiene dudas por revisar</b><span>Toca «Corregir» abajo: ahí puedes separar o ' +
+          'cambiar cada insumo, poner el destino o agregar lo que falta. Si un insumo marcado ya está bien, toca «Está bien así».</span></div>' : '') +
       '<div class="renglones">' +
         dato('Fecha', F().muestraFecha(e.fecha)) +
         dato('Centro de Salud / Destino', e.destino || 'No consta en el Excel') +
@@ -448,7 +502,8 @@
         '<input type="text" inputmode="decimal" autocomplete="off" data-cant="' + k + '" aria-label="Cantidad del insumo ' + (k + 1) + '" ' +
           'placeholder="CANT" value="' + esc(it.cantidad) + '">' +
         '<button type="button" class="quitar" data-quitar="' + k + '" aria-label="Quitar el insumo ' + (k + 1) + '">✕</button>' +
-        (it.revisar ? '<span class="insumo-revisar">Revisar: ' + esc(it.revisar_motivo || '') + '</span>' : '') +
+        (it.revisar ? '<span class="insumo-revisar">Revisar: ' + esc(it.revisar_motivo || '') +
+          ' <button type="button" class="enlace" data-bien="' + k + '">Está bien así</button></span>' : '') +
       '</div>';
     }).join('');
     z.querySelectorAll('[data-desc]').forEach(function (c) {
@@ -461,6 +516,14 @@
     });
     z.querySelectorAll('[data-cant]').forEach(function (c) {
       c.addEventListener('input', function () { t.items[+c.dataset.cant].cantidad = c.value; t.pintarTotal(); });
+    });
+    z.querySelectorAll('[data-bien]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var it = t.items[+b.dataset.bien];
+        it.revisar = false; it.revisar_motivo = null;
+        t.pintarItems();
+        t.aviso('ok', 'Marcado como bien. Toca «Guardar la corrección» para que quede guardado.');
+      });
     });
     z.querySelectorAll('[data-quitar]').forEach(function (b) {
       b.addEventListener('click', function () {

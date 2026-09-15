@@ -120,7 +120,35 @@ try {
   prueba('CONTROL DE INSUMOS ENTREGADOS avisa que viene en el siguiente paso', /siguiente paso/.test(await texto('#inZona')))
   await pag.click('#inHojas [data-h="registro"]')
 
-  console.log('\n--- 2. Lo que vino del Excel ---')
+  console.log('\n--- 2. Las dudas del Excel, para revisarlas a mano ---')
+  await pag.waitForSelector('#inDudas .dudas-caja', { timeout: 25000 })
+  const esperadas = await sql(`select
+      (select count(*) from farmacia.insumos_entregas_cds_items i join farmacia.insumos_entregas_cds e on e.id = i.entrega_id
+        where i.revisar and not e.anulada) +
+      (select count(*) from farmacia.v_insumos_entregas_cds where not anulada and (insumos = 0 or destino is null)) as n`)
+  const cajaDudas = await texto('#inDudas')
+  prueba('arriba sale el recuadro con TODAS las dudas (las de la base)', cajaDudas.includes('Dudas del Excel para revisar: ' + esperadas[0].n) &&
+    (await pag.$$('#inDudas [data-duda]')).length === Number(esperadas[0].n), cajaDudas.slice(0, 80) + ' vs ' + esperadas[0].n)
+  prueba('cada duda trae su pregunta', /¿Qué insumo es «GERDES»\?/.test(cajaDudas) && /no dice a qué centro o destino fue/.test(cajaDudas))
+  const idxGerdes = await pag.$$eval('#inDudas .renglon', rs => rs.findIndex(r => /GERDES/.test(r.innerText)))
+  await (await pag.$$('#inDudas [data-duda]'))[idxGerdes].click()
+  await pag.waitForSelector('#inCorregir', { timeout: 15000 })
+  prueba('«Revisar» abre esa entrega y avisa que tiene dudas', /tiene dudas por revisar/.test(await texto('#inZona')) && /GERDES/.test(await texto('#inZona')))
+  await pag.click('#inCorregir')
+  await pag.waitForSelector('#inItems [data-bien]', { timeout: 15000 })
+  const antes = (await pag.$$('#inItems [data-bien]')).length
+  await pag.click('#inItems [data-bien]')
+  await espera(300)
+  prueba('«Está bien así» quita la marca en el formulario (aquí no se guarda)', (await pag.$$('#inItems [data-bien]')).length === antes - 1)
+  await pag.click('#inVolver')      // sin guardar: son datos reales
+  await pag.waitForSelector('#inCorregir', { timeout: 15000 })
+  await pag.click('#inVolver')
+  await pag.waitForSelector('#inConteo', { timeout: 15000 })
+  const sigue = await sql(`select count(*) as n from farmacia.insumos_entregas_cds_items where descripcion = 'GERDES' and revisar`)
+  prueba('y como no se guardó, la duda sigue en la base', Number(sigue[0].n) === 1)
+
+  console.log('\n--- 2b. Lo que vino del Excel ---')
+  await pag.waitForFunction(() => /\d+ entregas?/.test((document.getElementById('inConteo') || {}).textContent || ''), { timeout: 25000 })
   await pag.waitForFunction(() => /\d+ entregas?/.test((document.getElementById('inConteo') || {}).textContent || ''), { timeout: 25000 })
   const conteo = await texto('#inConteo')
   const enBase = await sql(`select count(*) n from farmacia.insumos_entregas_cds where not anulada`)
