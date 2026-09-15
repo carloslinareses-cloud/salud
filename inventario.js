@@ -87,6 +87,7 @@
           '<button type="button" data-p="personas">Personas</button>' +
           '<button type="button" data-p="jornadas">Jornadas</button>' +
           '<button type="button" data-p="centros">Centros</button>' +
+          '<button type="button" data-p="insumos">Insumos</button>' +
           '<button type="button" data-p="entregas">Lo entregado</button>' +
           '<button type="button" data-p="conteo">Corregir existencia</button>' +
           '<button type="button" data-p="dashboard">Dashboard</button>' +
@@ -111,6 +112,7 @@
     else if (pestana === 'jornadas') verJornadas();
     else if (pestana === 'dashboard') verDashboard();
     else if (pestana === 'centros') verCentros();
+    else if (pestana === 'insumos') verInsumos();
     else verConteo();
   }
 
@@ -164,6 +166,19 @@
       return;
     }
     window.PANTALLA_CENTROS(sb, z, { prefijo: 'ce' });
+  }
+
+  /* Insumos: la hoja del Excel de insumos (REGISTRO DE ENTREGAS C.D.S y,
+     más adelante, CONTROL DE INSUMOS ENTREGADOS). Es un registro aparte:
+     no descuenta del inventario. */
+  function verInsumos() {
+    var z = document.getElementById('zonaInv');
+    if (typeof window.PANTALLA_INSUMOS !== 'function') {
+      z.innerHTML = '<div class="aviso warn">La pantalla de insumos todavía se está ' +
+                    'cargando. Vuelve a entrar en unos segundos.</div>';
+      return;
+    }
+    window.PANTALLA_INSUMOS(sb, z, { prefijo: 'in' });
   }
 
   function verEntregas() {

@@ -325,6 +325,59 @@
      dejaría fuera a 16 abuelos que hoy están en el padrón.
 
      Devuelve {nacionalidad, numero, digitoRif} o null. Nunca adivina. */
+  /* ---------------------------------------------------------------
+     Partir en insumos la hoja "REGISTRO DE ENTREGAS C.D.S"
+
+     Cada renglón trae varios insumos en una sola celda, separados por
+     "/": "ACETMINOFEN 500 MG / CAPTOPRIL 50 MG / AIRON 60/400 MG".
+     Aquí SOLO separa la barra (no la coma: "10 MG , 2 ML AMPOLLA" es un
+     solo insumo), y NO separa cuando la barra va entre dos números
+     ("60/400", "5/0", "1/2") ni entre dos unidades ("MG/ML").
+
+     No se corrige la ortografía ni se adivina nada. Solo se ordena lo
+     cosmético: espacios de más y el número pegado a su unidad
+     ("500 MG" -> "500MG"). Lo que no está claro sale marcado para que
+     una persona lo revise, con el motivo, en vez de darlo por bueno:
+       · un pedazo sin nombre ("*22", "26GX1/2")
+       · uno que parece la continuación del anterior ("PEDIATRICO")
+       · dos insumos pegados porque faltó la barra ("JERINGA*10GUANTES")
+       · varias medidas juntas ("JELCO *24*22*20")
+  --------------------------------------------------------------- */
+  var UNIDAD_INSUMO = '(?:MCG|MG|ML|UI|CC|GR|G|L|%)';
+
+  F.normalizaInsumo = function (t) {
+    return String(t == null ? '' : t)
+      .replace(/\s+/g, ' ')
+      .replace(/\s+,/g, ',')
+      .replace(new RegExp('(\\d)\\s+(' + UNIDAD_INSUMO + ')(?![A-Za-zÁÉÍÓÚÑáéíóúñ])', 'gi'), '$1$2')
+      .trim()
+      .replace(/^[-+.*·•,;:\s]+/, '')
+      .replace(/[-+.*·•,;:\s]+$/, '')
+      .trim();
+  };
+
+  F.piezasInsumos = function (texto) {
+    var s = String(texto == null ? '' : texto)
+      .replace(/(\d)\/(\d)/g, '$1' + BARRA + '$2')
+      .replace(new RegExp('(\\d\\s*' + UNIDAD_INSUMO + '\\s*)\\/(\\s*\\d*\\s*' + UNIDAD_INSUMO +
+                          '(?![A-Za-zÁÉÍÓÚÑáéíóúñ]))', 'gi'), '$1' + BARRA + '$2');
+    var salida = [];
+    s.split('/').forEach(function (p) {
+      var crudo = p.replace(new RegExp(BARRA, 'g'), '/').replace(/\s+/g, ' ').trim();
+      var x = F.normalizaInsumo(crudo);
+      if (!x) return;
+      var motivo = null;
+      /* Sin nombre, se deja tal cual venía ("*22"): quitarle el adorno lo
+         dejaría en un número suelto que ya no dice de dónde salió. */
+      if (!/[A-Za-zÁÉÍÓÚÑáéíóúñ]{3,}/.test(x)) { motivo = 'No trae el nombre de un insumo'; x = crudo; }
+      else if (/^(ADUL[TD]\w*|PEDIATRIC\w*|NEONAT\w*)$/i.test(F.sinAcentos(x))) motivo = 'Parece la continuación del insumo anterior';
+      else if (/\d[A-Za-zÁÉÍÓÚÑáéíóúñ]{4,}/.test(x)) motivo = 'Parecen dos insumos pegados o hay un error al escribir';
+      else if (/[*#]\s*\d+(?:[.,]\d+)?\s*\*\s*\d/.test(x)) motivo = 'Trae varias medidas juntas';
+      salida.push({ texto: x, revisar: !!motivo, motivo: motivo });
+    });
+    return salida;
+  };
+
   F.leeCedula = function (v) {
     if (v == null) return null;
     var t = String(v).trim();

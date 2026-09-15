@@ -283,6 +283,17 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   background:linear-gradient(90deg,var(--dash-acento,var(--navy-2)),transparent)}
 #daZona .cifras .cifra.alerta::before{background:linear-gradient(90deg,var(--bad-ink),transparent)}
 
+/* ---------- insumos: renglones INSUMO | CANT ---------- */
+.insumo-filas{display:flex; flex-direction:column; gap:8px}
+.insumo-fila{display:grid; grid-template-columns:minmax(0,1fr) 92px 46px; gap:8px; align-items:center}
+@media (max-width:420px){ .insumo-fila{grid-template-columns:minmax(0,1fr) 74px 44px; gap:6px} .insumo-fila .quitar{width:44px; min-height:46px} }
+.lista .item .sit{display:inline-block; margin:0 0 0 6px; vertical-align:2px}
+.insumo-fila .quitar{margin:0; width:46px; min-height:46px; padding:0; font-size:15px}
+.insumo-cabeza{margin-top:4px}
+.insumo-cabeza span{font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--ink-faint)}
+.insumo-revisar{grid-column:1 / -1; font-size:12px; font-weight:700; color:var(--warn-ink); margin-top:-2px}
+.insumo-agregar{width:100%; margin-top:10px}
+
 /* ---------- botones de filtro ---------- */
 .chips{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 4px}
 .chips button{font:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:9px 15px;
@@ -1007,7 +1018,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
      navegador se queda con la version vieja hasta 10 minutos y la gente
      ve el sitio a medias. Version actual: 20260912a -->
 <script src="config.js?v=20260914g"></script>
-<script src="comunes.js?v=20260914g"></script>
+<script src="comunes.js?v=20260915i"></script>
 <script src="logos-base64.js?v=20260914g"></script>
 <script src="pdf-header.js?v=20260914g"></script>
 <script src="reportes.js?v=20260914g"></script>
@@ -1018,7 +1029,8 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="centros.js?v=20260914g"></script>
 <script src="dashboard.js?v=20260914g"></script>
 <script src="despacho.js?v=20260914g"></script>
-<script src="inventario.js?v=20260914g"></script>
+<script src="insumos.js?v=20260915i"></script>
+<script src="inventario.js?v=20260915i"></script>
 <script src="admin.js?v=20260914g"></script>
 <script src="asistencia.js?v=20260914g"></script>
 <script src="app.js?v=20260914g"></script>
