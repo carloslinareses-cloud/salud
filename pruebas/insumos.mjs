@@ -116,9 +116,12 @@ try {
     hojas.join('|') === 'REGISTRO DE ENTREGAS C.D.S|CONTROL DE INSUMOS ENTREGADOS', JSON.stringify(hojas))
 
   await pag.click('#inHojas [data-h="control"]')
-  await espera(300)
-  prueba('CONTROL DE INSUMOS ENTREGADOS avisa que viene en el siguiente paso', /siguiente paso/.test(await texto('#inZona')))
+  await espera(400)
+  const zonaControl = await texto('#inZona')
+  prueba('CONTROL DE INSUMOS ENTREGADOS ya tiene su pantalla (lista o aviso de datos)',
+    /CONTROL DE INSUMOS ENTREGADOS/.test(zonaControl) && !/siguiente paso/.test(zonaControl), zonaControl.slice(0, 120))
   await pag.click('#inHojas [data-h="registro"]')
+  await espera(300)
 
   console.log('\n--- 2. Las dudas del Excel, para revisarlas a mano ---')
   await pag.waitForSelector('#inDudas .dudas-caja', { timeout: 25000 })
