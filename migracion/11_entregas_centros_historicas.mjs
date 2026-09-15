@@ -106,7 +106,9 @@ const filas = rejilla.slice(desde)
     centro: String(f[colCentro] || '').replace(/\s+/g, ' ').trim(),
     departamento: colDepto >= 0 ? (String(f[colDepto] || '').replace(/\s+/g, ' ').trim() || null) : null,
     insumos: String(f[colInsumo] || '').replace(/\s+/g, ' ').trim(),
-    cantidad: colCant >= 0 ? Number(f[colCant]) : NaN,
+    /* Con raw:false Excel entrega "2,339": Number("2,339") es NaN y la fila
+       quedaba como "no anota una cantidad". Se quita la coma de miles. */
+    cantidad: colCant >= 0 ? Number(String(f[colCant]).replace(/,/g, '')) : NaN,
     recibe: colRecibe >= 0 ? (String(f[colRecibe] || '').replace(/\s+/g, ' ').trim() || null) : null,
   }))
   .filter(f => f.insumos.length >= 3)
