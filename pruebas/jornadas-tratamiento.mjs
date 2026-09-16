@@ -179,6 +179,27 @@ try {
   prueba('una gasa 5X5 queda con su medida y su cantidad aparte',
     /GASA 5X5 X1/.test(await valor()), await valor())
 
+  /* La ayuda tiene que estar en TODOS los sitios donde se anota una
+     persona: en "Registros" (lo de arriba), dentro de una jornada y
+     dentro de la ruta materna, que usan el mismo formulario. */
+  for (const [tipo, comoSeLlama] of [['jornadas', 'una jornada'], ['ruta_materna', 'la ruta materna']]) {
+    await pag.evaluate((tipo) => {
+      window.T.origenPersona = { tipo: 'evento', id: 'zzz-1' };
+      window.T.eventoActual = { id: 'zzz-1', tipo: tipo, fecha: '2026-09-16', lugar: 'ZZZ' };
+      window.T.modoEv = 'form-persona';
+      window.T.verFormularioPersona({ tratamiento: 'VITAMINA C' });
+    }, tipo)
+    await new Promise(r => setTimeout(r, 400))
+    prueba('dentro de ' + comoSeLlama + ' también está el buscador del inventario',
+      !!(await pag.$('#joTratBuscar')) && !!(await pag.$('#joTratChips')))
+    await pag.click('#joTratBuscar')
+    await pag.waitForSelector('#joTratMedBusca', { timeout: 10000 })
+    await new Promise(r => setTimeout(r, 500))
+    await pag.click('#joTratMedRes .ficha')
+    await new Promise(r => setTimeout(r, 400))
+    prueba('y allí también se anota con su cantidad', /X1/.test(await valor()), await valor())
+  }
+
   prueba('NADA se escribió en la base: elegir no mueve el inventario',
     (await pag.evaluate(() => window.ESCRITURAS.length)) === 0,
     JSON.stringify(await pag.evaluate(() => window.ESCRITURAS)))
