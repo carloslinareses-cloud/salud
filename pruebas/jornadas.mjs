@@ -141,8 +141,6 @@ try {
   await pag.type('#joEvLugar', LUGAR)
   await pag.type('#joEvParroquia', 'ZZZ Parroquia Prueba')
   await pag.type('#joEvDietista', 'ZZZ Magaly Medina')
-  await pag.type('#joEvAutoridad', 'ZZZ Autoridad Prueba')
-  await pag.type('#joEvTrabajador', 'ZZZ Luis Solorzano')
   await pag.type('#joEvFirmaTxt', 'ZZZ Yuris')
   await pag.click('#joEvFirmaAgregar')
   await pag.type('#joEvFirmaTxt', 'ZZZ Juan')
@@ -161,7 +159,7 @@ try {
   prueba('al crearla, entra directo a su detalle', detInicial.includes(LUGAR), detInicial.slice(0, 120))
   prueba('empieza en cero -nada escrito a mano-',
     /0\s*pacientes atendidos/i.test(detInicial) && /0\s*medicamentos entregados/i.test(detInicial), detInicial.slice(0, 300))
-  prueba('se ve el equipo que se anotó', detInicial.includes('ZZZ Magaly Medina'), detInicial.slice(0, 400))
+  prueba('se ve el responsable de la jornada', detInicial.includes('Responsable de la Jornada') && detInicial.includes('ZZZ Magaly Medina'), detInicial.slice(0, 400))
   prueba('y quién firmó', detInicial.includes('ZZZ Yuris') && detInicial.includes('ZZZ Juan'), detInicial.slice(0, 400))
 
   const evento = await sql(`select id, tipo from farmacia.jornadas_eventos where lugar = '${LUGAR}';`)

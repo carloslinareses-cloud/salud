@@ -295,13 +295,10 @@
       '<label for="' + i('EvLugar') + '">Lugar <span class="opc">(CDI, ambulatorio, comunidad…)</span></label>' +
       '<input id="' + i('EvLugar') + '" type="text" autocomplete="off" placeholder="Ej: CDI de Las Brisas">' +
 
-      '<h3 class="sub-t">Equipo responsable <span class="opc">(opcional)</span></h3>' +
-      '<label for="' + i('EvDietista') + '">Directora</label>' +
-      '<input id="' + i('EvDietista') + '" type="text" autocomplete="off">' +
-      '<label for="' + i('EvAutoridad') + '">Autoridad Única de Salud</label>' +
-      '<input id="' + i('EvAutoridad') + '" type="text" autocomplete="off">' +
-      '<label for="' + i('EvTrabajador') + '">Trabajador Social</label>' +
-      '<input id="' + i('EvTrabajador') + '" type="text" autocomplete="off">' +
+      /* Un solo nombre: quien responde por la jornada. Se guarda en la
+         misma columna de antes (dietista) para no tocar lo ya cargado. */
+      '<label for="' + i('EvDietista') + '">Responsable de la Jornada <span class="opc">(opcional)</span></label>' +
+      '<input id="' + i('EvDietista') + '" type="text" autocomplete="off" placeholder="Nombre y apellido">' +
 
       '<h3 class="sub-t">Quiénes firmaron <span class="opc">(opcional)</span></h3>' +
       '<div class="dos-columnas">' +
@@ -370,9 +367,7 @@
     var d = {
       tipo: tipo, fecha: fecha, lugar: lugar,
       parroquia: t.q('EvParroquia').value.trim() || null,
-      dietista: t.q('EvDietista').value.trim() || null,
-      autoridad_salud: t.q('EvAutoridad').value.trim() || null,
-      trabajador_social: t.q('EvTrabajador').value.trim() || null,
+      dietista: t.q('EvDietista').value.trim() || null,   // Responsable de la Jornada
       firmas: t.firmasForm.slice()
     };
 
@@ -418,7 +413,7 @@
             meds = cifras.meds, ordenMeds = cifras.ordenMeds;
 
         var equipo = [];
-        if (ev.dietista) equipo.push({ rotulo: 'Directora', nombre: ev.dietista });
+        if (ev.dietista) equipo.push({ rotulo: 'Responsable de la Jornada', nombre: ev.dietista });
         if (ev.autoridad_salud) equipo.push({ rotulo: 'Autoridad Única de Salud', nombre: ev.autoridad_salud });
         if (ev.trabajador_social) equipo.push({ rotulo: 'Trabajador Social', nombre: ev.trabajador_social });
 
