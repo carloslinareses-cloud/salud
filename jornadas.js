@@ -296,7 +296,7 @@
       '<input id="' + i('EvLugar') + '" type="text" autocomplete="off" placeholder="Ej: CDI de Las Brisas">' +
 
       '<h3 class="sub-t">Equipo responsable <span class="opc">(opcional)</span></h3>' +
-      '<label for="' + i('EvDietista') + '">Dietista</label>' +
+      '<label for="' + i('EvDietista') + '">Directora</label>' +
       '<input id="' + i('EvDietista') + '" type="text" autocomplete="off">' +
       '<label for="' + i('EvAutoridad') + '">Autoridad Única de Salud</label>' +
       '<input id="' + i('EvAutoridad') + '" type="text" autocomplete="off">' +
@@ -418,7 +418,7 @@
             meds = cifras.meds, ordenMeds = cifras.ordenMeds;
 
         var equipo = [];
-        if (ev.dietista) equipo.push({ rotulo: 'Dietista', nombre: ev.dietista });
+        if (ev.dietista) equipo.push({ rotulo: 'Directora', nombre: ev.dietista });
         if (ev.autoridad_salud) equipo.push({ rotulo: 'Autoridad Única de Salud', nombre: ev.autoridad_salud });
         if (ev.trabajador_social) equipo.push({ rotulo: 'Trabajador Social', nombre: ev.trabajador_social });
 
