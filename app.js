@@ -161,6 +161,11 @@
   function abrirPanel(usuario, perfil) {
     $('vistaAcceso').hidden = true;
     $('vistaPanel').hidden = false;
+    /* El rol queda a la vista de las demás pantallas: hay cosas que solo
+       puede hacer el admin (borrar del catálogo, por ejemplo) y la
+       pantalla tiene que saberlo para no ofrecer lo que la base va a
+       rechazar. El candado de verdad sigue estando en la base. */
+    window.FARMACIA_PERFIL = { rol: perfil.rol, nombre: perfil.nombre || usuario.email };
     $('chipUsuario').textContent = (perfil.nombre || usuario.email) + ' · ' + perfil.rol;
     $('chipUsuario').hidden = false;
     $('btnSalir').hidden = false;

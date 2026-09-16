@@ -71,6 +71,25 @@
     vigente:        { txt: 'Vigente',        cl: 'ok' },
     bien:           { txt: 'Con existencia', cl: 'ok' }
   };
+  /* Borrar del catálogo es cosa del admin (así está puesto en la base).
+     La pantalla lo consulta para no ofrecer lo que va a ser rechazado. */
+  function esAdmin() {
+    return !!(window.FARMACIA_PERFIL && window.FARMACIA_PERFIL.rol === 'admin');
+  }
+
+  /* Los errores de la base, dichos en cristiano. */
+  function enCristiano(e, quePasaba) {
+    var m = String((e && (e.message || e.msg)) || e || '');
+    if (e && e.code === '23505') return 'Ya existe otro igual: ' + quePasaba;
+    if (/permission denied|violates row-level/i.test(m)) {
+      return 'Tu usuario no tiene permiso para eso. Lo puede hacer el administrador.';
+    }
+    if (/violates foreign key|still referenced/i.test(m)) {
+      return 'No se puede: ya tiene movimientos o entregas que dependen de esto.';
+    }
+    return m;
+  }
+
   function sit(s) {
     var m = SITUACION[s] || { txt: s || '', cl: 'gris' };
     return '<span class="sit ' + m.cl + '">' + esc(m.txt) + '</span>';
@@ -803,6 +822,11 @@
               (Number(p.vencido) > 0 ? '<span class="mal"><b>' + num(p.vencido) + '</b> vencidas</span>' : '') +
               '<span><b>' + lotes.length + '</b> ' + (lotes.length === 1 ? 'lote' : 'lotes') + '</span>' +
             '</div>' +
+            '<div class="prod-acciones">' +
+              '<button type="button" class="suave" id="catEditar">Corregir sus datos</button>' +
+              (esAdmin()
+                ? '<button type="button" class="suave malo" id="catBorrar">Borrar del catálogo</button>' : '') +
+            '</div>' +
           '</div>' +
 
           (lotes.length
@@ -811,7 +835,7 @@
               'Así no se parte la existencia en dos.</p>' +
               '<div class="tabla-caja"><table class="tabla"><thead><tr>' +
                 '<th>Lote</th><th>Vence</th><th class="der">Existencia</th>' +
-                '<th>Situación</th><th></th>' +
+                '<th>Situación</th><th class="der">Qué hacer</th>' +
               '</tr></thead><tbody>' +
               lotes.map(function (l, i) {
                 return '<tr><td><b>' + esc(l.lote || 'sin número') + '</b></td>' +
@@ -819,9 +843,15 @@
                   '<td class="der num">' + num(l.existencia) +
                     (l.en_cajas ? '<span class="sub chico">' + esc(l.en_cajas) + '</span>' : '') + '</td>' +
                   '<td>' + sit(l.situacion) + '</td>' +
-                  '<td class="der">' + (l.situacion === 'vencido'
-                    ? '<span class="sub chico">vencido</span>'
-                    : '<button type="button" class="suave" data-suma="' + i + '">Sumar</button>') + '</td></tr>';
+                  '<td class="der"><div class="acciones-lote">' +
+                    (l.situacion === 'vencido'
+                      ? '<span class="sub chico">vencido</span>'
+                      : '<button type="button" class="suave" data-suma="' + i + '">Sumar</button>') +
+                    '<button type="button" class="suave" data-editalote="' + i + '">Corregir</button>' +
+                    '<button type="button" class="suave" data-ajusta="' + i + '">Ajustar</button>' +
+                    (esAdmin() && !(Number(l.existencia) > 0)
+                      ? '<button type="button" class="suave malo" data-borralote="' + i + '">Borrar</button>' : '') +
+                  '</div></td></tr>';
               }).join('') +
               '</tbody></table></div>'
             : '<div class="vacio"><b>Todavía no tiene ningún lote.</b>' +
@@ -838,6 +868,19 @@
         zz.querySelectorAll('[data-suma]').forEach(function (b) {
           b.addEventListener('click', function () { formSumar(p, lotes[+b.dataset.suma]); });
         });
+        zz.querySelectorAll('[data-editalote]').forEach(function (b) {
+          b.addEventListener('click', function () { formEditarLote(p, lotes[+b.dataset.editalote]); });
+        });
+        zz.querySelectorAll('[data-ajusta]').forEach(function (b) {
+          b.addEventListener('click', function () { formAjustar(p, lotes[+b.dataset.ajusta]); });
+        });
+        zz.querySelectorAll('[data-borralote]').forEach(function (b) {
+          b.addEventListener('click', function () { borrarLote(p, lotes[+b.dataset.borralote]); });
+        });
+        var bEditar = document.getElementById('catEditar');
+        if (bEditar) bEditar.addEventListener('click', function () { formEditarProducto(p); });
+        var bBorrar = document.getElementById('catBorrar');
+        if (bBorrar) bBorrar.addEventListener('click', function () { borrarProducto(p, lotes); });
         formLoteNuevo(p, lotes);
 
         /* La vista sube a la ficha y el cursor se pone en el número de
@@ -847,6 +890,215 @@
         var primero = document.getElementById('lCodigo');
         if (primero) primero.focus({ preventScroll: true });
       });
+  }
+
+  /* ================================================================
+     CORREGIR Y BORRAR — el catálogo se mantiene desde aquí
+
+     Lo que se puede corregir a mano son los DATOS (cómo se llama, qué
+     dosis, cómo viene empacado, cuándo vence el lote). La EXISTENCIA no
+     se escribe: se ajusta con un movimiento que dice cuánto y por qué,
+     para que la cuenta siga cuadrando con su historia.
+
+     Borrar solo lo que no tiene historia. Eso lo decide la base, no esta
+     pantalla: aquí se esconden los botones que van a ser rechazados,
+     pero el candado de verdad está allá.
+  ================================================================ */
+
+  var CATEGORIAS = [
+    ['medicamento', 'Medicamento'],
+    ['insumo', 'Insumo'],
+    ['material_medico_quirurgico', 'Material médico quirúrgico'],
+    ['otro', 'Otro']
+  ];
+
+  function formEditarProducto(p) {
+    var z = document.getElementById('catForm');
+    if (!z) return;
+    z.innerHTML =
+      '<div class="elegido"><div><b>Corregir los datos de este medicamento</b>' +
+      '<span>Cambia cómo se llama o cómo viene empacado. La existencia no se toca aquí.</span></div>' +
+      '<button type="button" class="quitar" id="epCancelar">Cancelar</button></div>' +
+      '<label for="epNombre">Nombre</label>' +
+      '<input id="epNombre" type="text" autocomplete="off" value="' + esc(p.producto || '') + '">' +
+      '<div class="dos-columnas">' +
+        '<div><label for="epDosis">Dosificación <span class="opc">(opcional)</span></label>' +
+          '<input id="epDosis" type="text" autocomplete="off" placeholder="Ej: 500MG" value="' + esc(p.dosificacion || '') + '"></div>' +
+        '<div><label for="epPres">Presentación <span class="opc">(opcional)</span></label>' +
+          '<input id="epPres" type="text" autocomplete="off" placeholder="Ej: TABLETA" value="' + esc(p.presentacion || '') + '"></div>' +
+      '</div>' +
+      '<div class="dos-columnas">' +
+        '<div><label for="epCat">Qué es</label><select id="epCat">' +
+          CATEGORIAS.map(function (c) {
+            return '<option value="' + c[0] + '"' + (p.categoria === c[0] ? ' selected' : '') + '>' + c[1] + '</option>';
+          }).join('') + '</select></div>' +
+        '<div><label for="epMinimo">Avisar cuando queden menos de <span class="opc">(0 = no avisar)</span></label>' +
+          '<input id="epMinimo" type="number" min="0" step="1" value="' + (Number(p.stock_minimo) || 0) + '"></div>' +
+      '</div>' +
+      '<div class="dos-columnas">' +
+        '<div><label for="epEmpaque">Cómo viene empacado <span class="opc">(opcional)</span></label>' +
+          '<input id="epEmpaque" type="text" autocomplete="off" placeholder="caja, frasco, blíster" value="' + esc(p.empaque || '') + '"></div>' +
+        '<div><label for="epPorEmpaque">Cuántas unidades trae <span class="opc">(vacío = suelto)</span></label>' +
+          '<input id="epPorEmpaque" type="number" min="2" step="1" value="' + (p.unidades_por_empaque > 1 ? p.unidades_por_empaque : '') + '"></div>' +
+      '</div>' +
+      '<p class="sub chico">Si cambias cuántas unidades trae el empaque, la existencia sigue siendo la misma: ' +
+      'cambia solo cómo se lee en cajas.</p>' +
+      '<div class="botonera"><button type="button" class="principal" id="epGuardar">Guardar los cambios</button></div>';
+
+    document.getElementById('epCancelar').addEventListener('click', function () { verProducto(p); });
+    document.getElementById('epGuardar').addEventListener('click', function () {
+      var nombre = document.getElementById('epNombre').value.trim().replace(/\s+/g, ' ');
+      if (nombre.length < 3) { aviso('warn', 'El nombre no puede quedar así de corto.'); return; }
+      var porEmp = parseInt(document.getElementById('epPorEmpaque').value, 10);
+      if (document.getElementById('epPorEmpaque').value && (!porEmp || porEmp < 2)) {
+        aviso('warn', 'Las unidades por empaque tienen que ser 2 o más. Si se cuenta suelto, déjalo vacío.');
+        return;
+      }
+      var cambio = {
+        nombre: nombre,
+        dosificacion: document.getElementById('epDosis').value.trim() || null,
+        presentacion: document.getElementById('epPres').value.trim() || null,
+        categoria: document.getElementById('epCat').value,
+        stock_minimo: Math.max(0, parseInt(document.getElementById('epMinimo').value, 10) || 0),
+        empaque: document.getElementById('epEmpaque').value.trim() || null,
+        unidades_por_empaque: porEmp > 1 ? porEmp : null
+      };
+      var btn = this; btn.disabled = true; btn.textContent = 'Guardando…';
+      sb.from('productos').update(cambio).eq('id', p.producto_id).then(function (r) {
+        if (r.error) throw r.error;
+        aviso('ok', 'Listo: ahora se llama ' + nombre + '.');
+        cat.filas = [];
+        verProducto({ producto_id: p.producto_id, producto: nombre });
+      }).catch(function (e) {
+        aviso('bad', 'No se pudo guardar: ' +
+          enCristiano(e, 'ya hay un medicamento con ese nombre, esa dosificación y esa presentación.'));
+        btn.disabled = false; btn.textContent = 'Guardar los cambios';
+      });
+    });
+  }
+
+  function formEditarLote(p, l) {
+    var z = document.getElementById('catForm');
+    if (!z) return;
+    z.innerHTML =
+      '<div class="elegido"><div><b>Corregir el lote ' + esc(l.lote || 'sin número') + '</b>' +
+      '<span>' + esc(p.producto) + ' · ahora hay ' + num(l.existencia) + ' unidades</span></div>' +
+      '<button type="button" class="quitar" id="elCancelar">Cancelar</button></div>' +
+      '<label for="elCodigo">Número de lote <span class="opc">(vacío si la caja no lo trae)</span></label>' +
+      '<input id="elCodigo" type="text" autocomplete="off" value="' + esc(l.lote || '') + '">' +
+      '<label for="elVence">Fecha de vencimiento</label>' +
+      '<input id="elVence" type="date" value="' + esc(l.vence ? String(l.vence).slice(0, 10) : '') + '">' +
+      '<p class="sub chico">La existencia no se cambia aquí: para eso está <b>Ajustar</b>, que deja dicho cuánto y por qué.</p>' +
+      '<div class="botonera"><button type="button" class="principal" id="elGuardar">Guardar los cambios</button></div>';
+
+    document.getElementById('elCancelar').addEventListener('click', function () { verProducto(p); });
+    document.getElementById('elGuardar').addEventListener('click', function () {
+      var cod = document.getElementById('elCodigo').value.trim() || null;
+      var ven = document.getElementById('elVence').value || null;
+      var btn = this; btn.disabled = true; btn.textContent = 'Guardando…';
+      sb.from('lotes').update({ codigo: cod, vence: ven }).eq('id', l.lote_id).then(function (r) {
+        if (r.error) throw r.error;
+        aviso('ok', 'Lote corregido.');
+        verProducto(p);
+      }).catch(function (e) {
+        aviso('bad', 'No se pudo guardar: ' +
+          enCristiano(e, 'este medicamento ya tiene un lote con ese número y esa fecha. Súmale a ese en vez de crear otro.'));
+        btn.disabled = false; btn.textContent = 'Guardar los cambios';
+      });
+    });
+  }
+
+  /* Ajustar: la existencia no se escribe encima, se mueve. Se anota la
+     diferencia y el motivo, y así la cuenta sigue teniendo historia. */
+  function formAjustar(p, l) {
+    var z = document.getElementById('catForm');
+    if (!z) return;
+    var hay = Math.round(Number(l.existencia) || 0);
+    z.innerHTML =
+      '<div class="elegido"><div><b>Ajustar la existencia del lote ' + esc(l.lote || 'sin número') + '</b>' +
+      '<span>' + esc(p.producto) + ' · el sistema dice que hay <b>' + num(hay) + '</b></span></div>' +
+      '<button type="button" class="quitar" id="ajCancelar">Cancelar</button></div>' +
+      '<label for="ajReal">Cuántas hay de verdad, contadas</label>' +
+      '<input id="ajReal" type="number" min="0" step="1" inputmode="numeric" value="' + hay + '">' +
+      '<p class="sub chico" id="ajDif"></p>' +
+      '<label for="ajMotivo">Por qué no cuadraba</label>' +
+      '<input id="ajMotivo" type="text" autocomplete="off" maxlength="200" ' +
+        'placeholder="Ej: se contó de nuevo el estante, se rompió un frasco, estaba mal cargado">' +
+      '<div class="botonera"><button type="button" class="principal" id="ajGuardar">Guardar el ajuste</button></div>';
+
+    var iReal = document.getElementById('ajReal');
+    var pinta = function () {
+      var real = parseInt(iReal.value, 10);
+      var d = document.getElementById('ajDif');
+      if (!(real >= 0)) { d.innerHTML = ''; return; }
+      var dif = real - hay;
+      d.innerHTML = dif === 0
+        ? '<span class="sub chico">Es lo mismo que dice el sistema: no hay nada que ajustar.</span>'
+        : (dif > 0
+            ? '<span class="ok-txt">Se van a SUMAR ' + num(dif) + ' unidades.</span>'
+            : '<span class="mal">Se van a QUITAR ' + num(-dif) + ' unidades.</span>');
+    };
+    iReal.addEventListener('input', pinta);
+    pinta();
+
+    document.getElementById('ajCancelar').addEventListener('click', function () { verProducto(p); });
+    document.getElementById('ajGuardar').addEventListener('click', function () {
+      var real = parseInt(iReal.value, 10);
+      var motivo = document.getElementById('ajMotivo').value.trim();
+      if (!(real >= 0)) { aviso('warn', 'Escribe cuántas hay de verdad.'); return; }
+      var dif = real - hay;
+      if (dif === 0) { aviso('warn', 'Ese es el mismo número que ya tiene: no hay nada que ajustar.'); return; }
+      if (motivo.length < 4) { aviso('warn', 'Escribe por qué no cuadraba. Sin eso, mañana nadie sabe qué pasó.'); return; }
+      if (!window.confirm((dif > 0 ? 'Sumar ' + dif : 'Quitar ' + (-dif)) + ' unidades de ' +
+          p.producto + '.\n\nQueda anotado con tu nombre y no se puede deshacer. ¿Seguro?')) return;
+      var btn = this; btn.disabled = true; btn.textContent = 'Guardando…';
+      sb.from('movimientos').insert({
+        lote_id: l.lote_id, tipo: 'ajuste', cantidad: dif,
+        motivo: 'Ajuste: ' + motivo, origen: 'sistema'
+      }).then(function (r) {
+        if (r.error) throw r.error;
+        aviso('ok', 'Ajustado: ahora el sistema dice ' + num(real) + ' unidades.');
+        verProducto(p);
+      }).catch(function (e) {
+        aviso('bad', 'No se pudo ajustar: ' + enCristiano(e, ''));
+        btn.disabled = false; btn.textContent = 'Guardar el ajuste';
+      });
+    });
+  }
+
+  function borrarLote(p, l) {
+    if (Number(l.existencia) > 0) {
+      aviso('warn', 'Ese lote todavía tiene existencia. Ajústala a cero o dale de baja, que deja constancia.');
+      return;
+    }
+    if (!window.confirm('¿Borrar el lote ' + (l.lote || 'sin número') + ' de ' + p.producto + '?\n\n' +
+        'Solo se puede si nunca tuvo movimientos. Si los tuvo, la base lo va a impedir.')) return;
+    sb.from('lotes').delete().eq('id', l.lote_id).then(function (r) {
+      if (r.error) throw r.error;
+      aviso('ok', 'Lote borrado.');
+      verProducto(p);
+    }).catch(function (e) {
+      aviso('bad', 'No se pudo borrar: ' + enCristiano(e, ''));
+    });
+  }
+
+  function borrarProducto(p, lotes) {
+    if ((lotes || []).length) {
+      aviso('warn', 'Todavía tiene lotes. Un medicamento con historia no se borra: se corrige o se le da de baja a sus lotes.');
+      return;
+    }
+    if (!window.confirm('¿Borrar ' + p.producto + ' del catálogo?\n\n' +
+        'Solo se puede si nunca tuvo lotes ni lo tiene nadie en su tratamiento. No se puede deshacer.')) return;
+    sb.from('productos').delete().eq('id', p.producto_id).then(function (r) {
+      if (r.error) throw r.error;
+      aviso('ok', p.producto + ' se borró del catálogo.');
+      document.getElementById('catDetalle').innerHTML = '';
+      cat.modo = 'lista'; cat.filas = [];
+      cargarCatalogo();
+    }).catch(function (e) {
+      aviso('bad', 'No se pudo borrar: ' + enCristiano(e,
+        'ese medicamento ya tiene historia (lotes, entregas o tratamientos). No se borra: se corrige.'));
+    });
   }
 
   /* ---------- sumar a un lote que ya existe ---------- */
@@ -1623,6 +1875,14 @@
       });
     });
   }
+
+  /* Se expone para las pruebas: abre la ficha de un medicamento sin tener
+     que navegar por toda la pantalla. No lo usa la aplicación. */
+  window.INVENTARIO_VER_PRODUCTO = function (p) {
+    pestana = 'catalogo';
+    verCatalogo();
+    setTimeout(function () { verProducto(p); }, 0);
+  };
 
   window.PANTALLA_INVENTARIO = function (cliente, contenedor) {
     sb = cliente; ancla = contenedor; pestana = 'cargar';

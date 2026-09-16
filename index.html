@@ -664,6 +664,13 @@ button.deshacer:disabled{opacity:.6; cursor:not-allowed}
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .ok-txt{color:var(--ok-ink); font-weight:700}
 
+/* ---------- mantener el catalogo: corregir, ajustar, borrar ---------- */
+.prod-acciones{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.acciones-lote{display:flex; flex-wrap:wrap; gap:6px; justify-content:flex-end}
+.acciones-lote button{padding:6px 10px; min-height:34px; font-size:12.5px}
+button.suave.malo{color:var(--bad-ink); border-color:var(--bad-line)}
+button.suave.malo:hover{background:var(--bad-bg)}
+
 /* ---------- jornadas: elegir el tratamiento del inventario ---------- */
 .trat-ayuda{margin-top:8px; display:grid; gap:8px}
 .trat-barra{display:flex; flex-wrap:wrap; align-items:center; gap:8px}
@@ -1053,9 +1060,9 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="dashboard.js?v=20260914g"></script>
 <script src="despacho.js?v=20260914g"></script>
 <script src="insumos.js?v=20260916b"></script>
-<script src="inventario.js?v=20260915i"></script>
+<script src="inventario.js?v=20260916g"></script>
 <script src="admin.js?v=20260914g"></script>
 <script src="asistencia.js?v=20260914g"></script>
-<script src="app.js?v=20260914g"></script>
+<script src="app.js?v=20260916g"></script>
 </body>
 </html>
