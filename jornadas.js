@@ -88,7 +88,7 @@
   var CAMPOS = 'id,evento_id,conjunto,hoja_origen,item,fecha,nombre,edad_texto,sexo,cedula,' +
                'telefono,direccion,tratamiento,recipe,estado,motivo_revision';
   var CAMPOS_EVENTO = 'id,tipo,fecha,lugar,parroquia,dietista,autoridad_salud,trabajador_social,' +
-                      'firmas,creado_por_nombre,creado_en';
+                      'comuna,comunidad,firmas,creado_por_nombre,creado_en';
   var CAMPOS_EVENTO_LISTA = CAMPOS_EVENTO + ',pacientes,recipes';
 
   /* ================================================================ */
@@ -289,7 +289,7 @@
         '<div><label for="' + i('EvFecha') + '">Fecha</label>' +
           '<input id="' + i('EvFecha') + '" type="date" value="' + esc(hoyEs()) + '"></div>' +
         '<div><label for="' + i('EvParroquia') + '">Parroquia <span class="opc">(opcional)</span></label>' +
-          '<input id="' + i('EvParroquia') + '" type="text" autocomplete="off"></div>' +
+          '<select id="' + i('EvParroquia') + '"></select></div>' +
       '</div>' +
 
       '<label for="' + i('EvLugar') + '">Lugar <span class="opc">(CDI, ambulatorio, comunidad…)</span></label>' +
@@ -297,6 +297,13 @@
 
       /* Un solo nombre: quien responde por la jornada. Se guarda en la
          misma columna de antes (dietista) para no tocar lo ya cargado. */
+      '<div class="dos-columnas">' +
+        '<div><label for="' + i('EvComuna') + '">Comuna <span class="opc">(opcional)</span></label>' +
+          '<select id="' + i('EvComuna') + '"></select></div>' +
+        '<div><label for="' + i('EvComunidad') + '">Comunidad <span class="opc">(opcional)</span></label>' +
+          '<select id="' + i('EvComunidad') + '"></select></div>' +
+      '</div>' +
+
       '<label for="' + i('EvDietista') + '">Responsable de la Jornada <span class="opc">(opcional)</span></label>' +
       '<input id="' + i('EvDietista') + '" type="text" autocomplete="off" placeholder="Nombre y apellido">' +
 
@@ -313,8 +320,45 @@
     });
 
 
+    t.llenarTerritorio();
     t.q('EvVolver').addEventListener('click', function () { t.modoEv = 'lista'; t.pintar(); });
     t.q('EvGuardar').addEventListener('click', function () { t.guardarEvento(); });
+  };
+
+  /* El territorio del municipio (parroquias, comunas y comunidades) sale
+     del mismo archivo que usa la Sala Situacional: así se elige de una
+     lista ordenada y nadie lo escribe distinto cada vez. */
+  Jornadas.prototype.llenarTerritorio = function () {
+    var t = this;
+    var T = window.TERRITORIO && window.TERRITORIO.comunidades;
+    var selP = t.q('EvParroquia'), selCo = t.q('EvComuna'), selCd = t.q('EvComunidad');
+    if (!selP || !selCo || !selCd) return;
+    if (!T) {   // si el archivo no cargó, al menos no se rompe nada
+      [selP, selCo, selCd].forEach(function (s) { s.innerHTML = '<option value="">(no se pudo cargar la lista)</option>'; });
+      return;
+    }
+    var lista = Object.keys(T).map(function (k) { return T[k]; }).filter(function (c) { return c.activo !== false; });
+    var opciones = function (sel, valores, vacio) {
+      sel.innerHTML = '<option value="">' + vacio + '</option>' +
+        valores.map(function (v) { return '<option value="' + esc(v) + '">' + esc(v) + '</option>'; }).join('');
+    };
+    var unicos = function (arr) { return arr.filter(Boolean).filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(); };
+
+    opciones(selP, unicos(lista.map(function (c) { return c.parroquia; })), 'Elige la parroquia');
+    var pintarComunas = function () {
+      var p = selP.value;
+      var dentro = lista.filter(function (c) { return !p || c.parroquia === p; });
+      opciones(selCo, unicos(dentro.map(function (c) { return c.circuito_comunal; })), p ? 'Elige la comuna' : 'Elige primero la parroquia');
+      pintarComunidades();
+    };
+    var pintarComunidades = function () {
+      var p = selP.value, co = selCo.value;
+      var dentro = lista.filter(function (c) { return (!p || c.parroquia === p) && (!co || c.circuito_comunal === co); });
+      opciones(selCd, unicos(dentro.map(function (c) { return c.nombre; })), co ? 'Elige la comunidad' : 'Elige primero la comuna');
+    };
+    selP.addEventListener('change', pintarComunas);
+    selCo.addEventListener('change', pintarComunidades);
+    pintarComunas();
   };
 
   Jornadas.prototype.pintarFirmasForm = function () {
@@ -355,7 +399,9 @@
 
     var d = {
       tipo: tipo, fecha: fecha, lugar: lugar,
-      parroquia: t.q('EvParroquia').value.trim() || null,
+      parroquia: t.q('EvParroquia').value || null,
+      comuna: t.q('EvComuna').value || null,
+      comunidad: t.q('EvComunidad').value || null,
       dietista: t.q('EvDietista').value.trim() || null,   // Responsable de la Jornada
       firmas: []
     };
@@ -413,7 +459,9 @@
             '<button type="button" class="principal" id="' + i('DetAgregar') + '">+ Agregar persona</button>' +
           '</div>' +
           '<p class="sub">' + [corta(ev.fecha), CONJUNTOS[ev.tipo] || ev.tipo,
-            ev.parroquia ? 'Parroquia ' + ev.parroquia : null].filter(Boolean).map(esc).join(' · ') + '</p>' +
+            ev.parroquia ? 'Parroquia ' + ev.parroquia : null,
+            ev.comuna ? 'Comuna ' + ev.comuna : null,
+            ev.comunidad ? 'Comunidad ' + ev.comunidad : null].filter(Boolean).map(esc).join(' · ') + '</p>' +
 
           (equipo.length ? '<div class="renglones">' + equipo.map(function (q) {
             return '<div class="renglon"><div class="que"><b>' + esc(q.rotulo) + '</b>' +
