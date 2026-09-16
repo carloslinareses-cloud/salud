@@ -6,7 +6,7 @@
        fijo mientras se hace scroll.
      · Que "Jornadas" abre la lista de EVENTOS (no de personas), con su
        botón de "+ Nueva jornada".
-     · Que se crea una jornada con su equipo y sus firmas, SIN pedir los
+     · Que se crea una jornada con su responsable, SIN pedir los
        tres totales.
      · Que al cargarle personas -incluida si llevaron récipe- los tres
        totales (atendidos, medicamentos, récipes) se cuentan solos, sin
@@ -141,12 +141,7 @@ try {
   await pag.type('#joEvLugar', LUGAR)
   await pag.type('#joEvParroquia', 'ZZZ Parroquia Prueba')
   await pag.type('#joEvDietista', 'ZZZ Magaly Medina')
-  await pag.type('#joEvFirmaTxt', 'ZZZ Yuris')
-  await pag.click('#joEvFirmaAgregar')
-  await pag.type('#joEvFirmaTxt', 'ZZZ Juan')
-  await pag.click('#joEvFirmaAgregar')
-  await pag.waitForFunction(() => document.querySelectorAll('#joEvFirmas button').length === 2, { timeout: 10000 })
-  prueba('se pueden agregar firmas antes de guardar', true)
+  prueba('el formulario ya no pide firmas ni los tres cargos', !(await pag.$('#joEvFirmaTxt')) && !(await pag.$('#joEvAutoridad')) && !(await pag.$('#joEvTrabajador')))
 
   await pag.click('#joEvGuardar')
   await pag.waitForFunction(
@@ -160,7 +155,7 @@ try {
   prueba('empieza en cero -nada escrito a mano-',
     /0\s*pacientes atendidos/i.test(detInicial) && /0\s*medicamentos entregados/i.test(detInicial), detInicial.slice(0, 300))
   prueba('se ve el responsable de la jornada', detInicial.includes('Responsable de la Jornada') && detInicial.includes('ZZZ Magaly Medina'), detInicial.slice(0, 400))
-  prueba('y quién firmó', detInicial.includes('ZZZ Yuris') && detInicial.includes('ZZZ Juan'), detInicial.slice(0, 400))
+  prueba('y ya no aparecen firmas', !/firm/i.test(detInicial), detInicial.slice(0, 200))
 
   const evento = await sql(`select id, tipo from farmacia.jornadas_eventos where lugar = '${LUGAR}';`)
   prueba('quedó en la base con el tipo elegido (ruta materna)', evento[0]?.tipo === 'ruta_materna', JSON.stringify(evento[0]))

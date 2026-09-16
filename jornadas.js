@@ -300,12 +300,6 @@
       '<label for="' + i('EvDietista') + '">Responsable de la Jornada <span class="opc">(opcional)</span></label>' +
       '<input id="' + i('EvDietista') + '" type="text" autocomplete="off" placeholder="Nombre y apellido">' +
 
-      '<h3 class="sub-t">Quiénes firmaron <span class="opc">(opcional)</span></h3>' +
-      '<div class="dos-columnas">' +
-        '<input id="' + i('EvFirmaTxt') + '" type="text" autocomplete="off" placeholder="Nombre de quien firmó">' +
-        '<button type="button" class="secundario" id="' + i('EvFirmaAgregar') + '">Agregar</button>' +
-      '</div>' +
-      '<div class="chips" id="' + i('EvFirmas') + '"></div>' +
 
       '<div class="pie-form">' +
         '<button type="button" class="principal" id="' + i('EvGuardar') + '">Crear la jornada</button>' +
@@ -318,11 +312,6 @@
       });
     });
 
-    t.pintarFirmasForm();
-    t.q('EvFirmaAgregar').addEventListener('click', function () { t.agregarFirmaForm(); });
-    t.q('EvFirmaTxt').addEventListener('keydown', function (ev) {
-      if (ev.key === 'Enter') { ev.preventDefault(); t.agregarFirmaForm(); }
-    });
 
     t.q('EvVolver').addEventListener('click', function () { t.modoEv = 'lista'; t.pintar(); });
     t.q('EvGuardar').addEventListener('click', function () { t.guardarEvento(); });
@@ -368,7 +357,7 @@
       tipo: tipo, fecha: fecha, lugar: lugar,
       parroquia: t.q('EvParroquia').value.trim() || null,
       dietista: t.q('EvDietista').value.trim() || null,   // Responsable de la Jornada
-      firmas: t.firmasForm.slice()
+      firmas: []
     };
 
     var btn = t.q('EvGuardar');
