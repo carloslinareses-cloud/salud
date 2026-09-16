@@ -664,6 +664,24 @@ button.deshacer:disabled{opacity:.6; cursor:not-allowed}
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .ok-txt{color:var(--ok-ink); font-weight:700}
 
+/* ---------- jornadas: elegir el tratamiento del inventario ---------- */
+.trat-ayuda{margin-top:8px; display:grid; gap:8px}
+.trat-barra{display:flex; flex-wrap:wrap; align-items:center; gap:8px}
+.trat-barra .sub{margin:0; flex:1 1 220px}
+.trat-picker{margin:0}
+.trat-chips{display:flex; flex-wrap:wrap; gap:7px}
+.trat-chip{display:inline-flex; align-items:center; gap:2px; padding:4px 4px 4px 11px;
+  border-radius:999px; border:1px solid var(--ok-line); background:var(--ok-bg); color:var(--ok-ink);
+  font-size:13px; font-weight:750}
+.trat-chip b{font-weight:750; margin-right:4px}
+.trat-chip em{font-style:normal; font-weight:800; font-variant-numeric:tabular-nums;
+  min-width:20px; text-align:center}
+.trat-chip button{width:26px; height:26px; flex:none; display:grid; place-items:center;
+  font:inherit; font-size:14px; font-weight:800; line-height:1; cursor:pointer;
+  border-radius:50%; border:0; background:transparent; color:inherit}
+.trat-chip button:hover{background:rgba(0,0,0,.08)}
+.trat-chip .trat-quitar{color:var(--bad-ink); margin-left:2px}
+
 /* ---------- el tratamiento del paciente, para tocarlo ---------- */
 .trat-lista{display:flex; flex-wrap:wrap; gap:7px; margin-top:9px}
 .trat-med{display:flex; flex-direction:column; align-items:flex-start; gap:2px;
@@ -1022,7 +1040,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
      navegador se queda con la version vieja hasta 10 minutos y la gente
      ve el sitio a medias. Version actual: 20260912a -->
 <script src="config.js?v=20260914g"></script>
-<script src="comunes.js?v=20260915i"></script>
+<script src="comunes.js?v=20260916g"></script>
 <script src="logos-base64.js?v=20260914g"></script>
 <script src="pdf-header.js?v=20260914g"></script>
 <script src="reportes.js?v=20260914g"></script>
@@ -1030,7 +1048,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="tablero-entregas.js?v=20260914g"></script>
 <script src="personas.js?v=20260914g"></script>
 <script src="territorio-data.js?v=20260916f"></script>
-<script src="jornadas.js?v=20260916f"></script>
+<script src="jornadas.js?v=20260916g"></script>
 <script src="centros.js?v=20260914g"></script>
 <script src="dashboard.js?v=20260914g"></script>
 <script src="despacho.js?v=20260914g"></script>

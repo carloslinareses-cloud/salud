@@ -299,12 +299,91 @@
                  .replace(/\s+/g, ' ').trim();
         // Se quitan los adornos que no son nombre de nada.
         x = x.replace(/^[-+.*·•]+/, '').replace(/[-+.*·•]+$/, '').trim();
+        // Si trae cuántos se entregaron, el nombre va sin ese número: así
+        // "SUERO ORAL X2" y "SUERO ORAL" siguen contando como lo mismo.
+        x = F.conCantidad(x).nombre;
         if (x.length < 3) return;
         var clave = F.sinAcentos(x);
         if (vistos[clave]) return;
         vistos[clave] = 1;
         salida.push(x);
       });
+    });
+    return salida;
+  };
+
+  /* ---------------------------------------------------------------
+     Cuántos se entregaron de cada cosa
+
+     En las jornadas hace falta anotar la cantidad junto al medicamento.
+     Se escribe pegada al final: "ACETAMINOFEN SUS X2". Se leen también
+     las formas que ya usa la gente: "x 2", "(2)" y "X2" en minúscula.
+
+     Solo se toma como cantidad lo que va AL FINAL y detrás de una X o
+     entre paréntesis. Nunca un número suelto: "VITAMINA B12" o
+     "LOSARTAN 50MG" son nombres, no cantidades.
+  --------------------------------------------------------------- */
+  var CANTIDAD_FINAL = /\s*(?:[x×]\s*(\d{1,4})|\((\d{1,4})\))\s*$/i;
+
+  F.conCantidad = function (pieza) {
+    var t = String(pieza == null ? '' : pieza).replace(/\s+/g, ' ').trim();
+    var m = t.match(CANTIDAD_FINAL);
+    if (!m) return { nombre: t, cantidad: null };
+    var n = parseInt(m[1] || m[2], 10);
+    var nombre = t.replace(CANTIDAD_FINAL, '').trim();
+    /* Una medida NO es una cantidad: en "GASA 3X3" o "APOSITO 10X10" la X
+       va PEGADA entre dos números y es el tamaño. Gasa 3x3 no es lo mismo
+       que gasa 5x5, así que eso no se toca. Con espacio delante sí es
+       cantidad, y por eso "GASA 5X5 X2" son dos gasas de 5x5. */
+    var pegadaANumero = !/^\s/.test(m[0]) && /\d$/.test(t.slice(0, t.length - m[0].length));
+    if (m[1] != null && pegadaANumero) return { nombre: t, cantidad: null };
+    /* Si al quitar el número no queda nombre, es que el número ERA el
+       nombre: se devuelve tal cual, sin inventar. */
+    if (nombre.length < 3 || !n) return { nombre: t, cantidad: null };
+    return { nombre: nombre, cantidad: n };
+  };
+
+  /* Cómo se escribe: sin cantidad no se pone nada (queda como siempre). */
+  F.conCantidadTexto = function (nombre, cantidad) {
+    var n = parseInt(cantidad, 10);
+    return (n > 0 ? String(nombre).trim() + ' X' + n : String(nombre).trim());
+  };
+
+  /* Lo mismo que piezasTratamiento, pero diciendo cuántos de cada uno.
+     Lo repetido se suma: "SUERO ORAL / SUERO ORAL" son dos. */
+  F.piezasTratamientoCant = function (textos) {
+    var lista = Array.isArray(textos) ? textos : [textos];
+    var orden = [], por = {};
+    lista.forEach(function (t) {
+      if (t == null || t === '') return;
+      var crudas = F.piezasSinUnir(t);
+      crudas.forEach(function (cruda) {
+        var c = F.conCantidad(cruda);
+        if (c.nombre.length < 3) return;
+        var clave = F.sinAcentos(c.nombre);
+        if (!por[clave]) { por[clave] = { nombre: c.nombre, cantidad: 0, anotada: false }; orden.push(clave); }
+        por[clave].cantidad += (c.cantidad || 1);
+        if (c.cantidad) por[clave].anotada = true;
+      });
+    });
+    return orden.map(function (k) { return por[k]; });
+  };
+
+  /* Las piezas tal como vienen, SIN quitar repetidos ni cantidades.
+     La usa piezasTratamientoCant para poder sumar. */
+  F.piezasSinUnir = function (texto) {
+    var s = String(texto)
+      .replace(/(\d)\s*,\s*(\d)/g, '$1' + COMA + '$2')
+      .replace(/(\d)\s*\/\s*(\d)/g, '$1' + BARRA + '$2')
+      .replace(/(\d\s*(?:MG|ML|MCG|UI|CC|GR?|L)\s*)\/(\s*\d*\s*(?:MG|ML|MCG|UI|CC|GR?|L)\b)/gi,
+               '$1' + BARRA + '$2');
+    var salida = [];
+    s.split(/[\/,;]+/).forEach(function (p) {
+      var x = p.replace(new RegExp(COMA, 'g'), ',')
+               .replace(new RegExp(BARRA, 'g'), '/')
+               .replace(/\s+/g, ' ').trim()
+               .replace(/^[-+.*·•]+/, '').replace(/[-+.*·•]+$/, '').trim();
+      if (x) salida.push(x);
     });
     return salida;
   };

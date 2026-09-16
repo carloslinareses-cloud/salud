@@ -364,6 +364,55 @@ prueba('ampersand',   F.esc('A & B'),    'A &amp; B');
 prueba('nulo',        F.esc(null),       '');
 prueba('nombre real', F.esc("O'BRIEN"),  'O&#39;BRIEN');
 
+/* ================================================================
+   CUÁNTOS SE ENTREGARON (jornadas)
+
+   En las jornadas hay que anotar la cantidad junto al medicamento.
+   Va pegada al final ("SUERO ORAL X2") y NO se puede confundir con
+   los números que son parte del nombre: VITAMINA B12, LOSARTAN 50MG.
+================================================================ */
+grupo('Cantidad en el tratamiento');
+prueba('X pegada',        F.conCantidad('SUERO ORAL X2'),      { nombre: 'SUERO ORAL', cantidad: 2 });
+prueba('x minuscula',     F.conCantidad('SUERO ORAL x2'),      { nombre: 'SUERO ORAL', cantidad: 2 });
+prueba('con espacio',     F.conCantidad('ACETAMINOFEN X 10'),  { nombre: 'ACETAMINOFEN', cantidad: 10 });
+prueba('entre parentesis', F.conCantidad('IBUPROFENO (3)'),    { nombre: 'IBUPROFENO', cantidad: 3 });
+prueba('sin cantidad',    F.conCantidad('AMOXICILINA'),        { nombre: 'AMOXICILINA', cantidad: null });
+prueba('NO es cantidad: dosis', F.conCantidad('LOSARTAN 50MG'), { nombre: 'LOSARTAN 50MG', cantidad: null });
+prueba('NO es cantidad: B12',   F.conCantidad('VITAMINA B12'),  { nombre: 'VITAMINA B12', cantidad: null });
+prueba('NO es cantidad: JELCO', F.conCantidad('JELCO#22'),      { nombre: 'JELCO#22', cantidad: null });
+prueba('la X en medio no cuenta', F.conCantidad('GASA 3X3'),    { nombre: 'GASA 3X3', cantidad: null });
+prueba('medida 10x10 tampoco',  F.conCantidad('APOSITO 10X10'), { nombre: 'APOSITO 10X10', cantidad: null });
+prueba('medida Y cantidad a la vez', F.conCantidad('GASA 5X5 X2'), { nombre: 'GASA 5X5', cantidad: 2 });
+prueba('gasa 3x3 y gasa 5x5 NO se juntan',
+  F.piezasTratamiento('GASA 3X3 / GASA 5X5'), ['GASA 3X3', 'GASA 5X5']);
+prueba('solo el numero, se deja', F.conCantidad('X5'),          { nombre: 'X5', cantidad: null });
+
+prueba('se escribe con X', F.conCantidadTexto('SUERO ORAL', 2), 'SUERO ORAL X2');
+prueba('sin cantidad no se escribe nada', F.conCantidadTexto('SUERO ORAL', 0), 'SUERO ORAL');
+
+prueba('el nombre para contar va SIN la cantidad',
+  F.piezasTratamiento('ACETAMINOFEN SUS X2 / AMOXICILINA'),
+  ['ACETAMINOFEN SUS', 'AMOXICILINA']);
+prueba('lo mismo con y sin cantidad cuenta una vez',
+  F.piezasTratamiento('SUERO ORAL X2 / SUERO ORAL'),
+  ['SUERO ORAL']);
+
+prueba('lista con cantidades',
+  F.piezasTratamientoCant('ACETAMINOFEN SUS X2 / AMOXICILINA'),
+  [{ nombre: 'ACETAMINOFEN SUS', cantidad: 2, anotada: true },
+   { nombre: 'AMOXICILINA', cantidad: 1, anotada: false }]);
+prueba('lo repetido se suma (asi estaba el excel)',
+  F.piezasTratamientoCant('SUERO ORAL/SUERO ORAL'),
+  [{ nombre: 'SUERO ORAL', cantidad: 2, anotada: false }]);
+prueba('suma lo anotado con lo repetido',
+  F.piezasTratamientoCant('SUERO ORAL X2 / SUERO ORAL'),
+  [{ nombre: 'SUERO ORAL', cantidad: 3, anotada: true }]);
+prueba('no parte las dosis con barra',
+  F.piezasTratamientoCant('DESLORATADINA 0,5MG/ML X3'),
+  [{ nombre: 'DESLORATADINA 0,5MG/ML', cantidad: 3, anotada: true }]);
+prueba('vacio',  F.piezasTratamientoCant(''), []);
+prueba('nulo',   F.piezasTratamientoCant(null), []);
+
 /* ================================================================ */
 console.log('\n' + '='.repeat(58));
 if (mal) {

@@ -727,6 +727,15 @@
 
       '<label for="' + i('Tratamiento') + '">Tratamiento <span class="opc">(opcional)</span></label>' +
       '<input id="' + i('Tratamiento') + '" type="text" autocomplete="off" value="' + esc(x.tratamiento || '') + '">' +
+      '<div class="trat-ayuda">' +
+        '<div class="trat-barra">' +
+          '<button type="button" class="suave chico" id="' + i('TratBuscar') + '">Buscar en el inventario</button>' +
+          '<span class="sub chico">Sirve para sacar el nombre rápido y anotar cuántos se entregaron. ' +
+            '<b>No descuenta del inventario.</b></span>' +
+        '</div>' +
+        '<div id="' + i('TratPicker') + '" class="trat-picker" hidden></div>' +
+        '<div id="' + i('TratChips') + '" class="trat-chips"></div>' +
+      '</div>' +
 
       '<label>¿Se entregó con récipe?</label>' +
       '<div class="chips" id="' + i('Recipe') + '">' +
@@ -768,6 +777,98 @@
     t.q('Guardar').addEventListener('click', function () { t.guardarPersona(x.id || null); });
     var btnBorrar = t.q('Borrar');
     if (btnBorrar) btnBorrar.addEventListener('click', function () { t.borrarPersona(x.id); });
+    t.armarTratamiento();
+  };
+
+  /* ================================================================
+     TRATAMIENTO: elegir del inventario y anotar cuántos se entregaron
+
+     El campo sigue siendo el mismo texto de siempre -se puede escribir
+     a mano, tal como está en el cuaderno-. Esto es solo una ayuda para
+     no teclear el nombre completo y para dejar la cantidad anotada.
+
+     IMPORTANTE: elegir aquí NO mueve el inventario. En las jornadas se
+     reparte de lo que se lleva al sitio, y lo que se descuenta de
+     verdad son las entregas de la farmacia.
+  ================================================================ */
+  Jornadas.prototype.armarTratamiento = function () {
+    var t = this;
+    var campo = t.q('Tratamiento'), chips = t.q('TratChips'), caja = t.q('TratPicker');
+    var boton = t.q('TratBuscar');
+    if (!campo || !chips || !caja || !boton) return;
+    var F = window.FARM;
+    if (!F || !F.piezasTratamientoCant) { boton.hidden = true; return; }
+
+    /* El texto manda: los renglones se vuelven a leer de él cada vez, así
+       lo escrito a mano nunca se pierde. */
+    var leer = function () { return F.piezasTratamientoCant(campo.value); };
+    var escribir = function (lista) {
+      campo.value = lista.map(function (m) {
+        return F.conCantidadTexto(m.nombre, m.cantidad > 1 || m.anotada ? m.cantidad : 0);
+      }).join(' / ');
+      pintar();
+    };
+    var pintar = function () {
+      var lista = leer();
+      chips.innerHTML = lista.length
+        ? lista.map(function (m, k) {
+            return '<span class="trat-chip">' +
+              '<b>' + esc(m.nombre) + '</b>' +
+              '<button type="button" class="trat-menos" data-k="' + k + '" aria-label="Uno menos">−</button>' +
+              '<em>' + (m.cantidad || 1) + '</em>' +
+              '<button type="button" class="trat-mas" data-k="' + k + '" aria-label="Uno más">+</button>' +
+              '<button type="button" class="trat-quitar" data-k="' + k + '" aria-label="Quitar">✕</button>' +
+            '</span>';
+          }).join('')
+        : '';
+    };
+
+    chips.addEventListener('click', function (ev) {
+      var b = ev.target.closest('button[data-k]');
+      if (!b) return;
+      var lista = leer(), k = +b.dataset.k, m = lista[k];
+      if (!m) return;
+      if (b.classList.contains('trat-quitar')) lista.splice(k, 1);
+      else if (b.classList.contains('trat-mas')) { m.cantidad = (m.cantidad || 1) + 1; m.anotada = true; }
+      else if (b.classList.contains('trat-menos')) {
+        m.cantidad = (m.cantidad || 1) - 1;
+        m.anotada = true;
+        if (m.cantidad < 1) lista.splice(k, 1);
+      }
+      escribir(lista);
+    });
+    campo.addEventListener('change', pintar);
+
+    boton.addEventListener('click', function () {
+      caja.hidden = !caja.hidden;
+      boton.textContent = caja.hidden ? 'Buscar en el inventario' : 'Cerrar el buscador';
+      if (caja.hidden || caja.dataset.listo) return;
+      caja.dataset.listo = '1';
+      caja.innerHTML = window.FARMPICK.caja(t.pfx + 'TratMed', 'Medicamento o insumo',
+        'Escribe para buscar en lo que hay cargado…', '');
+      window.FARMPICK.medicinas(t.sb, t.pfx + 'TratMed', function (x) { t.agregarAlTratamiento(x); });
+    });
+
+    pintar();
+  };
+
+  /* Al tocar uno de la lista: si ya estaba, suma uno; si no, entra con 1. */
+  Jornadas.prototype.agregarAlTratamiento = function (x) {
+    var t = this, F = window.FARM;
+    var campo = t.q('Tratamiento');
+    var nombre = String(x.producto || x.texto_original || '').trim();
+    if (!nombre) return;
+    var lista = F.piezasTratamientoCant(campo.value);
+    var ya = null;
+    lista.forEach(function (m) { if (window.FARMPICK.mismo(m.nombre, nombre)) ya = m; });
+    if (ya) { ya.cantidad = (ya.cantidad || 1) + 1; ya.anotada = true; }
+    else lista.push({ nombre: nombre, cantidad: 1, anotada: true });
+    campo.value = lista.map(function (m) {
+      return F.conCantidadTexto(m.nombre, m.cantidad > 1 || m.anotada ? m.cantidad : 0);
+    }).join(' / ');
+    campo.dispatchEvent(new Event('change'));
+    var busca = document.getElementById(t.pfx + 'TratMedBusca');
+    if (busca) { busca.value = ''; busca.focus(); busca.dispatchEvent(new Event('input')); }
   };
 
   Jornadas.prototype.elegido = function (g) {
