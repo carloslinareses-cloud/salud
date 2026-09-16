@@ -984,16 +984,17 @@
       opciones.push({ v: a + '-T3', t: 'JUL–SEP ' + a });
       opciones.push({ v: a + '-T4', t: 'OCT–DIC ' + a });
     }
-    z.innerHTML = '<span class="sub" style="margin-right:6px">Trimestre</span>' + opciones.map(function (o) {
-      var on = (t.trimestre || 'todo') === o.v;
-      return '<button type="button" data-t="' + o.v + '"' + (on ? ' class="on"' : '') + '>' + o.t + '</button>';
-    }).join('');
-    z.querySelectorAll('[data-t]').forEach(function (b) {
-      b.addEventListener('click', function () {
-        t.trimestre = b.dataset.t;
-        z.querySelectorAll('[data-t]').forEach(function (o) { o.classList.toggle('on', o === b); });
-        if (alCambiar) alCambiar();
-      });
+    /* Una lista desplegable, no doce botones: ocupaban media pantalla. */
+    z.innerHTML = '<label for="' + t.id('TrimestreSel') + '">Trimestre</label>' +
+      '<select id="' + t.id('TrimestreSel') + '" data-t="' + esc(t.trimestre || 'todo') + '">' +
+      opciones.map(function (o) {
+        var on = (t.trimestre || 'todo') === o.v;
+        return '<option value="' + esc(o.v) + '"' + (on ? ' selected' : '') + '>' + esc(o.t) + '</option>';
+      }).join('') + '</select>';
+    t.q('TrimestreSel').addEventListener('change', function () {
+      t.trimestre = this.value;
+      this.dataset.t = this.value;
+      if (alCambiar) alCambiar();
     });
   };
 

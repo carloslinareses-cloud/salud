@@ -127,7 +127,9 @@ try {
   await pag.waitForSelector('#inLista', { timeout: 20000 })
   prueba('la hoja control tiene el título', /CONTROL DE INSUMOS ENTREGADOS/.test(await texto('#inZona')))
   prueba('tiene botón de registrar', !!(await pag.$('#inNueva')))
-  prueba('tiene filtro de trimestre', !!(await pag.$('#inTrimestre [data-t="todo"]')))
+  prueba('el trimestre es una lista desplegable (no doce botones)',
+    (await pag.$eval('#inTrimestreSel', e => e.tagName + '|' + e.options.length + '|' + e.value)) === 'SELECT|13|todo' &&
+    (await pag.$$('#inTrimestre button')).length === 0)
   prueba('tiene botón Balance', !!(await pag.$('#inBalance')))
 
   console.log('\n--- 2. Registrar un control con Agregar + ---')
