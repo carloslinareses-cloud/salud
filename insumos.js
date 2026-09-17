@@ -409,6 +409,7 @@
         '<div class="descargas"><button type="button" id="' + i('Balance') + '">Balance</button>' +
         '<button type="button" id="' + i('Excel') + '">Excel</button>' +
         '<button type="button" id="' + i('Pdf') + '">PDF</button></div></div>' +
+      '<p class="sub totales" id="' + i('Totales') + '"></p>' +
       '<div id="' + i('BalanceZona') + '"></div>' +
       '<div id="' + i('Lista') + '" class="lista"></div>' +
       '<div class="botonera" id="' + i('Paginas') + '"></div>';
@@ -516,7 +517,44 @@
       if (r.error) { t.q('Conteo').textContent = ''; t.aviso('bad', 'No se pudo cargar: ' + F().traduceError(r.error)); return; }
       t.filas = r.data || []; t.total = r.count || 0;
       t.pintarLista();
+      t.sumarTodo(mio);
     });
+  };
+
+  /* El total de unidades de TODO lo que se está viendo, no solo de la
+     página. Se piden únicamente las dos columnas de cantidad (no las
+     fichas enteras) y se suman aquí: la base tiene desactivado el sumar
+     por su cuenta, así que esta es la forma de dar el número de verdad. */
+  Insumos.prototype.sumarTodo = function (mio) {
+    var t = this;
+    var qy = t.consulta(false);
+    qy.then(function (r) {
+      if (mio !== t.pedido || !t.q('Conteo')) return;
+      if (r.error) return;
+      var unidades = 0, delExcel = 0, conteo = 0;
+      (r.data || []).forEach(function (e) {
+        conteo++;
+        if (e.suma_cantidades != null) unidades += Number(e.suma_cantidades) || 0;
+        if (e.cantidad_total_excel != null) delExcel += Number(e.cantidad_total_excel) || 0;
+      });
+      t.totales = { unidades: unidades, delExcel: delExcel, conteo: conteo };
+      t.pintarTotales();
+    });
+  };
+
+  Insumos.prototype.pintarTotales = function () {
+    var t = this;
+    var z = t.q('Totales');
+    if (!z) return;
+    var x = t.totales;
+    if (!x) { z.innerHTML = ''; return; }
+    var partes = [];
+    if (x.unidades) partes.push('<b>' + num(x.unidades) + '</b> unidades entregadas');
+    if (x.delExcel) partes.push('<b>' + num(x.delExcel) + '</b> del total que traía el Excel (sin desglosar)');
+    if (x.personas) partes.push('<b>' + num(x.personas) + '</b> personas distintas');
+    z.innerHTML = partes.length
+      ? '<span class="tot-linea">Total de lo que se ve: ' + partes.join(' &middot; ') + '</span>'
+      : '<span class="tot-linea">Ninguna de estas entregas trae cantidad anotada.</span>';
   };
 
   Insumos.prototype.pintarLista = function () {
@@ -946,6 +984,7 @@
         '<div class="descargas"><button type="button" id="' + i('Balance') + '">Balance</button>' +
         '<button type="button" id="' + i('Excel') + '">Excel</button>' +
         '<button type="button" id="' + i('Pdf') + '">PDF</button></div></div>' +
+      '<p class="sub totales" id="' + i('Totales') + '"></p>' +
       '<div id="' + i('BalanceZona') + '"></div>' +
       '<div id="' + i('Lista') + '" class="lista"></div>' +
       '<div class="botonera" id="' + i('Paginas') + '"></div>';
@@ -1007,6 +1046,24 @@
       if (r.error) { t.q('Conteo').textContent = ''; t.aviso('bad', 'No se pudo cargar: ' + F().traduceError(r.error)); return; }
       t.filas = r.data || []; t.total = r.count || 0;
       t.pintarListaControl();
+      t.sumarTodoControl(mio);
+    });
+  };
+
+  /* El total de unidades de TODO lo que se ve en la hoja de control. */
+  Insumos.prototype.sumarTodoControl = function (mio) {
+    var t = this;
+    t.consultaControl(false).then(function (r) {
+      if (mio !== t.pedido || !t.q('Conteo')) return;
+      if (r.error) return;
+      var unidades = 0, delExcel = 0, personas = {};
+      (r.data || []).forEach(function (e) {
+        if (e.suma_cantidades != null) unidades += Number(e.suma_cantidades) || 0;
+        if (e.total_entregado_excel != null) delExcel += Number(e.total_entregado_excel) || 0;
+        if (e.nombre) personas[F().sinAcentos(e.nombre)] = 1;
+      });
+      t.totales = { unidades: unidades, delExcel: delExcel, personas: Object.keys(personas).length };
+      t.pintarTotales();
     });
   };
 

@@ -808,6 +808,8 @@
         var zz = document.getElementById('catDetalle');
         if (!zz) return;
         var lotes = (r.data || []).filter(function (l) { return l.estado === 'disponible'; });
+        /* El total siempre a la vista: es lo primero que se quiere saber. */
+        var totalLotes = lotes.reduce(function (n, l) { return n + Number(l.existencia || 0); }, 0);
 
         zz.innerHTML =
           '<div class="cabecera-prod">' +
@@ -853,7 +855,12 @@
                       ? '<button type="button" class="suave malo" data-borralote="' + i + '">Borrar</button>' : '') +
                   '</div></td></tr>';
               }).join('') +
-              '</tbody></table></div>'
+              '</tbody><tfoot><tr>' +
+                '<td colspan="2"><b>Total</b></td>' +
+                '<td class="der num"><b>' + num(totalLotes) + '</b>' +
+                  (p.en_cajas ? '<span class="sub chico">' + esc(p.en_cajas) + '</span>' : '') + '</td>' +
+                '<td colspan="2"></td>' +
+              '</tr></tfoot></table></div>'
             : '<div class="vacio"><b>Todavía no tiene ningún lote.</b>' +
               '<span>Registra el primero abajo.</span></div>') +
 

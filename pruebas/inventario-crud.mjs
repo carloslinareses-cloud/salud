@@ -132,6 +132,11 @@ try {
     (await pag.$$eval('[data-ajusta]', n => n.length)) === 2)
   prueba('no se ofrece borrar un lote que todavía tiene existencia',
     (await pag.$$eval('[data-borralote]', n => n.length)) === 0)
+  /* El total, siempre a la vista: 125 + 0 = 125. */
+  prueba('la tabla de lotes termina con el TOTAL sumado',
+    /125/.test(await pag.$eval('.tabla tfoot', e => e.textContent)) &&
+    /Total/i.test(await pag.$eval('.tabla tfoot', e => e.textContent)),
+    await pag.$eval('.tabla tfoot', e => e.textContent.replace(/\s+/g, ' ').trim()))
 
   /* --- corregir el medicamento --- */
   await pag.click('#catEditar')
