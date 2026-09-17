@@ -664,6 +664,15 @@ button.deshacer:disabled{opacity:.6; cursor:not-allowed}
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .ok-txt{color:var(--ok-ink); font-weight:700}
 
+/* ---------- insumos: de donde sale y cuanto queda ---------- */
+.insumo-fila.enlazada{border-left:3px solid var(--ok-line); padding-left:8px}
+.insumo-stock{grid-column:1/-1; display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+  font-size:12px; color:var(--ink-soft); margin-top:2px}
+.insumo-stock b{font-weight:800; font-variant-numeric:tabular-nums}
+.insumo-revisar.mal{color:var(--bad-ink)}
+.insumo-buscador{grid-column:1/-1; margin-top:6px}
+.insumo-buscador:empty{display:none}
+
 /* ---------- el total, siempre a la vista ---------- */
 .totales{margin:6px 0 0; min-height:18px}
 .tot-linea{display:inline-block; padding:5px 11px; border-radius:999px;
@@ -1067,7 +1076,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="centros.js?v=20260914g"></script>
 <script src="dashboard.js?v=20260914g"></script>
 <script src="despacho.js?v=20260914g"></script>
-<script src="insumos.js?v=20260917a"></script>
+<script src="insumos.js?v=20260917b"></script>
 <script src="inventario.js?v=20260917a"></script>
 <script src="admin.js?v=20260914g"></script>
 <script src="asistencia.js?v=20260914g"></script>

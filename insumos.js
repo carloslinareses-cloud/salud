@@ -72,6 +72,11 @@
       if (c.valor == null && exigeCantidad) return { error: 'Falta la cantidad entregada de ' + desc + '.' };
       items.push({
         descripcion: desc, cantidad: c.valor,
+        /* Con qué producto del catálogo quedó enlazado: es lo que hace que
+           la cantidad salga del inventario al guardar. Va con el renglón y
+           no por fuera, porque los vacíos se saltan y los números de fila
+           dejarían de coincidir. */
+        producto_id: it.producto_id || null,
         revisar: !!it.revisar, revisar_motivo: it.revisar ? (it.revisar_motivo || null) : null
       });
     }
@@ -839,14 +844,28 @@
     var t = this;
     var z = t.q('Items');
     z.innerHTML = t.items.map(function (it, k) {
-      return '<div class="insumo-fila">' +
+      var cant = Number(String(it.cantidad || '').replace(',', '.'));
+      var falta = it.producto_id && it.disponible != null && cant > 0 && cant > Number(it.disponible);
+      return '<div class="insumo-fila' + (it.producto_id ? ' enlazada' : '') + '">' +
         '<input type="text" autocomplete="off" data-desc="' + k + '" aria-label="Insumo ' + (k + 1) + '" ' +
           'placeholder="Ej: ACETAMINOFEN 500MG" value="' + esc(it.descripcion) + '">' +
         '<input type="text" inputmode="decimal" autocomplete="off" data-cant="' + k + '" aria-label="Cantidad del insumo ' + (k + 1) + '" ' +
           'placeholder="CANT" value="' + esc(it.cantidad) + '">' +
         '<button type="button" class="quitar" data-quitar="' + k + '" aria-label="Quitar el insumo ' + (k + 1) + '">✕</button>' +
+        /* De dónde sale: del inventario (y descuenta) o escrito a mano. */
+        '<span class="insumo-stock">' +
+          (it.producto_id
+            ? '<b class="ok-txt">Del inventario</b> · quedan <b>' + num(it.disponible || 0) + '</b>' +
+              (cant > 0 ? ' · quedarán <b>' + num(Math.max(0, Number(it.disponible || 0) - cant)) + '</b>' : '') +
+              ' <button type="button" class="enlace" data-soltar="' + k + '">quitar el enlace</button>'
+            : '<button type="button" class="enlace" data-enlazar="' + k + '">Buscar en el inventario</button>' +
+              ' <span class="sub chico">si no se enlaza, se anota igual pero no descuenta</span>') +
+        '</span>' +
+        (falta ? '<span class="insumo-revisar mal">Solo quedan ' + num(it.disponible) +
+          ' en el sistema. Se puede guardar igual: sale lo que hay y el resto queda anotado para revisar.</span>' : '') +
         (it.revisar ? '<span class="insumo-revisar">Revisar: ' + esc(it.revisar_motivo || '') +
           ' <button type="button" class="enlace" data-bien="' + k + '">Está bien así</button></span>' : '') +
+        '<div class="insumo-buscador" id="' + t.id('Busca' + k) + '" hidden></div>' +
       '</div>';
     }).join('');
     z.querySelectorAll('[data-desc]').forEach(function (c) {
@@ -875,14 +894,65 @@
         t.pintarItems();
       });
     });
+    z.querySelectorAll('[data-enlazar]').forEach(function (b) {
+      b.addEventListener('click', function () { t.enlazarConInventario(+b.dataset.enlazar); });
+    });
+    z.querySelectorAll('[data-soltar]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var it = t.items[+b.dataset.soltar];
+        it.producto_id = null; it.disponible = null;
+        t.pintarItems();
+      });
+    });
     t.pintarTotal();
+  };
+
+  /* Buscar el insumo en lo que hay cargado. Al elegirlo queda enlazado y
+     desde ahí SÍ descuenta del inventario al guardar. Lo que no se
+     enlaza se anota igual, pero no toca la existencia: así nunca se
+     pierde una entrega por no encontrar algo en el catálogo. */
+  Insumos.prototype.enlazarConInventario = function (k) {
+    var t = this;
+    var caja = t.q('Busca' + k);
+    if (!caja || !window.FARMPICK) return;
+    caja.hidden = false;
+    if (caja.dataset.listo) return;
+    caja.dataset.listo = '1';
+    caja.innerHTML = window.FARMPICK.caja(t.pfx + 'Pick' + k, 'Buscar en el inventario',
+      'Escribe el nombre del insumo…', t.items[k].descripcion || '');
+    window.FARMPICK.medicinas(t.sb, t.pfx + 'Pick' + k, function (x) {
+      var it = t.items[k];
+      if (!x.producto_id) {   // "anotarlo tal como lo escribí"
+        it.descripcion = x.producto || it.descripcion;
+        it.producto_id = null; it.disponible = null;
+        t.pintarItems();
+        t.aviso('warn', 'Se anota tal como lo escribiste. Ese renglón no va a descontar del inventario.');
+        return;
+      }
+      it.producto_id = x.producto_id;
+      it.descripcion = [x.producto, x.dosificacion].filter(Boolean).join(' ');
+      it.disponible = null;
+      t.pintarItems();
+      /* El disponible se relee de la base, no se cree lo que traía la
+         lista: entre que se abrió el buscador y se eligió pudo cambiar. */
+      t.sb.from('v_existencia_producto').select('disponible').eq('producto_id', x.producto_id).single()
+        .then(function (r) {
+          it.disponible = r.error || !r.data ? 0 : Number(r.data.disponible || 0);
+          t.pintarItems();
+        });
+    });
   };
 
   Insumos.prototype.pintarTotal = function () {
     var t = this;
     var llenos = t.items.filter(function (it) { return String(it.descripcion || '').trim(); }).length;
     var s = sumaCantidades(t.items);
-    t.q('Total').textContent = llenos + (llenos === 1 ? ' insumo' : ' insumos') + (s != null ? ' · ' + num(s) + ' unidades en total' : '');
+    var enlazados = t.items.filter(function (it) { return it.producto_id; }).length;
+    var sueltos = llenos - enlazados;
+    t.q('Total').innerHTML = llenos + (llenos === 1 ? ' insumo' : ' insumos') +
+      (s != null ? ' · <b>' + num(s) + '</b> unidades en total' : '') +
+      (enlazados ? ' · <span class="ok-txt">' + enlazados + ' sale(n) del inventario</span>' : '') +
+      (sueltos ? ' · <span class="sub">' + sueltos + ' sin enlazar (no descuenta)</span>' : '');
   };
 
   Insumos.prototype.guardar = function () {

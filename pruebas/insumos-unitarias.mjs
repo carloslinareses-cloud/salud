@@ -70,6 +70,18 @@ console.log('\n--- El formulario ---')
   prueba('bien lleno: pasa, con los espacios limpios', !r.error && r.datos.destino === 'CDI MAMA PANCHA', JSON.stringify(r))
   prueba('cada insumo lleva SU cantidad', r.datos && igual(r.datos.items.map(x => [x.descripcion, x.cantidad]), [['ACETAMINOFEN 500MG', 30], ['JERINGA # 5', 100]]))
   prueba('el renglón vacío del final (el último "Agregar +") se ignora', r.datos && r.datos.items.length === 2)
+  /* Lo que hace que la entrega salga del inventario: el renglón tiene que
+     llevar consigo con qué producto quedó enlazado, y los renglones
+     vacíos no pueden correr esa numeración. */
+  const conEnlace = L.revisaFormulario({ ...base, items: [
+    { descripcion: '', cantidad: '' },
+    { descripcion: 'ALGODON', cantidad: '3', producto_id: 'aaaaaaaa-1111-2222-3333-444444444444' },
+    { descripcion: 'GASA 5X5', cantidad: '2' }
+  ] }, '2026-09-15', true)
+  prueba('el renglon enlazado lleva su producto', conEnlace.datos.items[0].producto_id === 'aaaaaaaa-1111-2222-3333-444444444444', JSON.stringify(conEnlace.datos.items[0]))
+  prueba('el que no se enlazo va sin producto (no descuenta)', conEnlace.datos.items[1].producto_id === null, JSON.stringify(conEnlace.datos.items[1]))
+  prueba('los renglones vacios no corren la numeracion', conEnlace.datos.items.length === 2)
+
   const sinCant = L.revisaFormulario({ ...base, items: [{ descripcion: 'ALGODON', cantidad: '' }] }, '2026-09-15', true)
   prueba('un insumo sin cantidad: no pasa y dice cuál', /Falta la cantidad entregada de ALGODON/.test(sinCant.error || ''), JSON.stringify(sinCant))
   const sinDesc = L.revisaFormulario({ ...base, items: [{ descripcion: 'ALGODON', cantidad: '3' }, { descripcion: '', cantidad: '5' }] }, '2026-09-15', true)
