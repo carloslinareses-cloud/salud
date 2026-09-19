@@ -21,3 +21,5 @@ papeles/
 perfil-*/
 perfil-chrome/
 sql/*.json
+
+pruebas/.mutante-asistencia.js

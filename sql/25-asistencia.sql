@@ -10,6 +10,10 @@
 -- la clave nunca sale de la base, y la comparación la hace el servidor.
 --
 -- Se puede correr COMPLETO y VARIAS VECES sin romper nada.
+--
+-- OJO: 30-asistencia-horario-libre.sql REEMPLAZA asis_verificar_ventana,
+-- asis_estado_hoy y asis_marcar_salida (salida libre y fin de semana libre).
+-- Si se vuelve a correr ESTE archivo, hay que correr el 30 justo después.
 -- =====================================================================
 
 create extension if not exists pgcrypto with schema extensions;

@@ -293,7 +293,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 
       <div class="resumen">
         <div><span aria-hidden="true">🪪</span><span>Entras <b>solo con tu cédula</b> y una clave. No hace falta correo.</span></div>
-        <div><span aria-hidden="true">⏰</span><span>Se marca <b>dentro de un horario</b>: de mañana la entrada, de tarde la salida.</span></div>
+        <div><span aria-hidden="true">⏰</span><span>De lunes a viernes, <b>la entrada de 7:00 a 8:45</b> de la mañana; <b>la salida, a cualquier hora</b>. Sábado y domingo, libre.</span></div>
         <div><span aria-hidden="true">📍</span><span>Se marca <b>estando en la Dirección de Salud</b>. Desde la casa no deja.</span></div>
       </div>
 
@@ -419,24 +419,46 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
     <section class="tarjeta">
       <div class="tit"><span class="num">3</span><h2>A qué hora se puede marcar</h2></div>
 
+      <div class="aviso ok" style="margin-top:0;margin-bottom:14px">
+        <b>Horario nuevo desde el 19 de septiembre de 2026</b>
+        La salida ya no tiene horario: se marca cuando te vas, aunque te hayas quedado más
+        tiempo. Y el fin de semana se marca a cualquier hora. La entrada de lunes a viernes
+        sigue igual.
+      </div>
+
       <div class="horario">
         <div class="franja ent">
-          <span class="etq">Entrada</span>
+          <span class="etq">Entrada · lunes a viernes</span>
           <span class="hora">7:00 a 8:45 de la mañana</span>
           <span class="det">Marcas cuando llegas, dentro de esa franja.</span>
         </div>
         <div class="franja sal">
-          <span class="etq">Salida</span>
-          <span class="hora">4:30 a 6:30 de la tarde</span>
-          <span class="det">Marcas cuando te vas, dentro de esa franja.</span>
+          <span class="etq">Salida · todos los días</span>
+          <span class="hora">A cualquier hora</span>
+          <span class="det">Marcas cuando te vas, aunque sea tarde. Si sales después de la
+          medianoche, igual se cierra tu jornada del día anterior (hasta 18 horas después de
+          haber entrado).</span>
+        </div>
+        <div class="franja sal">
+          <span class="etq">Sábado y domingo</span>
+          <span class="hora">Libre</span>
+          <span class="det">La entrada y la salida se marcan a cualquier hora.</span>
         </div>
       </div>
 
       <div class="aviso bad">
-        <b>Fuera de esas horas la aplicación no marca. No es que quede tarde: no deja.</b>
-        Si intentas marcar la entrada a las 9:00 de la mañana, o la salida a las 3:00 de la
-        tarde, la aplicación te lo va a rechazar con un mensaje y no se guarda nada. El
-        candado no está en el teléfono, está en el sistema: no hay manera de saltárselo.
+        <b>De lunes a viernes, la entrada fuera de 7:00 a 8:45 no se marca. No es que quede tarde: no deja.</b>
+        Si intentas marcar la entrada a las 9:00 de la mañana de un día de semana, la
+        aplicación te lo va a rechazar con un mensaje y no se guarda nada. El candado no está
+        en el teléfono, está en el sistema: no hay manera de saltárselo.
+      </div>
+
+      <div class="aviso warn">
+        <b>Marca la salida solo cuando de verdad te vayas</b>
+        Como ahora se puede marcar a cualquier hora, el botón de salida está disponible todo
+        el día. Una vez marcada, la salida no se puede cambiar desde el teléfono: si la
+        marcaste antes de tiempo sin querer, avísale ese mismo día al administrador para que
+        la corrija.
       </div>
 
       <div class="aviso neutro">
@@ -516,9 +538,9 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
         <div class="cuerpo">
           <p>Lee el mensaje que salió en la pantalla, porque ahí está el motivo. Casi siempre
           es uno de estos:</p>
-          <p><b>1. “Fuera del horario permitido”.</b> Estás intentando marcar fuera de las franjas:
-          entrada de 7:00 a 8:45 de la mañana, salida de 4:30 a 6:30 de la tarde. No hay nada que
-          hacer desde el teléfono; avísale al administrador.</p>
+          <p><b>1. “Fuera del horario permitido”.</b> Estás intentando marcar la entrada un día de
+          semana fuera de la franja de 7:00 a 8:45 de la mañana. La salida y el fin de semana no
+          tienen horario. No hay nada que hacer desde el teléfono; avísale al administrador.</p>
           <p><b>2. “Estás a tantos metros de la Dirección de Salud”.</b> No estás en el sitio, o el
           GPS todavía no se ha afinado. Acércate, sal donde se vea el cielo, espera unos segundos
           e inténtalo otra vez.</p>
@@ -558,8 +580,8 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
         <summary>No tengo internet en ese momento</summary>
         <div class="cuerpo">
           <p>El marcaje <b>no queda pendiente</b> ni se guarda para después: si no hay conexión,
-          no se marcó. Busca señal o conéctate a un wifi y marca de una vez, siempre dentro de
-          la franja de horario.</p>
+          no se marcó. Busca señal o conéctate a un wifi y marca de una vez. Si es la entrada de
+          un día de semana, tiene que ser dentro de la franja de 7:00 a 8:45.</p>
           <p>Si la franja se venció mientras peleabas con la señal, avísale al administrador ese
           mismo día para que lo deje anotado.</p>
         </div>
@@ -568,9 +590,18 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
       <details class="pregunta">
         <summary>Marqué la entrada pero se me olvidó la salida</summary>
         <div class="cuerpo">
-          <p>Después de las 6:30 de la tarde ya no se puede marcar salida, y el día queda con la
-          entrada sola. Avísale al administrador para que lo corrija y quede claro a qué hora te
-          fuiste.</p>
+          <p>Márcala en cuanto te acuerdes: la salida no tiene horario. Sirve incluso después de la
+          medianoche, hasta 18 horas después de haber entrado.</p>
+          <p>Si ya pasó más que eso, el día queda con la entrada sola. Avísale al administrador
+          para que lo corrija y quede claro a qué hora te fuiste.</p>
+        </div>
+      </details>
+
+      <details class="pregunta">
+        <summary>Marqué la salida antes de tiempo, sin querer</summary>
+        <div class="cuerpo">
+          <p>Una vez marcada, la salida no se puede cambiar desde el teléfono. Avísale ese mismo
+          día al <b>administrador</b>: él la corrige y la corrección queda anotada.</p>
         </div>
       </details>
 

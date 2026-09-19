@@ -687,23 +687,51 @@
       if (r.error) { z.innerHTML = '<div class=\"aviso bad\">' + esc(enCristiano(r.error)) + '</div>'; return; }
       var c = r.data || {};
       var exige = c.exigir_gps !== false;
+      var salidaLibre = c.salida_libre === true;
+      var findeLibre = c.fin_de_semana_libre === true;
+      /* Un interruptor con su etiqueta, igual que el del GPS de más abajo. */
+      function interruptor(id, titulo, explica, encendido, siTexto, noTexto) {
+        return '<div class="renglon" style="margin-top:12px">' +
+          '<div class="que"><b>' + titulo + '</b><span>' + explica + '</span></div>' +
+          '<span class="pill" id="' + id + 'Estado" style="background:' +
+            (encendido ? 'var(--ok-bg);color:var(--ok-ink)' : 'var(--warn-bg);color:var(--warn-ink)') + '">' +
+            (encendido ? siTexto : noTexto) + '</span>' +
+          '<input type="checkbox" id="' + id + '" ' + (encendido ? 'checked' : '') + ' aria-label="' + titulo + '" ' +
+            'data-si="' + siTexto + '" data-no="' + noTexto + '" ' +
+            'style="flex:none;width:28px;height:28px;accent-color:var(--navy);cursor:pointer">' +
+        '</div>';
+      }
 
       z.innerHTML =
         '<h2 class="sub-t">Ventana para marcar entrada</h2>' +
-        '<p class="sub"><b>Candado de verdad:</b> fuera de este rango, la app no deja marcar la entrada.</p>' +
+        '<p class="sub"><b>Candado de verdad:</b> fuera de este rango, la app no deja marcar la entrada' +
+          (findeLibre ? ' de lunes a viernes (el fin de semana es libre, más abajo).' : '.') + '</p>' +
         '<div class="fila-clave">' +
           '<div style="flex:1"><label for="asEntDesde">Desde</label><input id="asEntDesde" type="time" value="' + esc((c.entrada_desde || '07:00').slice(0, 5)) + '"></div>' +
           '<div style="flex:1"><label for="asEntHasta">Hasta</label><input id="asEntHasta" type="time" value="' + esc((c.entrada_hasta || '08:45').slice(0, 5)) + '"></div>' +
         '</div>' +
         '<div class="botonera"><button type="button" class="principal" id="asGuardarEntrada">Guardar ventana de entrada</button></div>' +
 
-        '<h2 class="sub-t" style="margin-top:28px">Ventana para marcar salida</h2>' +
-        '<p class="sub"><b>Candado de verdad:</b> fuera de este rango, la app no deja marcar la salida.</p>' +
+        '<h2 class="sub-t" style="margin-top:28px">Salida</h2>' +
+        interruptor('asSalidaLibre', 'Salida libre: se marca a cualquier hora',
+          'Encendido: la salida no tiene horario, porque hay días en que se trabaja más. Quien sale ' +
+          'después de medianoche cierra la jornada de ayer (hasta 18 horas después de haber entrado).',
+          salidaLibre, 'libre', 'con horario') +
+        '<p class="sub" id="asSalNota" style="margin-top:10px">' + (salidaLibre
+          ? 'Mientras la salida sea libre, este horario no se usa. Queda guardado por si se vuelve a poner.'
+          : '<b>Candado de verdad:</b> fuera de este rango, la app no deja marcar la salida.') + '</p>' +
         '<div class="fila-clave">' +
-          '<div style="flex:1"><label for="asSalDesde">Desde</label><input id="asSalDesde" type="time" value="' + esc((c.salida_desde || '16:30').slice(0, 5)) + '"></div>' +
-          '<div style="flex:1"><label for="asSalHasta">Hasta</label><input id="asSalHasta" type="time" value="' + esc((c.salida_hasta || '18:30').slice(0, 5)) + '"></div>' +
+          '<div style="flex:1"><label for="asSalDesde">Desde</label><input id="asSalDesde" type="time" ' + (salidaLibre ? 'disabled ' : '') + 'value="' + esc((c.salida_desde || '16:30').slice(0, 5)) + '"></div>' +
+          '<div style="flex:1"><label for="asSalHasta">Hasta</label><input id="asSalHasta" type="time" ' + (salidaLibre ? 'disabled ' : '') + 'value="' + esc((c.salida_hasta || '18:30').slice(0, 5)) + '"></div>' +
         '</div>' +
-        '<div class="botonera"><button type="button" class="principal" id="asGuardarSalida">Guardar ventana de salida</button></div>' +
+        '<div class="botonera"><button type="button" class="principal" id="asGuardarSalida">Guardar la salida</button></div>' +
+
+        '<h2 class="sub-t" style="margin-top:28px">Fin de semana</h2>' +
+        interruptor('asFindeLibre', 'Sábado y domingo sin horario',
+          'Encendido: el fin de semana se marca la entrada y la salida a cualquier hora. De lunes a ' +
+          'viernes sigue el horario de entrada de arriba. Se cuenta con la hora de Venezuela.',
+          findeLibre, 'libre', 'con horario') +
+        '<div class="botonera"><button type="button" class="principal" id="asGuardarFinde">Guardar el fin de semana</button></div>' +
 
         '<h2 class="sub-t" style="margin-top:28px">Estar en el sitio (GPS)</h2>' +
         '<p class="sub"><b>Por qué existe la tolerancia:</b> el GPS de un teléfono no da un punto ' +
@@ -738,6 +766,20 @@
         'esto, no se acepta: eso no es GPS, es la antena del celular o el wifi.</p>' +
 
         '<div class="botonera"><button type="button" class="principal" id="asGuardarGps">Guardar el candado de sitio</button></div>';
+
+      ['asSalidaLibre', 'asFindeLibre'].forEach(function (id) {
+        var x = document.getElementById(id);
+        x.addEventListener('change', function () {
+          var p = document.getElementById(id + 'Estado');
+          p.textContent = x.checked ? x.getAttribute('data-si') : x.getAttribute('data-no');
+          p.style.background = x.checked ? 'var(--ok-bg)' : 'var(--warn-bg)';
+          p.style.color = x.checked ? 'var(--ok-ink)' : 'var(--warn-ink)';
+          if (id === 'asSalidaLibre') {
+            document.getElementById('asSalDesde').disabled = x.checked;
+            document.getElementById('asSalHasta').disabled = x.checked;
+          }
+        });
+      });
 
       /* La etiqueta de al lado dice lo que está a punto de guardarse, no
          lo que ya está guardado: por eso cambia al tocar el interruptor. */
@@ -776,11 +818,20 @@
       });
 
       document.getElementById('asGuardarSalida').addEventListener('click', function () {
+        var libre = document.getElementById('asSalidaLibre').checked;
         var desde = document.getElementById('asSalDesde').value;
         var hasta = document.getElementById('asSalHasta').value;
         if (!desde || !hasta || desde >= hasta) { aviso('warn', 'La hora de inicio debe ser antes que la de fin.'); return; }
-        guardar({ salida_desde: desde, salida_hasta: hasta },
-                this, 'Ventana de salida actualizada. Ya aplica de inmediato en la app.');
+        guardar({ salida_libre: libre, salida_desde: desde, salida_hasta: hasta },
+                this, libre ? 'Guardado: la salida se marca a cualquier hora. Ya aplica de inmediato en la app.'
+                            : 'Guardado: la salida vuelve a tener horario. Ya aplica de inmediato en la app.');
+      });
+
+      document.getElementById('asGuardarFinde').addEventListener('click', function () {
+        var libre = document.getElementById('asFindeLibre').checked;
+        guardar({ fin_de_semana_libre: libre },
+                this, libre ? 'Guardado: sábado y domingo se marca a cualquier hora.'
+                            : 'Guardado: el fin de semana también tiene horario.');
       });
 
       document.getElementById('asGuardarGps').addEventListener('click', function () {
