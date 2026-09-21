@@ -9,7 +9,7 @@
      · Que la existencia NO se escribe encima: se ajusta con un
        movimiento que dice cuánto y por qué.
      · Que un ajuste sin motivo no pasa.
-     · Que borrar solo se le ofrece al administrador.
+     · Que borrar de forma segura se ofrece a Administración e Inventario.
      · Que no se borra nada que tenga existencia o historia.
 
        node pruebas/inventario-crud.mjs
@@ -126,12 +126,17 @@ try {
   console.log('\n--- Mantener el catálogo (como inventario) ---')
   await abrirFicha()
   prueba('la ficha ofrece corregir los datos del medicamento', !!(await pag.$('#catEditar')))
-  prueba('quien NO es admin no ve el botón de borrar del catálogo', !(await pag.$('#catBorrar')))
+  prueba('Inventario ve el botón de borrar del catálogo', !!(await pag.$('#catBorrar')))
   prueba('cada lote ofrece corregir y ajustar',
     (await pag.$$eval('[data-editalote]', n => n.length)) === 2 &&
     (await pag.$$eval('[data-ajusta]', n => n.length)) === 2)
-  prueba('no se ofrece borrar un lote que todavía tiene existencia',
-    (await pag.$$eval('[data-borralote]', n => n.length)) === 0)
+  prueba('Inventario ve borrar SOLO el lote que está en cero',
+    (await pag.$$eval('[data-borralote]', n => n.map(x => x.dataset.borralote))).join() === '1')
+  await pag.click('[data-borralote="1"]')
+  await new Promise(r => setTimeout(r, 400))
+  const borradoInventario = (await escrituras()).filter(x => x.tabla === 'lotes' && x.op === 'delete')[0]
+  prueba('Inventario borra el lote vacío, no el que tiene existencia',
+    !!borradoInventario && borradoInventario.eq.id === 'l-2', JSON.stringify(borradoInventario))
   /* El total, siempre a la vista: 125 + 0 = 125. */
   prueba('la tabla de lotes termina con el TOTAL sumado',
     /125/.test(await pag.$eval('.tabla tfoot', e => e.textContent)) &&
@@ -198,8 +203,8 @@ try {
     (await escrituras()).every(x => x.tabla === 'movimientos'),
     JSON.stringify(await escrituras()))
 
-  /* --- el lote vacío sí se puede borrar, y solo el admin --- */
-  console.log('\n--- Lo que solo puede el administrador ---')
+  /* --- Administración tiene el mismo CRUD seguro del catálogo --- */
+  console.log('\n--- Mantener el catálogo (como administración) ---')
   ROL = 'admin'
   await abrirFicha()
   prueba('el admin sí ve borrar del catálogo', !!(await pag.$('#catBorrar')))

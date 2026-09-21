@@ -71,10 +71,12 @@
     vigente:        { txt: 'Vigente',        cl: 'ok' },
     bien:           { txt: 'Con existencia', cl: 'ok' }
   };
-  /* Borrar del catálogo es cosa del admin (así está puesto en la base).
-     La pantalla lo consulta para no ofrecer lo que va a ser rechazado. */
-  function esAdmin() {
-    return !!(window.FARMACIA_PERFIL && window.FARMACIA_PERFIL.rol === 'admin');
+  /* Administración e Inventario mantienen el catálogo. La base conserva
+     los candados importantes: solo deja borrar lotes vacíos y elementos
+     que todavía no tienen historia ni entregas asociadas. */
+  function puedeBorrarCatalogo() {
+    var rol = window.FARMACIA_PERFIL && window.FARMACIA_PERFIL.rol;
+    return rol === 'admin' || rol === 'inventario';
   }
 
   /* Los errores de la base, dichos en cristiano. */
@@ -82,7 +84,7 @@
     var m = String((e && (e.message || e.msg)) || e || '');
     if (e && e.code === '23505') return 'Ya existe otro igual: ' + quePasaba;
     if (/permission denied|violates row-level/i.test(m)) {
-      return 'Tu usuario no tiene permiso para eso. Lo puede hacer el administrador.';
+      return 'Tu usuario no tiene permiso para eso. Solo Administración e Inventario pueden mantener el catálogo.';
     }
     if (/violates foreign key|still referenced/i.test(m)) {
       return 'No se puede: ya tiene movimientos o entregas que dependen de esto.';
@@ -826,7 +828,7 @@
             '</div>' +
             '<div class="prod-acciones">' +
               '<button type="button" class="suave" id="catEditar">Corregir sus datos</button>' +
-              (esAdmin()
+              (puedeBorrarCatalogo()
                 ? '<button type="button" class="suave malo" id="catBorrar">Borrar del catálogo</button>' : '') +
             '</div>' +
           '</div>' +
@@ -851,7 +853,7 @@
                       : '<button type="button" class="suave" data-suma="' + i + '">Sumar</button>') +
                     '<button type="button" class="suave" data-editalote="' + i + '">Corregir</button>' +
                     '<button type="button" class="suave" data-ajusta="' + i + '">Ajustar</button>' +
-                    (esAdmin() && !(Number(l.existencia) > 0)
+                    (puedeBorrarCatalogo() && !(Number(l.existencia) > 0)
                       ? '<button type="button" class="suave malo" data-borralote="' + i + '">Borrar</button>' : '') +
                   '</div></td></tr>';
               }).join('') +

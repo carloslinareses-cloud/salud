@@ -889,6 +889,16 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
   .celda{width:84px}
 }
 
+/* ---------- asistencia registrada por administración ---------- */
+.asis-manual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;margin-top:14px}
+.asis-manual-grid label{min-width:0}
+.asis-manual-grid .asis-manual-ancho{grid-column:1/-1}
+.asis-manual-grid textarea{resize:vertical;min-height:88px}
+@media (max-width:480px){
+  .asis-manual-grid{grid-template-columns:1fr;gap:0}
+  .asis-manual-grid .asis-manual-ancho{grid-column:auto}
+}
+
 /* ---- Elegir sistema (barra azul de arriba) ----
    Va al final a proposito: aqui adentro el fondo es siempre --navy, en
    claro y en oscuro, asi que los colores del tema no sirven y se usan
@@ -1077,9 +1087,9 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="dashboard.js?v=20260914g"></script>
 <script src="despacho.js?v=20260914g"></script>
 <script src="insumos.js?v=20260917b"></script>
-<script src="inventario.js?v=20260917a"></script>
+<script src="inventario.js?v=20260921a"></script>
 <script src="admin.js?v=20260914g"></script>
-<script src="asistencia.js?v=20260919a"></script>
+<script src="asistencia.js?v=20260921a"></script>
 <script src="app.js?v=20260916g"></script>
 </body>
 </html>

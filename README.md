@@ -10,8 +10,8 @@ Control de inventario de la farmacia municipal.
 
 | Perfil | Qué puede hacer |
 |---|---|
-| Administrador | Crea y desactiva usuarios, ve todo, revisa la auditoría |
-| Inventario | Registra la mercancía que llega, crea productos y lotes |
+| Administrador | Crea y desactiva usuarios, ve todo, mantiene el inventario, registra o corrige asistencia manual y revisa la auditoría |
+| Inventario | Registra la mercancía que llega y mantiene productos y lotes (crear, consultar, corregir y borrar solo los que no tienen historia) |
 | Despacho | Entrega medicamentos y descuenta del stock, consulta existencias |
 
 ## Cómo se publica
@@ -67,7 +67,10 @@ node pruebas/tablero-tratamiento.mjs
 node pruebas/reportes.mjs
 node pruebas/centros.mjs
 node pruebas/e2e-asistencia.mjs   # control de asistencia, con Chrome de verdad
+node pruebas/asistencia-manual.mjs # formulario manual, incluso en 375 px
+node pruebas/inventario-crud.mjs  # CRUD de Administración e Inventario
 python pruebas/e2e.py             # permisos y candados contra la API (pide SUPABASE_TOKEN)
+python pruebas/e2e-inventario-asistencia.py # permisos nuevos contra la API real
 ```
 
 Lo que necesita cada una (Chrome, cédula de prueba, si va contra el sitio

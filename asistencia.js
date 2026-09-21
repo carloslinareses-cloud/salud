@@ -27,6 +27,7 @@
   'use strict';
 
   var sb = null, ancla = null, yo = null, sub = 'hoy';
+  var manualPreseleccion = null;
 
   function esc(t) {
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
@@ -97,6 +98,19 @@
     return new Date(iso).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
   }
 
+  function horaParaInput(iso) {
+    if (!iso) return '';
+    var partes = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(new Date(iso));
+    var h = '', m = '';
+    partes.forEach(function (p) {
+      if (p.type === 'hour') h = p.value;
+      if (p.type === 'minute') m = p.value;
+    });
+    return h && m ? h + ':' + m : '';
+  }
+
   function metros(v) {
     /* Vacío o en blanco NO es cero: cero significa "marcó justo encima del
        punto", y eso sería acusar de exactitud a un dato que no llegó. */
@@ -152,6 +166,7 @@
           'No es la cuenta de Despacho ni la de Inventario: eso es de la farmacia, esto es aparte.</div>' +
         '<div class="conmuta">' +
           '<button type="button" data-sa="hoy">Hoy</button>' +
+          '<button type="button" data-sa="manual">Registrar manual</button>' +
           '<button type="button" data-sa="historial">Historial</button>' +
           '<button type="button" data-sa="personal">Personal</button>' +
           '<button type="button" data-sa="sedes">Sedes (GPS)</button>' +
@@ -166,7 +181,7 @@
       b.classList.toggle('on', b.dataset.sa === sub);
     });
 
-    ({ hoy: verHoy, historial: verHistorial, personal: verPersonal,
+    ({ hoy: verHoy, manual: verManual, historial: verHistorial, personal: verPersonal,
        sedes: verSedes, horario: verHorario })[sub]();
   }
 
@@ -211,7 +226,7 @@
           return filaPersona(p, porPersona[p.cedula]);
         }).join('') + '</div>';
 
-      engancharCorregir(z, verHoy);
+      engancharManual(z, hoy);
     }).catch(function (e) {
       z.innerHTML = '<div class="aviso bad">' + esc(enCristiano(e)) + '</div>';
     });
@@ -232,56 +247,126 @@
       '<span class="meds">Entrada: ' + entrada + '<br>Salida: ' + salida +
       (m.nota_correccion ? '<br><em class="ojo">Corregido: ' + esc(m.nota_correccion) + '</em>' : '') +
       '</span></div>' +
-      (m.id ? '<button type="button" class="suave" data-corregir="' + esc(m.id) + '" ' +
-              'data-nombre="' + esc(p.nombre) + '">Corregir</button>' : '') +
+      '<button type="button" class="suave" data-manual="' + esc(p.cedula) + '">' +
+        (m.id ? 'Revisar / corregir' : 'Registrar manual') + '</button>' +
       '</div>';
   }
 
-  /* El admin corrige una hora ya marcada (la app y la persona no pueden:
-     lo bloquea un candado en la base). Queda anotado el motivo. */
-  function engancharCorregir(z, recargar) {
-    z.querySelectorAll('[data-corregir]').forEach(function (b) {
+  function engancharManual(z, fecha) {
+    z.querySelectorAll('[data-manual]').forEach(function (b) {
       b.addEventListener('click', function () {
-        var cual = window.prompt(
-          '¿Qué corriges de ' + b.dataset.nombre + '?\nEscribe "entrada" o "salida".', 'entrada');
-        if (!cual || (cual !== 'entrada' && cual !== 'salida')) return;
-        var horaTxt = window.prompt('Hora correcta (formato 24h, HH:MM):', '08:00');
-        if (!horaTxt || !/^([01]\d|2[0-3]):[0-5]\d$/.test(horaTxt.trim())) {
-          aviso('warn', 'La hora debe tener el formato HH:MM, por ejemplo 08:00.');
-          return;
-        }
-        var motivo = window.prompt('¿Por qué se corrige? (queda anotado)', '');
-        if (!motivo || !motivo.trim()) { aviso('warn', 'Hace falta el motivo de la corrección.'); return; }
-
-        /* La hora que se escribe es hora de Venezuela, y así se guarda:
-           se le pone el huso a mano (-04:00, que aquí no cambia en todo
-           el año). Sin eso, la hora se interpretaría en la zona horaria
-           de la computadora del administrador y la corrección quedaría
-           movida varias horas. */
-        var iso = hoyVzla() + 'T' + horaTxt.trim() + ':00-04:00';
-        var campo = cual === 'entrada' ? 'hora_entrada' : 'hora_salida';
-        var cambio = {}; cambio[campo] = new Date(iso).toISOString();
-        cambio.nota_correccion = motivo.trim();
-        cambio.corregido_por = yo.id;
-        cambio.corregido_en = new Date().toISOString();
-
-        b.disabled = true;
-        sb.from('asistencia_registros').update(cambio).eq('id', b.dataset.corregir).select()
-          .then(function (r) {
-            b.disabled = false;
-            if (r.error) { aviso('bad', enCristiano(r.error)); return; }
-            /* Sin fila devuelta no hubo corrección: la base la filtró (por
-               ejemplo, porque quien está usando esto ya no es admin) y
-               calló. No se dice "corregido" sin que el servidor confirme. */
-            if (!r.data || !r.data.length) {
-              aviso('bad', 'La base no confirmó la corrección: no se cambió nada. Vuelve a entrar e inténtalo otra vez.');
-              return;
-            }
-            aviso('ok', 'Corregido. Queda registrado en la bitácora.');
-            recargar();
-          });
+        manualPreseleccion = { cedula: b.dataset.manual, fecha: fecha };
+        sub = 'manual';
+        pintar();
       });
     });
+  }
+
+  /* ----------------------------------------------------- registro manual
+     Un solo formulario sirve para crear el registro que falta y corregir
+     uno existente. La función SQL comprueba de nuevo que quien lo envía es
+     admin y deja el motivo, autor y momento en la bitácora. */
+  function verManual() {
+    var z = document.getElementById('zonaAsis');
+    var elegida = manualPreseleccion || {};
+    manualPreseleccion = null;
+    z.innerHTML = '<div class="cargando">Cargando personal…</div>';
+
+    sb.from('asistencia_personal').select('cedula,nombre').eq('activo', true).order('nombre')
+      .then(function (r) {
+        if (r.error) { z.innerHTML = '<div class="aviso bad">' + esc(enCristiano(r.error)) + '</div>'; return; }
+        var personal = r.data || [];
+        if (!personal.length) {
+          z.innerHTML = '<div class="aviso warn">Primero registra al personal de asistencia.</div>';
+          return;
+        }
+        var seleccion = elegida.cedula || personal[0].cedula;
+        z.innerHTML =
+          '<h2 class="sub-t">Registrar o corregir asistencia manual</h2>' +
+          '<p class="sub">Elige a la persona y la fecha. Si ya existe un marcaje, verás sus horas actuales ' +
+          'y podrás corregirlas. El sistema no inventa ubicación GPS y deja anotado quién hizo el cambio.</p>' +
+          '<div class="asis-manual-grid">' +
+            '<label>Persona<select id="asManPersona">' + personal.map(function (p) {
+              return '<option value="' + esc(p.cedula) + '"' + (p.cedula === seleccion ? ' selected' : '') + '>' +
+                esc(p.nombre) + ' · C.I. ' + esc(p.cedula) + '</option>';
+            }).join('') + '</select></label>' +
+            '<label>Fecha<input id="asManFecha" type="date" max="' + hoyVzla() + '" value="' +
+              esc(elegida.fecha || hoyVzla()) + '"></label>' +
+            '<label>Hora de entrada<input id="asManEntrada" type="time" required></label>' +
+            '<label>Hora de salida <span class="sub chico">(opcional)</span>' +
+              '<input id="asManSalida" type="time"></label>' +
+            '<label class="asis-manual-ancho">Motivo del registro o corrección' +
+              '<textarea id="asManMotivo" rows="3" maxlength="300" ' +
+                'placeholder="Ej.: El teléfono no tenía conexión al llegar" required></textarea></label>' +
+          '</div>' +
+          '<div id="asManEstado" class="aviso" style="margin-top:12px">Buscando si ya existe un registro…</div>' +
+          '<div class="botonera">' +
+            '<button type="button" id="asManGuardar">Guardar asistencia</button>' +
+            '<button type="button" class="suave" id="asManVolver">Volver a Hoy</button>' +
+          '</div>';
+
+        var persona = document.getElementById('asManPersona');
+        var fecha = document.getElementById('asManFecha');
+        var entrada = document.getElementById('asManEntrada');
+        var salida = document.getElementById('asManSalida');
+        var estado = document.getElementById('asManEstado');
+        var guardar = document.getElementById('asManGuardar');
+        var consultaActual = 0;
+
+        function revisar() {
+          var turno = ++consultaActual;
+          entrada.value = ''; salida.value = '';
+          estado.className = 'aviso';
+          estado.textContent = 'Buscando si ya existe un registro…';
+          guardar.disabled = true;
+          sb.from('v_asistencia').select('id,hora_entrada,hora_salida,nota_correccion')
+            .eq('cedula', persona.value).eq('fecha', fecha.value).maybeSingle()
+            .then(function (q) {
+              if (turno !== consultaActual) return;
+              guardar.disabled = false;
+              if (q.error) { estado.className = 'aviso bad'; estado.textContent = enCristiano(q.error); return; }
+              if (q.data) {
+                entrada.value = horaParaInput(q.data.hora_entrada);
+                salida.value = horaParaInput(q.data.hora_salida);
+                estado.className = 'aviso warn';
+                estado.textContent = 'Ya existe un registro para ese día. Al guardar se corregirán las horas y quedará auditado.';
+                guardar.textContent = 'Guardar corrección';
+              } else {
+                estado.className = 'aviso ok';
+                estado.textContent = 'No hay registro para ese día. Se creará uno manual, sin datos GPS.';
+                guardar.textContent = 'Registrar asistencia';
+              }
+            });
+        }
+
+        persona.addEventListener('change', revisar);
+        fecha.addEventListener('change', revisar);
+        document.getElementById('asManVolver').addEventListener('click', function () {
+          sub = 'hoy'; pintar();
+        });
+        guardar.addEventListener('click', function () {
+          var motivo = document.getElementById('asManMotivo').value.trim();
+          if (!fecha.value || fecha.value > hoyVzla()) { aviso('warn', 'Elige una fecha válida que no sea futura.'); return; }
+          if (!entrada.value) { aviso('warn', 'Indica la hora de entrada.'); entrada.focus(); return; }
+          if (motivo.length < 8) { aviso('warn', 'Explica el motivo con al menos 8 caracteres.'); return; }
+          guardar.disabled = true;
+          sb.rpc('asis_admin_registrar_manual', {
+            p_cedula: persona.value,
+            p_fecha: fecha.value,
+            p_hora_entrada: entrada.value,
+            p_hora_salida: salida.value || null,
+            p_motivo: motivo
+          }).then(function (q) {
+            guardar.disabled = false;
+            if (q.error) { aviso('bad', enCristiano(q.error)); return; }
+            aviso('ok', 'Asistencia guardada. El cambio quedó registrado en la bitácora.');
+            revisar();
+          });
+        });
+        revisar();
+      }).catch(function (e) {
+        z.innerHTML = '<div class="aviso bad">' + esc(enCristiano(e)) + '</div>';
+      });
   }
 
   /* ---------------------------------------------------------- historial */
