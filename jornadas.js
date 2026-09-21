@@ -66,23 +66,40 @@
     return (FARM && FARM.piezasTratamiento) ? FARM.piezasTratamiento(texto) : [];
   }
 
-  /* Los tres totales de una jornada, calculados a partir de su gente
-     -nunca escritos a mano-. Es lógica pura (sin DOM, sin red) para
-     poder probarla con datos inventados: recibe la lista de personas
-     ya cargadas y la FARM real, y devuelve pacientes/récipes/el
-     detalle de medicamentos, ordenado de más a menos. */
+  /* Los totales de una jornada, calculados a partir de su gente -nunca
+     escritos a mano-. Las unidades solo se suman cuando la cantidad
+     quedó anotada (por ejemplo, "SUERO X3"). Un nombre sin cantidad se
+     muestra como pendiente, pero NO se convierte silenciosamente en una
+     unidad: contar nombres no es lo mismo que contar lo entregado. */
   function calcularCifrasEvento(FARM, personas) {
     var totalMeds = 0, recipes = 0, meds = {}, ordenMeds = [];
+    var sinCantidad = 0, medsSinCantidad = {}, ordenSinCantidad = [];
     (personas || []).forEach(function (p) {
       if (p.recipe) recipes++;
-      piezasDeUno(FARM, p.tratamiento).forEach(function (m) {
-        if (!(m in meds)) { meds[m] = 0; ordenMeds.push(m); }
-        meds[m]++; totalMeds++;
+      var piezas = FARM && FARM.piezasTratamientoCant
+        ? FARM.piezasTratamientoCant(p.tratamiento)
+        : piezasDeUno(FARM, p.tratamiento).map(function (nombre) {
+            return { nombre: nombre, cantidad: 1, anotada: false };
+          });
+      piezas.forEach(function (m) {
+        var nombre = m.nombre || m;
+        if (!m.anotada) {
+          if (!(nombre in medsSinCantidad)) { medsSinCantidad[nombre] = 0; ordenSinCantidad.push(nombre); }
+          medsSinCantidad[nombre]++;
+          sinCantidad++;
+          return;
+        }
+        var cantidad = Number(m.cantidad) || 0;
+        if (!(nombre in meds)) { meds[nombre] = 0; ordenMeds.push(nombre); }
+        meds[nombre] += cantidad;
+        totalMeds += cantidad;
       });
     });
     ordenMeds.sort(function (a, b) { return meds[b] - meds[a]; });
+    ordenSinCantidad.sort(function (a, b) { return medsSinCantidad[b] - medsSinCantidad[a]; });
     return { pacientes: (personas || []).length, totalMedicamentos: totalMeds, recipes: recipes,
-             meds: meds, ordenMeds: ordenMeds };
+             meds: meds, ordenMeds: ordenMeds, sinCantidad: sinCantidad,
+             medsSinCantidad: medsSinCantidad, ordenSinCantidad: ordenSinCantidad };
   }
 
   var CAMPOS = 'id,evento_id,conjunto,hoja_origen,item,fecha,nombre,edad_texto,sexo,cedula,' +
@@ -472,14 +489,25 @@
 
           '<div class="cifras">' +
             cif(personas.length, personas.length === 1 ? 'paciente atendido' : 'pacientes atendidos') +
-            cif(totalMeds, totalMeds === 1 ? 'medicamento entregado' : 'medicamentos entregados') +
+            cif(totalMeds, totalMeds === 1 ? 'unidad entregada con cantidad' : 'unidades entregadas con cantidad') +
             cif(recipes, recipes === 1 ? 'con récipe' : 'con récipes') +
           '</div>' +
 
+          (cifras.sinCantidad
+            ? '<div class="aviso warn"><b>' + cifras.sinCantidad + ' medicamento(s) sin cantidad anotada</b>' +
+              '<span>Se muestran para revisión, pero no se suman como unidades entregadas.</span></div>' : '') +
+
           (ordenMeds.length
-            ? '<p class="sub chico">Detalle de lo entregado</p>' +
-              '<div class="tabla-caja"><table class="tabla"><thead><tr><th>Medicamento</th><th class="der">Veces</th></tr></thead><tbody>' +
+            ? '<p class="sub chico">Detalle de lo entregado con cantidad comprobable</p>' +
+              '<div class="tabla-caja"><table class="tabla"><thead><tr><th>Medicamento</th><th class="der">Unidades</th></tr></thead><tbody>' +
               ordenMeds.map(function (m) { return '<tr><td>' + esc(m) + '</td><td class="der num">' + meds[m] + '</td></tr>'; }).join('') +
+              '</tbody></table></div>'
+            : '') +
+
+          (cifras.ordenSinCantidad.length
+            ? '<p class="sub chico">Nombres que todavía no tienen cantidad</p>' +
+              '<div class="tabla-caja"><table class="tabla"><thead><tr><th>Medicamento</th><th class="der">Registros por revisar</th></tr></thead><tbody>' +
+              cifras.ordenSinCantidad.map(function (m) { return '<tr><td>' + esc(m) + '</td><td class="der num">' + cifras.medsSinCantidad[m] + '</td></tr>'; }).join('') +
               '</tbody></table></div>'
             : '') +
 

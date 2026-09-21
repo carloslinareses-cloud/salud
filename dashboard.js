@@ -201,7 +201,21 @@
 
     /* -------- Jornadas -------- */
     var jornadas = (datos.jornadas || []).map(function (j) {
-      return { fecha: diaLocal(FARM, j.creado_en), conjunto: j.conjunto, hoja_origen: j.hoja_origen, estado: j.estado };
+      return { fecha: j.fecha || diaLocal(FARM, j.creado_en), conjunto: j.conjunto,
+               hoja_origen: j.hoja_origen, estado: j.estado, tratamiento: j.tratamiento };
+    });
+    var unidadesJornada = [], sinCantidadJornada = [];
+    jornadas.forEach(function (j) {
+      var piezas = FARM.piezasTratamientoCant ? FARM.piezasTratamientoCant(j.tratamiento) : [];
+      piezas.forEach(function (m) {
+        var fila = { fecha: j.fecha, producto: m.nombre || 'Sin identificar' };
+        if (m.anotada) {
+          fila.cantidad = Number(m.cantidad) || 0;
+          unidadesJornada.push(fila);
+        } else {
+          sinCantidadJornada.push(fila);
+        }
+      });
     });
     var infoJornadas = {
       total: jornadas.length,
@@ -215,7 +229,14 @@
       porHoja: agrupar(jornadas.map(function (j) {
         return { hoja: HOJAS_TXT[j.hoja_origen] || j.hoja_origen || 'Sin hoja' };
       }), 'hoja', 'Sin hoja'),
-      tendencia: tendencia(FARM, jornadas, vista, hoy)
+      unidadesTotal: unidadesJornada.reduce(function (s, r) { return s + r.cantidad; }, 0),
+      unidadesHoy: sumarEnRango(unidadesJornada, 'cantidad', rHoy.desde, rHoy.hasta),
+      unidadesSemana: sumarEnRango(unidadesJornada, 'cantidad', rSemana.desde, rSemana.hasta),
+      unidadesMes: sumarEnRango(unidadesJornada, 'cantidad', rMes.desde, rMes.hasta),
+      sinCantidad: sinCantidadJornada.length,
+      topMedicamentos: agruparSuma(unidadesJornada, 'producto', 'cantidad', 'Sin identificar').slice(0, 10),
+      tendencia: tendencia(FARM, jornadas, vista, hoy),
+      tendenciaUnidades: tendencia(FARM, unidadesJornada, vista, hoy, 'cantidad')
     };
 
     /* -------- Centros -------- */
@@ -245,6 +266,7 @@
     var unicas = eventosUnicos.map(function (r) {
       return {
         fecha: r.fecha, tipo_destinatario: r.tipo_destinatario,
+        paciente_id: r.paciente_id, institucion_id: r.institucion_id,
         destinatario: r.destinatario, entregado_por: r.entregado_por || 'No consta',
         origen: r.origen
       };
@@ -253,11 +275,24 @@
     var renglonesConCantidad = renglones.filter(function (r) { return !r.anulada && r.cantidad != null; })
       .map(function (r) {
         return { fecha: r.fecha, cantidad: Number(r.cantidad), producto: r.producto || 'Sin producto',
+                 tipo_destinatario: r.tipo_destinatario, paciente_id: r.paciente_id,
+                 institucion_id: r.institucion_id,
                  entregado_por: r.entregado_por || 'No consta' };
       });
 
     var centroEntregas = unicas.filter(function (u) { return u.tipo_destinatario === 'institucion'; });
     var pacienteEntregas = unicas.filter(function (u) { return u.tipo_destinatario === 'paciente'; });
+    var unidadesPacientes = renglonesConCantidad.filter(function (r) { return r.tipo_destinatario === 'paciente'; });
+    var unidadesCentros = renglonesConCantidad.filter(function (r) { return r.tipo_destinatario === 'institucion'; });
+
+    infoPersonas.entregasReales = pacienteEntregas.length;
+    infoPersonas.receptoresReales = distintos(pacienteEntregas, 'paciente_id');
+    infoPersonas.unidadesEntregadas = unidadesPacientes.reduce(function (s, r) { return s + r.cantidad; }, 0);
+    infoPersonas.unidadesHoy = sumarEnRango(unidadesPacientes, 'cantidad', rHoy.desde, rHoy.hasta);
+    infoPersonas.unidadesSemana = sumarEnRango(unidadesPacientes, 'cantidad', rSemana.desde, rSemana.hasta);
+    infoPersonas.unidadesMes = sumarEnRango(unidadesPacientes, 'cantidad', rMes.desde, rMes.hasta);
+    infoPersonas.topEntregado = agruparSuma(unidadesPacientes, 'producto', 'cantidad', 'Sin producto').slice(0, 10);
+    infoPersonas.tendenciaEntregado = tendencia(FARM, unidadesPacientes, vista, hoy, 'cantidad');
 
     var infoEntregado = {
       total: unicas.length,
@@ -284,12 +319,17 @@
       porTipo: agrupar(centros, 'tipo', 'Otro'),
       insumosPedidos: totalInsumosPedidos,
       unidadesRecibidas: totalUnidadesCentros,
+      unidadesHoy: sumarEnRango(unidadesCentros, 'cantidad', rHoy.desde, rHoy.hasta),
+      unidadesSemana: sumarEnRango(unidadesCentros, 'cantidad', rSemana.desde, rSemana.hasta),
+      unidadesMes: sumarEnRango(unidadesCentros, 'cantidad', rMes.desde, rMes.hasta),
       entregasTotal: centroEntregas.length,
       entregasHoy: contarEnRango(centroEntregas, rHoy.desde, rHoy.hasta),
       entregasSemana: contarEnRango(centroEntregas, rSemana.desde, rSemana.hasta),
       entregasMes: contarEnRango(centroEntregas, rMes.desde, rMes.hasta),
       ranking: ranking,
-      tendencia: tendencia(FARM, centroEntregas, vista, hoy)
+      topMedicamentos: agruparSuma(unidadesCentros, 'producto', 'cantidad', 'Sin producto').slice(0, 10),
+      tendencia: tendencia(FARM, centroEntregas, vista, hoy),
+      tendenciaUnidades: tendencia(FARM, unidadesCentros, vista, hoy, 'cantidad')
     };
 
     /* -------- Récipes --------
@@ -330,12 +370,49 @@
       tendencia: tendencia(FARM, recipes, vista, hoy)
     };
 
+    /* -------- Insumos --------
+       Las dos hojas del módulo se mantienen separadas de las entregas
+       formales para no duplicar inventario. Aquí sí se suman los items
+       con cantidad por producto. Los totales viejos del Excel se muestran
+       aparte, porque no se pueden repartir entre sus nombres. */
+    var insumosEventos = [];
+    function anexarInsumos(lista, area, campoExcel) {
+      (lista || []).forEach(function (e) {
+        if (e.anulada) return;
+        var evento = { id: area + ':' + e.id, fecha: e.fecha || diaLocal(FARM, e.creado_en),
+                       area: area, totalExcel: Number(e[campoExcel] || 0), items: e.items || [] };
+        insumosEventos.push(evento);
+      });
+    }
+    anexarInsumos(datos.insumosCds, 'Centros y destinos', 'cantidad_total_excel');
+    anexarInsumos(datos.insumosControl, 'Control a personas', 'total_entregado_excel');
+    var insumosConCantidad = [], insumosSinCantidad = 0;
+    insumosEventos.forEach(function (e) {
+      (e.items || []).forEach(function (it) {
+        if (it.cantidad == null || !(Number(it.cantidad) > 0)) { insumosSinCantidad++; return; }
+        insumosConCantidad.push({ fecha: e.fecha, area: e.area,
+          producto: it.descripcion || 'Sin identificar', cantidad: Number(it.cantidad) });
+      });
+    });
+    var infoInsumos = {
+      entregas: insumosEventos.length,
+      unidadesTotal: insumosConCantidad.reduce(function (s, r) { return s + r.cantidad; }, 0),
+      unidadesHoy: sumarEnRango(insumosConCantidad, 'cantidad', rHoy.desde, rHoy.hasta),
+      unidadesSemana: sumarEnRango(insumosConCantidad, 'cantidad', rSemana.desde, rSemana.hasta),
+      unidadesMes: sumarEnRango(insumosConCantidad, 'cantidad', rMes.desde, rMes.hasta),
+      totalExcel: insumosEventos.reduce(function (s, e) { return s + e.totalExcel; }, 0),
+      sinCantidad: insumosSinCantidad,
+      topProductos: agruparSuma(insumosConCantidad, 'producto', 'cantidad', 'Sin identificar').slice(0, 15),
+      porArea: agruparSuma(insumosConCantidad, 'area', 'cantidad', 'Sin área'),
+      tendencia: tendencia(FARM, insumosConCantidad, vista, hoy, 'cantidad')
+    };
+
     return {
       hoy: hoy, vista: vista,
       rotuloSemana: FARM.rotuloPeriodo ? FARM.rotuloPeriodo(rSemana.desde, rSemana.hasta, hoy) : '',
       rotuloMes: FARM.rotuloPeriodo ? FARM.rotuloPeriodo(rMes.desde, rMes.hasta, hoy) : '',
       personas: infoPersonas, jornadas: infoJornadas, centros: infoCentros,
-      recipes: infoRecipes, entregado: infoEntregado
+      recipes: infoRecipes, insumos: infoInsumos, entregado: infoEntregado
     };
   }
 
@@ -358,13 +435,13 @@
     return pag(0);
   }
 
-  var CAMPOS_ENTREGAS = 'entrega_id,fecha,tipo_destinatario,anulada,origen,cantidad,producto,' +
-                         'destinatario,entregado_por';
+  var CAMPOS_ENTREGAS = 'entrega_id,fecha,tipo_destinatario,paciente_id,institucion_id,anulada,origen,' +
+                         'cantidad,producto,destinatario,entregado_por';
 
   function traerDatos(sb) {
     return Promise.all([
       traeTodo(sb, 'pacientes', 'id,sexo,estado,creado_en'),
-      traeTodo(sb, 'jornadas_registros', 'id,conjunto,hoja_origen,estado,creado_en'),
+      traeTodo(sb, 'jornadas_registros', 'id,conjunto,hoja_origen,estado,fecha,tratamiento,creado_en'),
       traeTodo(sb, 'instituciones', 'id,tipo,activo,creado_en'),
       sb.from('v_instituciones_ficha').select('id,nombre,tipo,activo,entregas,insumos,unidades_recibidas')
         .then(function (r) { if (r.error) throw r.error; return r.data || []; }),
@@ -374,11 +451,13 @@
       traeTodo(sb, 'solicitudes', 'id,paciente_id,creado_en', function (q) { return q.eq('via', 'recipe'); }),
       traeTodo(sb, 'tratamientos_paciente', 'solicitud_id,producto_id,texto_original',
         function (q) { return q.eq('origen', 'recipe'); }),
-      traeTodo(sb, 'productos', 'id,nombre')
+      traeTodo(sb, 'productos', 'id,nombre'),
+      traeTodo(sb, 'v_insumos_entregas_cds', 'id,fecha,creado_en,anulada,cantidad_total_excel,items'),
+      traeTodo(sb, 'v_insumos_control_entregas', 'id,fecha,creado_en,anulada,total_entregado_excel,items')
     ]).then(function (r) {
       return {
         personas: r[0], jornadas: r[1], centros: r[2], centrosFicha: r[3], entregasRenglon: r[4],
-        recipes: r[5], tratRecipe: r[6], productos: r[7]
+        recipes: r[5], tratRecipe: r[6], productos: r[7], insumosCds: r[8], insumosControl: r[9]
       };
     });
   }
@@ -391,6 +470,10 @@
     this.vista = 'dia';
     this.datos = null;
     this.informe = null;
+    this.canal = null;
+    this.recargaPendiente = null;
+    this.cargando = false;
+    this.estadoTiempoReal = 'conectando';
   }
   Dashboard.prototype.id = function (n) { return this.pfx + n; };
   Dashboard.prototype.q = function (n) { return this.raiz.querySelector('#' + this.pfx + n); };
@@ -399,18 +482,68 @@
     var t = this;
     t.raiz.innerHTML = '<div id="' + t.id('Zona') + '"></div>';
     t.cargar();
+    t.iniciarTiempoReal();
   };
 
-  Dashboard.prototype.cargar = function () {
+  Dashboard.prototype.cargar = function (silenciosa) {
     var t = this;
+    if (t.cargando) return;
+    t.cargando = true;
     var z = t.q('Zona');
-    z.innerHTML = '<div class="cargando">Contando personas, jornadas, centros y entregas…</div>';
+    if (!silenciosa || !t.datos) {
+      z.innerHTML = '<div class="cargando">Sumando cantidades reales de todas las áreas…</div>';
+    } else {
+      t.estadoTiempoReal = 'actualizando';
+      t.pintarEstadoTiempoReal();
+    }
     traerDatos(t.sb).then(function (datos) {
+      t.cargando = false;
       t.datos = datos;
+      if (t.estadoTiempoReal === 'actualizando') t.estadoTiempoReal = 'en_vivo';
       t.recalcular();
     }).catch(function (e) {
+      t.cargando = false;
       z.innerHTML = '<div class="aviso bad">No se pudo calcular el dashboard: ' + esc(e.message || e) + '</div>';
     });
+  };
+
+  Dashboard.prototype.pintarEstadoTiempoReal = function () {
+    var e = this.q('TiempoReal');
+    if (!e) return;
+    var txt = this.estadoTiempoReal === 'en_vivo' ? '● En vivo' :
+              this.estadoTiempoReal === 'actualizando' ? '↻ Actualizando…' :
+              this.estadoTiempoReal === 'error' ? 'Sin conexión en vivo' : 'Conectando…';
+    e.textContent = txt;
+    e.className = 'sit ' + (this.estadoTiempoReal === 'en_vivo' ? 'ok' :
+                            this.estadoTiempoReal === 'error' ? 'ojo' : '');
+  };
+
+  Dashboard.prototype.iniciarTiempoReal = function () {
+    var t = this;
+    if (!t.sb || !t.sb.channel) return;
+    var tablas = ['pacientes', 'jornadas_registros', 'jornadas_eventos', 'instituciones',
+      'entregas', 'entrega_detalle', 'solicitudes', 'tratamientos_paciente', 'productos',
+      'insumos_entregas_cds', 'insumos_entregas_cds_items',
+      'insumos_control_entregas', 'insumos_control_entregas_items'];
+    var canal = t.sb.channel('dashboard-tiempo-real-' + t.pfx + '-' + Date.now());
+    tablas.forEach(function (tabla) {
+      canal.on('postgres_changes', { event: '*', schema: 'farmacia', table: tabla }, function () {
+        if (!t.q('Zona')) { t.detenerTiempoReal(); return; }
+        clearTimeout(t.recargaPendiente);
+        t.recargaPendiente = setTimeout(function () { t.cargar(true); }, 450);
+      });
+    });
+    t.canal = canal.subscribe(function (estado) {
+      t.estadoTiempoReal = estado === 'SUBSCRIBED' ? 'en_vivo' :
+                           (estado === 'CHANNEL_ERROR' || estado === 'TIMED_OUT' ? 'error' : 'conectando');
+      t.pintarEstadoTiempoReal();
+    });
+  };
+
+  Dashboard.prototype.detenerTiempoReal = function () {
+    clearTimeout(this.recargaPendiente);
+    if (this.canal && this.sb && this.sb.removeChannel) this.sb.removeChannel(this.canal);
+    this.canal = null;
   };
 
   Dashboard.prototype.recalcular = function () {
@@ -495,14 +628,14 @@
 
     z.innerHTML =
       '<div class="cabecera-prod">' +
-        '<h2>Dashboard</h2>' +
+        '<h2>Dashboard <span id="' + i('TiempoReal') + '" class="sit">Conectando…</span></h2>' +
         '<div class="descargas">' +
           '<button type="button" id="' + i('Excel') + '">Descargar Excel</button>' +
           '<button type="button" id="' + i('Pdf') + '">Descargar informe en PDF</button>' +
         '</div>' +
       '</div>' +
-      '<p class="sub">Todo lo que hay registrado hoy en Personas, Jornadas, Centros y Lo entregado, ' +
-        'contado día por día, semana por semana y mes por mes. Semana: ' + esc(inf.rotuloSemana) +
+      '<p class="sub">Las cantidades son unidades realmente anotadas en cada entrega; un nombre sin cantidad ' +
+        'se señala aparte y nunca se convierte en una unidad. Se actualiza automáticamente. Semana: ' + esc(inf.rotuloSemana) +
         '. Mes: ' + esc(inf.rotuloMes) + '.</p>' +
 
       '<div class="chips" id="' + i('Vista') + '">' +
@@ -515,10 +648,12 @@
       seccionPersonas(inf.personas, inf.vista) +
       seccionJornadas(inf.jornadas, inf.vista) +
       seccionCentros(inf.centros, inf.vista) +
+      seccionInsumos(inf.insumos, inf.vista) +
       seccionRecipes(inf.recipes, inf.vista) +
       seccionEntregado(inf.entregado, inf.vista);
 
     animarAnillos(z);
+    t.pintarEstadoTiempoReal();
 
     t.q('Vista').querySelectorAll('button').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -544,6 +679,14 @@
         cif(num(p.mes), 'nuevas este mes') +
         cif(num(p.porRevisar), 'por revisar', p.porRevisar ? 'alerta' : '') +
       '</div>' +
+      '<div class="cifras">' +
+        cif(num(p.entregasReales), 'entregas reales a personas') +
+        cif(num(p.receptoresReales), 'personas distintas que recibieron') +
+        cif(unNum(p.unidadesEntregadas), 'unidades entregadas a personas') +
+        cif(unNum(p.unidadesHoy), 'unidades hoy') +
+        cif(unNum(p.unidadesSemana), 'unidades esta semana') +
+        cif(unNum(p.unidadesMes), 'unidades este mes') +
+      '</div>' +
       '<div class="dash-grid">' +
         '<div class="dash-panel">' +
           '<p class="sub chico">Por sexo</p>' +
@@ -553,6 +696,9 @@
           '<p class="sub chico">Nuevas, ' + rotuloVista(vista) + '</p>' +
           tablaSimple(['Período', 'Personas nuevas'],
             p.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; })) +
+          '<p class="sub chico">Medicamentos realmente entregados a personas</p>' +
+          tablaSimple(['Medicamento', 'Unidades', 'Renglones'],
+            p.topEntregado.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
         '</div>' +
       '</div></div>';
   }
@@ -567,17 +713,29 @@
         cif(num(j.mes), 'nuevos este mes') +
         cif(num(j.porRevisar), 'por revisar', j.porRevisar ? 'alerta' : '') +
       '</div>' +
+      '<div class="cifras">' +
+        cif(unNum(j.unidadesTotal), 'unidades con cantidad anotada') +
+        cif(unNum(j.unidadesHoy), 'unidades hoy') +
+        cif(unNum(j.unidadesSemana), 'unidades esta semana') +
+        cif(unNum(j.unidadesMes), 'unidades este mes') +
+        cif(num(j.sinCantidad), 'medicamentos sin cantidad', j.sinCantidad ? 'alerta' : '') +
+      '</div>' +
+      (j.sinCantidad ? '<p class="sub chico ojo">Los nombres sin una cantidad escrita se mantienen visibles para revisión, ' +
+        'pero no se suman como unidades entregadas.</p>' : '') +
       '<div class="dash-grid">' +
         '<div class="dash-panel">' +
-          '<p class="sub chico">Por conjunto</p>' +
-          anillo(j.porConjunto, 'jornadas') +
+          '<p class="sub chico">Medicamentos con cantidad comprobable</p>' +
+          tablaSimple(['Medicamento', 'Unidades', 'Renglones'],
+            j.topMedicamentos.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
         '</div>' +
         '<div class="dash-panel">' +
           '<p class="sub chico">Por hoja del Excel</p>' +
           tablaSimple(['Hoja', 'Registros'], j.porHoja.map(function (x) { return [esc(x.etiqueta), '<b>' + num(x.cantidad) + '</b>']; })) +
-          '<p class="sub chico">Registros nuevos, ' + rotuloVista(vista) + '</p>' +
-          tablaSimple(['Período', 'Registros nuevos'],
-            j.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; })) +
+          '<p class="sub chico">Actividad y unidades, ' + rotuloVista(vista) + '</p>' +
+          tablaSimple(['Período', 'Registros', 'Unidades'],
+            j.tendenciaUnidades.map(function (r, idx) {
+              return [esc(r.etiqueta), '<b>' + num(j.tendencia[idx].cantidad) + '</b>', unNum(r.unidades)];
+            })) +
         '</div>' +
       '</div></div>';
   }
@@ -591,8 +749,12 @@
         cif(num(c.inactivos), 'inactivos', c.inactivos ? 'alerta' : '') +
         cif(num(c.entregasTotal), 'entregas realizadas') +
         cif(unNum(c.unidadesRecibidas), 'unidades recibidas en total') +
-        cif(num(c.insumosPedidos), 'renglones de insumos que piden (sumado)') +
+        cif(unNum(c.unidadesHoy), 'unidades hoy') +
+        cif(unNum(c.unidadesSemana), 'unidades esta semana') +
+        cif(unNum(c.unidadesMes), 'unidades este mes') +
       '</div>' +
+      '<p class="sub chico">Los ' + num(c.insumosPedidos) + ' renglones solicitados por los centros son demanda, no entrega; ' +
+        'por eso no se mezclan con las unidades recibidas.</p>' +
       '<div class="dash-grid">' +
         '<div class="dash-panel">' +
           '<p class="sub chico">Por tipo de centro</p>' +
@@ -602,9 +764,41 @@
           '<p class="sub chico">Los diez centros que más unidades han recibido</p>' +
           tablaSimple(['Centro', 'Unidades recibidas', 'Entregas'],
             c.ranking.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
+          '<p class="sub chico">Medicamentos entregados a centros</p>' +
+          tablaSimple(['Medicamento', 'Unidades', 'Renglones'],
+            c.topMedicamentos.map(function (r) { return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)]; })) +
           '<p class="sub chico">Entregas a centros, ' + rotuloVista(vista) + '</p>' +
-          tablaSimple(['Período', 'Entregas'], c.tendencia.map(function (r) { return [esc(r.etiqueta), '<b>' + num(r.cantidad) + '</b>']; })) +
+          tablaSimple(['Período', 'Entregas', 'Unidades'], c.tendenciaUnidades.map(function (r, idx) {
+            return [esc(r.etiqueta), '<b>' + num(c.tendencia[idx].cantidad) + '</b>', unNum(r.unidades)];
+          })) +
         '</div>' +
+      '</div></div>';
+  }
+
+  function seccionInsumos(x, vista) {
+    return '<div class="dash-seccion" style="--dash-acento:#fb7185;--dash-glow:rgba(251,113,133,.18)">' +
+      '<h2><span class="dash-punto"></span>Insumos entregados</h2>' +
+      '<div class="cifras">' +
+        cif(num(x.entregas), 'entregas registradas') +
+        cif(unNum(x.unidadesTotal), 'unidades con cantidad por insumo') +
+        cif(unNum(x.unidadesHoy), 'unidades hoy') +
+        cif(unNum(x.unidadesSemana), 'unidades esta semana') +
+        cif(unNum(x.unidadesMes), 'unidades este mes') +
+        cif(num(x.sinCantidad), 'renglones sin cantidad', x.sinCantidad ? 'alerta' : '') +
+      '</div>' +
+      (x.totalExcel ? '<p class="sub chico ojo"><b>' + unNum(x.totalExcel) + '</b> unidades adicionales aparecen como total ' +
+        'general en el Excel viejo. Se muestran aparte y no se reparten entre productos.</p>' : '') +
+      '<div class="dash-grid">' +
+        '<div class="dash-panel"><p class="sub chico">Unidades reales por área</p>' +
+          anillo(x.porArea.map(function (r) { return { etiqueta: r.etiqueta, cantidad: r.unidades }; }), 'unidades') +
+          '<p class="sub chico">Unidades, ' + rotuloVista(vista) + '</p>' +
+          tablaSimple(['Período', 'Unidades'], x.tendencia.map(function (r) {
+            return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>'];
+          })) + '</div>' +
+        '<div class="dash-panel"><p class="sub chico">Productos más entregados por cantidad</p>' +
+          tablaSimple(['Producto', 'Unidades', 'Renglones'], x.topProductos.map(function (r) {
+            return [esc(r.etiqueta), '<b>' + unNum(r.unidades) + '</b>', num(r.veces)];
+          })) + '</div>' +
       '</div></div>';
   }
 
@@ -617,7 +811,7 @@
         cif(num(r.semana), 'esta semana') +
         cif(num(r.mes), 'este mes') +
         cif(num(r.pacientes), 'pacientes atendidos por récipe') +
-        cif(num(r.insumosDistintos), 'insumos distintos pedidos') +
+        cif(num(r.insumosDistintos), 'insumos distintos solicitados') +
       '</div>' +
       '<p class="sub chico">Esto es lo que se <b>pidió</b> por récipe. No es lo mismo que "Lo ' +
         'entregado", más abajo: ahí está lo que de verdad salió de la farmacia.</p>' +
@@ -684,8 +878,17 @@
         filas: [
           ['Total histórico', inf.personas.total], ['Nuevas hoy', inf.personas.hoy],
           ['Nuevas esta semana', inf.personas.semana], ['Nuevas este mes', inf.personas.mes],
-          ['Por revisar', inf.personas.porRevisar]
+          ['Por revisar', inf.personas.porRevisar],
+          ['Entregas reales a personas', inf.personas.entregasReales],
+          ['Personas distintas que recibieron', inf.personas.receptoresReales],
+          ['Unidades entregadas a personas', inf.personas.unidadesEntregadas],
+          ['Unidades a personas hoy', inf.personas.unidadesHoy],
+          ['Unidades a personas esta semana', inf.personas.unidadesSemana],
+          ['Unidades a personas este mes', inf.personas.unidadesMes]
         ].concat(inf.personas.porSexo.map(function (x) { return [x.etiqueta, x.cantidad]; })) },
+      { nombre: 'Personas-entregado', titulo: 'Medicamentos realmente entregados a personas', anchos: [38, 16, 14],
+        encabezados: ['Medicamento', 'Unidades', 'Renglones'],
+        filas: inf.personas.topEntregado.map(function (r) { return [r.etiqueta, r.unidades, r.veces]; }) },
       { nombre: 'Personas-tendencia', titulo: 'Personas nuevas, ' + rotVista(inf.vista), anchos: [22, 16],
         encabezados: ['Período', 'Nuevas'], filas: inf.personas.tendencia.map(function (r) { return [r.etiqueta, r.cantidad]; }) },
 
@@ -694,11 +897,21 @@
         filas: [
           ['Total histórico', inf.jornadas.total], ['Nuevos hoy', inf.jornadas.hoy],
           ['Nuevos esta semana', inf.jornadas.semana], ['Nuevos este mes', inf.jornadas.mes],
-          ['Por revisar', inf.jornadas.porRevisar]
+          ['Por revisar', inf.jornadas.porRevisar],
+          ['Unidades con cantidad anotada', inf.jornadas.unidadesTotal],
+          ['Unidades hoy', inf.jornadas.unidadesHoy],
+          ['Unidades esta semana', inf.jornadas.unidadesSemana],
+          ['Unidades este mes', inf.jornadas.unidadesMes],
+          ['Medicamentos sin cantidad', inf.jornadas.sinCantidad]
         ].concat(inf.jornadas.porConjunto.map(function (x) { return [x.etiqueta, x.cantidad]; }))
          .concat(inf.jornadas.porHoja.map(function (x) { return [x.etiqueta, x.cantidad]; })) },
-      { nombre: 'Jornadas-tendencia', titulo: 'Jornadas nuevas, ' + rotVista(inf.vista), anchos: [22, 16],
-        encabezados: ['Período', 'Nuevos'], filas: inf.jornadas.tendencia.map(function (r) { return [r.etiqueta, r.cantidad]; }) },
+      { nombre: 'Jornadas-productos', titulo: 'Medicamentos entregados en jornadas con cantidad comprobable', anchos: [38, 16, 14],
+        encabezados: ['Medicamento', 'Unidades', 'Renglones'],
+        filas: inf.jornadas.topMedicamentos.map(function (r) { return [r.etiqueta, r.unidades, r.veces]; }) },
+      { nombre: 'Jornadas-tendencia', titulo: 'Jornadas y unidades, ' + rotVista(inf.vista), anchos: [22, 16, 16],
+        encabezados: ['Período', 'Registros', 'Unidades'], filas: inf.jornadas.tendencia.map(function (r, idx) {
+          return [r.etiqueta, r.cantidad, inf.jornadas.tendenciaUnidades[idx].unidades];
+        }) },
 
       { nombre: 'Centros', titulo: 'Centros de salud', anchos: [30, 16],
         encabezados: ['Indicador', 'Cantidad'],
@@ -710,8 +923,28 @@
       { nombre: 'Centros-ranking', titulo: 'Los diez centros que más han recibido', anchos: [40, 18, 14],
         encabezados: ['Centro', 'Unidades recibidas', 'Entregas'],
         filas: inf.centros.ranking.map(function (r) { return [r.etiqueta, r.unidades, r.veces]; }) },
-      { nombre: 'Centros-tendencia', titulo: 'Entregas a centros, ' + rotVista(inf.vista), anchos: [22, 14],
-        encabezados: ['Período', 'Entregas'], filas: inf.centros.tendencia.map(function (r) { return [r.etiqueta, r.cantidad]; }) },
+      { nombre: 'Centros-productos', titulo: 'Medicamentos entregados a centros', anchos: [38, 16, 14],
+        encabezados: ['Medicamento', 'Unidades', 'Renglones'],
+        filas: inf.centros.topMedicamentos.map(function (r) { return [r.etiqueta, r.unidades, r.veces]; }) },
+      { nombre: 'Centros-tendencia', titulo: 'Entregas a centros, ' + rotVista(inf.vista), anchos: [22, 14, 16],
+        encabezados: ['Período', 'Entregas', 'Unidades'], filas: inf.centros.tendencia.map(function (r, idx) {
+          return [r.etiqueta, r.cantidad, inf.centros.tendenciaUnidades[idx].unidades];
+        }) },
+
+      { nombre: 'Insumos', titulo: 'Insumos entregados: cantidades reales', anchos: [38, 18],
+        encabezados: ['Indicador', 'Cantidad'], filas: [
+          ['Entregas registradas', inf.insumos.entregas],
+          ['Unidades con cantidad por insumo', inf.insumos.unidadesTotal],
+          ['Unidades hoy', inf.insumos.unidadesHoy], ['Unidades esta semana', inf.insumos.unidadesSemana],
+          ['Unidades este mes', inf.insumos.unidadesMes], ['Renglones sin cantidad', inf.insumos.sinCantidad],
+          ['Totales del Excel sin desglose (separados)', inf.insumos.totalExcel]
+        ] },
+      { nombre: 'Insumos-productos', titulo: 'Productos más entregados por cantidad', anchos: [40, 16, 14],
+        encabezados: ['Producto', 'Unidades', 'Renglones'],
+        filas: inf.insumos.topProductos.map(function (r) { return [r.etiqueta, r.unidades, r.veces]; }) },
+      { nombre: 'Insumos-tendencia', titulo: 'Unidades de insumos, ' + rotVista(inf.vista), anchos: [24, 16],
+        encabezados: ['Período', 'Unidades'],
+        filas: inf.insumos.tendencia.map(function (r) { return [r.etiqueta, r.unidades]; }) },
 
       { nombre: 'Récipes', titulo: 'Récipes (lo que se pidió, no lo ya entregado)', anchos: [34, 16],
         encabezados: ['Indicador', 'Cantidad'],
@@ -761,7 +994,9 @@
       resumen: [
         { k: 'Personas registradas', v: num(inf.personas.total) },
         { k: 'Jornadas registradas', v: num(inf.jornadas.total) },
+        { k: 'Unidades en jornadas', v: unNum(inf.jornadas.unidadesTotal) },
         { k: 'Centros activos', v: num(inf.centros.activos) },
+        { k: 'Unidades de insumos', v: unNum(inf.insumos.unidadesTotal) },
         { k: 'Récipes registrados', v: num(inf.recipes.total) },
         { k: 'Entregas realizadas', v: num(inf.entregado.total) },
         { k: 'Unidades entregadas', v: unNum(inf.entregado.unidadesTotal) },
@@ -777,11 +1012,24 @@
           filas: inf.jornadas.tendencia.map(function (r) { return [r.etiqueta, num(r.cantidad)]; }) },
         { titulo: 'Jornadas — por hoja del Excel', encabezados: ['Hoja', 'Cantidad'],
           filas: inf.jornadas.porHoja.map(function (x) { return [x.etiqueta, num(x.cantidad)]; }) },
+        { titulo: 'Jornadas — medicamentos por cantidad real',
+          nota: inf.jornadas.sinCantidad ? num(inf.jornadas.sinCantidad) + ' nombres sin cantidad quedaron fuera de la suma.' : '',
+          encabezados: ['Medicamento', 'Unidades', 'Renglones'],
+          filas: inf.jornadas.topMedicamentos.map(function (r) { return [r.etiqueta, unNum(r.unidades), num(r.veces)]; }) },
 
         { titulo: 'Centros — los diez que más han recibido', encabezados: ['Centro', 'Unidades', 'Entregas'],
           filas: inf.centros.ranking.map(function (r) { return [r.etiqueta, unNum(r.unidades), num(r.veces)]; }) },
-        { titulo: 'Centros — entregas ' + rotVista(inf.vista), encabezados: ['Período', 'Entregas'],
-          filas: inf.centros.tendencia.map(function (r) { return [r.etiqueta, num(r.cantidad)]; }) },
+        { titulo: 'Centros — entregas ' + rotVista(inf.vista), encabezados: ['Período', 'Entregas', 'Unidades'],
+          filas: inf.centros.tendencia.map(function (r, idx) {
+            return [r.etiqueta, num(r.cantidad), unNum(inf.centros.tendenciaUnidades[idx].unidades)];
+          }) },
+
+        { titulo: 'Insumos — productos por cantidad real',
+          nota: inf.insumos.sinCantidad ? num(inf.insumos.sinCantidad) + ' renglones sin cantidad no entran en la suma.' : '',
+          encabezados: ['Producto', 'Unidades', 'Renglones'],
+          filas: inf.insumos.topProductos.map(function (r) { return [r.etiqueta, unNum(r.unidades), num(r.veces)]; }) },
+        { titulo: 'Insumos — ' + rotVista(inf.vista), encabezados: ['Período', 'Unidades'],
+          filas: inf.insumos.tendencia.map(function (r) { return [r.etiqueta, unNum(r.unidades)]; }) },
 
         { titulo: 'Récipes — los insumos más pedidos', encabezados: ['Insumo', 'Veces pedido'],
           filas: inf.recipes.topInsumos.map(function (x) { return [x.etiqueta, num(x.cantidad)]; }) },
@@ -806,7 +1054,11 @@
 
   window.PANTALLA_DASHBOARD = function (cliente, contenedor, opciones) {
     var o = opciones || {};
+    if (window.DASHBOARD_ACTIVO && window.DASHBOARD_ACTIVO.detenerTiempoReal) {
+      window.DASHBOARD_ACTIVO.detenerTiempoReal();
+    }
     var t = new Dashboard(cliente, contenedor, o.prefijo || 'da');
+    window.DASHBOARD_ACTIVO = t;
     t.pintar();
     return t;
   };

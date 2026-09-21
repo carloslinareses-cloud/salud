@@ -96,19 +96,21 @@ const sinNadie = calcularCifrasEvento(FARM, []);
 prueba('sin personas, todo en cero', [sinNadie.pacientes, sinNadie.totalMedicamentos, sinNadie.recipes].join(','), '0,0,0');
 
 const personas = [
-  { tratamiento: 'SUERO ORAL / ALBENDAZOL / NUTAMIN', recipe: true },
-  { tratamiento: 'NUTAMIN', recipe: false },
-  { tratamiento: 'IBUPROFENO, ACETAMINOFEN', recipe: true },
+  { tratamiento: 'SUERO ORAL X3 / ALBENDAZOL X2 / NUTAMIN X1', recipe: true },
+  { tratamiento: 'NUTAMIN X4', recipe: false },
+  { tratamiento: 'IBUPROFENO X2, ACETAMINOFEN', recipe: true },
   { tratamiento: null, recipe: null },          // se atendió pero no le dieron nada -no revienta-
   { tratamiento: '', recipe: false }
 ];
 const cifras = calcularCifrasEvento(FARM, personas);
 prueba('pacientes atendidos = cuántos se cargaron', cifras.pacientes, 5);
-prueba('medicamentos entregados = la suma de piezas de cada quien (3+1+2)', cifras.totalMedicamentos, 6);
+prueba('unidades entregadas = la suma de las cantidades escritas (3+2+1+4+2)', cifras.totalMedicamentos, 12);
 prueba('récipes = solo los que dijeron que sí', cifras.recipes, 2);
-prueba('NUTAMIN salió dos veces -una por persona, no se funde en una sola-', cifras.meds.NUTAMIN, 2);
+prueba('NUTAMIN suma sus unidades entre personas (1+4)', cifras.meds.NUTAMIN, 5);
 prueba('el detalle va ordenado del que más salió al que menos',
   cifras.ordenMeds[0], 'NUTAMIN');
+prueba('un nombre sin cantidad no se inventa como una unidad', cifras.sinCantidad, 1);
+prueba('el nombre sin cantidad queda visible para revisión', cifras.medsSinCantidad.ACETAMINOFEN, 1);
 prueba('sin tratamiento anotado no rompe la cuenta ni suma nada',
   cifras.ordenMeds.join(',').includes('undefined'), false);
 

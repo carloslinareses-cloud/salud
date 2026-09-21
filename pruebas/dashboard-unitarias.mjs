@@ -77,8 +77,10 @@ const datos = {
     { sexo: 'F', estado: 'activo', creado_en: '2026-08-25T12:00:00Z' }        // P6: mes pasado
   ],
   jornadas: [
-    { conjunto: 'jornadas', hoja_origen: 'JULIO A SEPTIEMBRE', estado: 'activo', creado_en: '2026-09-16T15:00:00Z' },
-    { conjunto: 'ruta_materna', hoja_origen: 'RUTA MATERNA MES JULIO', estado: 'por_revisar', creado_en: '2026-09-14T12:00:00Z' }
+    { conjunto: 'jornadas', hoja_origen: 'JULIO A SEPTIEMBRE', estado: 'activo', fecha: '2026-09-16',
+      tratamiento: 'LOSARTAN X10 / IBUPROFENO X2', creado_en: '2026-09-16T15:00:00Z' },
+    { conjunto: 'ruta_materna', hoja_origen: 'RUTA MATERNA MES JULIO', estado: 'por_revisar', fecha: '2026-09-14',
+      tratamiento: 'LOSARTAN X5 / ACETAMINOFEN', creado_en: '2026-09-14T12:00:00Z' }
   ],
   centros: [
     { tipo: 'CDI', activo: true, creado_en: '2026-09-16T15:00:00Z' },
@@ -89,11 +91,11 @@ const datos = {
     { id: 'c2', nombre: 'Ambulatorio Dos', tipo: 'Ambulatorio', activo: false, entregas: 0, insumos: 2, unidades_recibidas: 0 }
   ],
   entregasRenglon: [
-    { entrega_id: 'e1', fecha: '2026-09-16', tipo_destinatario: 'paciente', anulada: false, cantidad: 10, producto: 'LOSARTAN', destinatario: 'Juan Perez', entregado_por: 'Ana' },
-    { entrega_id: 'e1', fecha: '2026-09-16', tipo_destinatario: 'paciente', anulada: false, cantidad: 5, producto: 'IBUPROFENO', destinatario: 'Juan Perez', entregado_por: 'Ana' },
-    { entrega_id: 'e2', fecha: '2026-09-14', tipo_destinatario: 'institucion', anulada: false, cantidad: 50, producto: 'LOSARTAN', destinatario: 'CDI Uno', entregado_por: 'Carlos' },
-    { entrega_id: 'e3', fecha: '2026-09-07', tipo_destinatario: 'paciente', anulada: false, cantidad: null, producto: null, destinatario: 'Maria Lopez', entregado_por: 'No consta (viene del Excel)' },
-    { entrega_id: 'e4', fecha: '2026-09-16', tipo_destinatario: 'paciente', anulada: true, cantidad: 99, producto: 'DEBE IGNORARSE', destinatario: 'X', entregado_por: 'Ana' }
+    { entrega_id: 'e1', fecha: '2026-09-16', tipo_destinatario: 'paciente', paciente_id: 'p1', anulada: false, cantidad: 10, producto: 'LOSARTAN', destinatario: 'Juan Perez', entregado_por: 'Ana' },
+    { entrega_id: 'e1', fecha: '2026-09-16', tipo_destinatario: 'paciente', paciente_id: 'p1', anulada: false, cantidad: 5, producto: 'IBUPROFENO', destinatario: 'Juan Perez', entregado_por: 'Ana' },
+    { entrega_id: 'e2', fecha: '2026-09-14', tipo_destinatario: 'institucion', institucion_id: 'c1', anulada: false, cantidad: 50, producto: 'LOSARTAN', destinatario: 'CDI Uno', entregado_por: 'Carlos' },
+    { entrega_id: 'e3', fecha: '2026-09-07', tipo_destinatario: 'paciente', paciente_id: 'p2', anulada: false, cantidad: null, producto: null, destinatario: 'Maria Lopez', entregado_por: 'No consta (viene del Excel)' },
+    { entrega_id: 'e4', fecha: '2026-09-16', tipo_destinatario: 'paciente', paciente_id: 'p3', anulada: true, cantidad: 99, producto: 'DEBE IGNORARSE', destinatario: 'X', entregado_por: 'Ana' }
   ],
   // R1 y R2 son hoy, pero del MISMO paciente p1: los récipes se cuentan
   // 2, pero los pacientes distintos de hoy son 1, no 2.
@@ -114,6 +116,18 @@ const datos = {
   productos: [
     { id: 'prod1', nombre: 'LOSARTAN' },
     { id: 'prod2', nombre: 'IBUPROFENO' }
+  ],
+  insumosCds: [
+    { id: 'ic1', fecha: '2026-09-16', anulada: false, cantidad_total_excel: null,
+      items: [{ descripcion: 'GASA 3X3', cantidad: 20 }, { descripcion: 'GUANTES', cantidad: 5 }] },
+    { id: 'ic2', fecha: '2026-09-14', anulada: false, cantidad_total_excel: 100,
+      items: [{ descripcion: 'MASCARILLAS', cantidad: null }] }
+  ],
+  insumosControl: [
+    { id: 'ip1', fecha: '2026-09-16', anulada: false, total_entregado_excel: null,
+      items: [{ descripcion: 'GASA 3X3', cantidad: 10 }] },
+    { id: 'ip2', fecha: '2026-09-16', anulada: true, total_entregado_excel: null,
+      items: [{ descripcion: 'NO CUENTA', cantidad: 999 }] }
   ]
 };
 
@@ -141,6 +155,10 @@ prueba('por revisar', inf.jornadas.porRevisar, 1);
 prueba('por conjunto', inf.jornadas.porConjunto.sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)),
   [{ etiqueta: 'Jornada de salud', cantidad: 1 }, { etiqueta: 'Ruta materna', cantidad: 1 }]
     .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)));
+prueba('las jornadas suman cantidades reales (10+2+5)', inf.jornadas.unidadesTotal, 17);
+prueba('un medicamento sin cantidad queda fuera de unidades y marcado', inf.jornadas.sinCantidad, 1);
+prueba('el top de jornadas suma LOSARTAN entre personas', inf.jornadas.topMedicamentos[0],
+  { etiqueta: 'LOSARTAN', unidades: 15, veces: 2 });
 
 /* ---------------------------------------------------------------
    Centros
@@ -152,6 +170,7 @@ prueba('unidades recibidas en total', inf.centros.unidadesRecibidas, 120);
 prueba('el ranking deja afuera al que no ha recibido nada',
   inf.centros.ranking, [{ etiqueta: 'CDI Uno', unidades: 120, veces: 3 }]);
 prueba('las entregas a centros son solo las de tipo institución', inf.centros.entregasTotal, 1);
+prueba('las unidades del centro vienen del detalle real', inf.centros.unidadesSemana, 50);
 
 /* ---------------------------------------------------------------
    Récipes: lo que se PIDIÓ, no lo ya entregado
@@ -184,11 +203,23 @@ prueba('la migrada sin cantidad se cuenta como "sin detalle"', inf.entregado.sin
 prueba('unidades en total (10+5+50; la anulada y la sin detalle no suman)', inf.entregado.unidadesTotal, 65);
 prueba('unidades hoy (10+5 de la misma visita; la anulada de hoy NO suma)', inf.entregado.unidadesHoy, 15);
 prueba('unidades esta semana (15+50)', inf.entregado.unidadesSemana, 65);
+prueba('Personas muestra las 15 unidades realmente entregadas a pacientes', inf.personas.unidadesEntregadas, 15);
+prueba('Personas no duplica al paciente por tener dos renglones', inf.personas.receptoresReales, 2);
 prueba('el top de medicamentos suma entre entregas distintas',
   inf.entregado.topMedicamentos, [
     { etiqueta: 'LOSARTAN', unidades: 60, veces: 2 },
     { etiqueta: 'IBUPROFENO', unidades: 5, veces: 1 }
   ]);
+
+/* ---------------------------------------------------------------
+   Insumos: cantidades por renglón, sin repartir el total viejo
+--------------------------------------------------------------- */
+grupo('Insumos: suma cantidades reales y separa los totales sin desglose');
+prueba('unidades reales (20+5+10), sin la anulada', inf.insumos.unidadesTotal, 35);
+prueba('GASA se suma entre las dos hojas (20+10)', inf.insumos.topProductos[0],
+  { etiqueta: 'GASA 3X3', unidades: 30, veces: 2 });
+prueba('el total viejo del Excel se muestra aparte', inf.insumos.totalExcel, 100);
+prueba('el renglón sin cantidad queda marcado', inf.insumos.sinCantidad, 1);
 prueba('quién despachó, ordenado por unidades',
   inf.entregado.porDespachador, [
     { etiqueta: 'Carlos', unidades: 50, veces: 1 },

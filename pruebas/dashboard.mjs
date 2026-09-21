@@ -98,24 +98,39 @@ try {
   await pag.type('#correo', ADMIN)
   await pag.type('#clave', CLAVE)
   await pag.click('#btnEntrar')
-  await pag.waitForSelector('.areas', { timeout: 30000 })
+  await pag.waitForFunction(() => document.querySelector('.areas') ||
+    document.querySelector('#zonaInventarioHome [data-p="dashboard"]'), { timeout: 30000 })
 
-  await pag.click('.areas [data-area="inventario"]')
-  await espera(500)
-  await pag.waitForSelector('#zona-inventario [data-p="dashboard"]', { timeout: 20000 })
+  if (await pag.$('.areas [data-area="inventario"]')) {
+    await pag.click('.areas [data-area="inventario"]')
+    await espera(500)
+  }
+  const selectorInventario = await pag.$('#zonaInventarioHome [data-p="dashboard"]')
+    ? '#zonaInventarioHome' : '#zona-inventario'
+  await pag.waitForSelector(`${selectorInventario} [data-p="dashboard"]`, { timeout: 20000 })
   prueba('la pestaña Dashboard existe en Mercancía', true)
 
-  await pag.click('#zona-inventario [data-p="dashboard"]')
+  await pag.click(`${selectorInventario} [data-p="dashboard"]`)
   await pag.waitForSelector('#daVista', { timeout: 20000 })
   await sinCargando()
-  prueba('carga las cuatro secciones', true)
+  prueba('carga todas las secciones', true)
+  await pag.waitForFunction(() => /En vivo/i.test((document.getElementById('daTiempoReal') || {}).innerText || ''),
+    { timeout: 20000 })
+  prueba('la conexión en tiempo real quedó activa', true)
 
   const texto = await pag.$eval('#daZona', (e) => e.innerText)
   prueba('sale la sección de Personas', /Personas registradas/i.test(texto), texto.slice(0, 80))
   prueba('sale la sección de Jornadas', /Jornadas y ruta materna/i.test(texto), '')
   prueba('sale la sección de Centros', /Centros de salud/i.test(texto), '')
+  prueba('sale la sección de Insumos con cantidades', /Insumos entregados/i.test(texto), '')
   prueba('sale la sección de Lo entregado', /Lo entregado/i.test(texto), '')
   prueba('sale la sección de Récipes', /Récipes\s/.test(texto) && /récipes registrados/i.test(texto), '')
+  prueba('explica que un nombre sin cantidad no se inventa como unidad', /nombre sin cantidad/i.test(texto), '')
+  const unidadesReales = await pag.$$eval('#daZona .cifra', (cs) => cs
+    .filter((x) => /unidades (?:entregadas|recibidas|con cantidad|hoy|esta semana|este mes)/i.test(x.innerText))
+    .map((x) => x.querySelector('b').textContent.trim()))
+  prueba('muestra sumas de unidades reales en varias áreas', unidadesReales.length >= 8,
+    JSON.stringify(unidadesReales))
   prueba('Récipes aclara que es lo pedido, no lo ya entregado', /lo que se pidió por récipe/i.test(texto), '')
   const recipesTotal = await pag.$$eval('#daZona .cifra', (cs) => {
     const c = cs.find((x) => /récipes registrados/i.test(x.innerText))
