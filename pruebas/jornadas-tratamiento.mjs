@@ -77,7 +77,8 @@ function consulta(tabla) {
     eq: function () { return q },
     order: function () { return q },
     range: function () {
-      var data = tabla === 'jornadas_registros' && window.JORNADA_PERSONAS ? window.JORNADA_PERSONAS : [];
+      var data = tabla === 'jornadas_registros' && window.JORNADA_PERSONAS ? window.JORNADA_PERSONAS :
+        (tabla === 'v_jornadas_eventos' && window.JORNADA_EVENTOS ? window.JORNADA_EVENTOS : []);
       return Promise.resolve({ data: data, count: data.length, error: null })
     },
     or: function () { return q },
@@ -267,6 +268,40 @@ try {
     movil.cantidades.every(n => n >= 44) && movil.botones.every(n => n >= 44), JSON.stringify(movil))
   prueba('los renglones de productos caben completos en el teléfono',
     movil.chips.every(n => n <= movil.ventana), JSON.stringify(movil))
+
+  console.log('\n--- Comunas y comunidades de las jornadas ---')
+  await pag.setViewport({ width: 1200, height: 900 })
+  await pag.evaluate(() => {
+    window.JORNADA_EVENTOS = [
+      { id: 'e1', tipo: 'jornadas', fecha: '2026-09-18', lugar: 'UNO', comuna: 'COMUNA A', comunidad: 'LA ESPERANZA', pacientes: 10, recipes: 5 },
+      { id: 'e2', tipo: 'jornadas', fecha: '2026-09-17', lugar: 'DOS', comuna: 'comuna a', comunidad: 'LOS OLIVOS', pacientes: 8, recipes: 4 },
+      { id: 'e3', tipo: 'jornadas', fecha: '2026-09-16', lugar: 'TRES', comuna: 'COMUNA B', comunidad: 'LA ESPERANZA', pacientes: 7, recipes: 3 },
+      { id: 'e4', tipo: 'jornadas', fecha: '2026-09-15', lugar: 'SIN TERRITORIO', comuna: null, comunidad: null, pacientes: 2, recipes: 1 },
+      { id: 'e5', tipo: 'ruta_materna', fecha: '2026-09-14', lugar: 'CINCO', comuna: 'COMUNA B', comunidad: 'COMUNIDAD TRES', pacientes: 6, recipes: 2 }
+    ]
+    window.T.vista = 'eventos'
+    window.T.modoEv = 'lista'
+    window.T.pintar()
+  })
+  await pag.waitForSelector('#joTablaComunas', { timeout: 10000 })
+  const textoTerritorio = await pag.$eval('#joEvTerritorio', e => e.innerText.replace(/\s+/g, ' '))
+  prueba('al abrir Jornadas muestra el total de jornadas, comunas y comunidades',
+    /5 jornadas registradas/i.test(textoTerritorio) && /2 comunas atendidas/i.test(textoTerritorio) &&
+    /4 comunidades atendidas/i.test(textoTerritorio), textoTerritorio)
+  prueba('el desglose muestra todas las comunas y todas las comunidades',
+    (await pag.$$eval('#joTablaComunas tbody tr', rs => rs.length)) === 2 &&
+    (await pag.$$eval('#joTablaComunidades tbody tr', rs => rs.length)) === 4)
+  prueba('una comunidad homónima en otra comuna se muestra por separado',
+    /COMUNA B\s+LA ESPERANZA\s+1/i.test(textoTerritorio), textoTerritorio)
+  prueba('avisa cuáles jornadas todavía no tienen comuna o comunidad anotada',
+    /1 jornada sin comuna anotada/i.test(textoTerritorio) && /1 jornada sin comunidad anotada/i.test(textoTerritorio))
+  await pag.setViewport({ width: 375, height: 812 })
+  await new Promise(r => setTimeout(r, 200))
+  const movilTerritorio = await pag.evaluate(() => ({
+    ancho: document.documentElement.scrollWidth, ventana: window.innerWidth
+  }))
+  prueba('el resumen territorial cabe en un teléfono de 375 px',
+    movilTerritorio.ancho <= movilTerritorio.ventana, JSON.stringify(movilTerritorio))
 
   console.log('\n--- Informe detallado de una jornada ---')
   await pag.setViewport({ width: 1200, height: 900 })

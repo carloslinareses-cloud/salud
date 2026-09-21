@@ -87,11 +87,15 @@ const ventana = {};
 new Function('window', 'return ' + cuerpoIIFE)(ventana)();
 const calcularCifrasEvento = ventana.JORNADAS_CALCULAR_CIFRAS;
 const prepararInformeEvento = ventana.JORNADAS_PREPARAR_INFORME;
+const resumirTerritorioEventos = ventana.JORNADAS_RESUMIR_TERRITORIO;
 if (typeof calcularCifrasEvento !== 'function') {
   throw new Error('jornadas.js no dejó "JORNADAS_CALCULAR_CIFRAS" en window -- ¿cambió el nombre?');
 }
 if (typeof prepararInformeEvento !== 'function') {
   throw new Error('jornadas.js no dejó "JORNADAS_PREPARAR_INFORME" en window -- ¿cambió el nombre?');
+}
+if (typeof resumirTerritorioEventos !== 'function') {
+  throw new Error('jornadas.js no dejó "JORNADAS_RESUMIR_TERRITORIO" en window -- ¿cambió el nombre?');
 }
 
 grupo('Los totales de una jornada se cuentan solos, no se escriben a mano');
@@ -129,6 +133,27 @@ prueba('el resumen por producto dice unidades, personas y renglones', JSON.strin
 prueba('los nombres sin cantidad van a una lista separada y no se suman',
   JSON.stringify([informe.sinCantidad.length, informe.sinCantidad[0].producto]), JSON.stringify([1, 'ACETAMINOFEN']));
 prueba('el Excel y el PDF podrán partir del listado completo de pacientes', informe.pacientes.length, 5);
+
+grupo('Comunas y comunidades cubiertas por las jornadas');
+const territorio = resumirTerritorioEventos(FARM, [
+  { comuna: 'COMUNA A', comunidad: 'LA ESPERANZA' },
+  { comuna: 'comuna a', comunidad: 'LOS OLIVOS' },
+  { comuna: 'COMUNA B', comunidad: 'LA ESPERANZA' },
+  { comuna: 'COMUNA B', comunidad: 'LA ESPERANZA' },
+  { comuna: '', comunidad: '' }
+]);
+prueba('cuenta todas las jornadas, no solo una página', territorio.jornadas, 5);
+prueba('la misma comuna con distintas mayúsculas cuenta una sola vez', territorio.totalComunas, 2);
+prueba('una comunidad homónima en otra comuna se mantiene separada', territorio.totalComunidades, 3);
+prueba('dice cuántas jornadas y comunidades tuvo cada comuna', JSON.stringify(territorio.comunas),
+  JSON.stringify([
+    { comuna: 'COMUNA A', jornadas: 2, comunidades: 2 },
+    { comuna: 'COMUNA B', jornadas: 2, comunidades: 1 }
+  ]));
+prueba('agrupa las jornadas repetidas de la misma comunidad',
+  territorio.comunidades.find(c => c.comuna === 'COMUNA B').jornadas, 2);
+prueba('señala las jornadas cuyo territorio todavía no fue anotado',
+  [territorio.sinComuna, territorio.sinComunidad].join(','), '1,1');
 
 console.log('\n' + '='.repeat(60));
 console.log(`Pasaron ${ok} de ${ok + mal} pruebas.`);

@@ -173,11 +173,85 @@
              pacientes: pacientes, sinCantidad: sinCantidad };
   }
 
+  /* Cuenta el territorio cubierto por las jornadas sin depender de la
+     página visible. Una comunidad se identifica junto con su comuna para
+     no mezclar dos comunidades homónimas de sectores distintos. */
+  function resumirTerritorioEventos(FARM, eventos) {
+    var lista = eventos || [], porComuna = {}, ordenComunas = [];
+    var porComunidad = {}, ordenComunidades = [];
+    var sinComuna = 0, sinComunidad = 0;
+    var clave = function (texto) {
+      return FARM && FARM.sinAcentos ? FARM.sinAcentos(texto) :
+        String(texto || '').trim().toLowerCase();
+    };
+
+    lista.forEach(function (ev) {
+      var comuna = String(ev.comuna || '').trim();
+      var comunidad = String(ev.comunidad || '').trim();
+      var kComuna = clave(comuna);
+      if (!kComuna) sinComuna++;
+      else {
+        if (!porComuna[kComuna]) {
+          porComuna[kComuna] = { comuna: comuna, jornadas: 0, _comunidades: {} };
+          ordenComunas.push(kComuna);
+        }
+        porComuna[kComuna].jornadas++;
+      }
+
+      if (!comunidad) { sinComunidad++; return; }
+      var kComunidad = kComuna + '|' + clave(comunidad);
+      if (!porComunidad[kComunidad]) {
+        porComunidad[kComunidad] = {
+          comuna: comuna || 'Sin comuna anotada', comunidad: comunidad, jornadas: 0
+        };
+        ordenComunidades.push(kComunidad);
+      }
+      porComunidad[kComunidad].jornadas++;
+      if (kComuna) porComuna[kComuna]._comunidades[kComunidad] = true;
+    });
+
+    var comunas = ordenComunas.map(function (k) {
+      var c = porComuna[k];
+      return { comuna: c.comuna, jornadas: c.jornadas, comunidades: Object.keys(c._comunidades).length };
+    }).sort(function (a, b) {
+      return b.jornadas - a.jornadas || a.comuna.localeCompare(b.comuna);
+    });
+    var comunidades = ordenComunidades.map(function (k) { return porComunidad[k]; })
+      .sort(function (a, b) {
+        return b.jornadas - a.jornadas || a.comuna.localeCompare(b.comuna) ||
+          a.comunidad.localeCompare(b.comunidad);
+      });
+    return {
+      jornadas: lista.length, comunas: comunas, comunidades: comunidades,
+      totalComunas: comunas.length, totalComunidades: comunidades.length,
+      sinComuna: sinComuna, sinComunidad: sinComunidad
+    };
+  }
+
   var CAMPOS = 'id,evento_id,conjunto,hoja_origen,item,fecha,nombre,edad_texto,sexo,cedula,' +
                'telefono,direccion,tratamiento,recipe,estado,motivo_revision';
   var CAMPOS_EVENTO = 'id,tipo,fecha,lugar,parroquia,dietista,autoridad_salud,trabajador_social,' +
                       'comuna,comunidad,firmas,creado_por_nombre,creado_en';
   var CAMPOS_EVENTO_LISTA = CAMPOS_EVENTO + ',pacientes,recipes';
+
+  function cargarEventosTerritorio(sb, filtros) {
+    var todos = [], f = filtros || {};
+    function pagina(desde) {
+      var qy = sb.from('v_jornadas_eventos').select(CAMPOS_EVENTO);
+      if (f.busca) {
+        var b = f.busca.replace(/[%_]/g, '\\$&');
+        qy = qy.or('lugar.ilike.%' + b + '%,parroquia.ilike.%' + b + '%');
+      }
+      if (f.tipo && f.tipo !== 'todos') qy = qy.eq('tipo', f.tipo);
+      return qy.order('fecha', { ascending: false }).order('id').range(desde, desde + 999)
+        .then(function (r) {
+          if (r.error) return r;
+          todos = todos.concat(r.data || []);
+          return (r.data || []).length === 1000 ? pagina(desde + 1000) : { data: todos, error: null };
+        });
+    }
+    return pagina(0);
+  }
 
   /* Supabase entrega como máximo 1.000 filas por consulta. Una jornada
      grande tiene que cargar todas sus personas antes de calcular o exportar. */
@@ -274,6 +348,7 @@
       '</div>' +
       '<p class="sub">Cada jornada es un evento. Entra a una para cargarle la gente que se atendió: ' +
         'los totales se cuentan solos.</p>' +
+      '<div id="' + i('EvTerritorio') + '"><p class="cargando">Contando comunas y comunidades…</p></div>' +
       '<div class="filtros">' +
         '<input id="' + i('EvBusca') + '" type="search" placeholder="Buscar por lugar o parroquia…" ' +
           'value="' + esc(t.buscaEv) + '">' +
@@ -305,6 +380,8 @@
     if (!z) return;
     z.innerHTML = '<p class="cargando">Buscando…</p>';
     var pedido = ++t.pedidoEv;
+    var territorio = t.q('EvTerritorio');
+    if (territorio) territorio.innerHTML = '<p class="cargando">Contando comunas y comunidades…</p>';
 
     var qy = t.sb.from('v_jornadas_eventos').select(CAMPOS_EVENTO_LISTA, { count: 'exact' });
     if (t.buscaEv) {
@@ -314,12 +391,56 @@
     if (t.tipoEv !== 'todos') qy = qy.eq('tipo', t.tipoEv);
     qy = qy.order('fecha', { ascending: false }).range(t.paginaEv * POR_PAGINA, t.paginaEv * POR_PAGINA + POR_PAGINA - 1);
 
-    qy.then(function (r) {
+    Promise.all([qy, cargarEventosTerritorio(t.sb, { busca: t.buscaEv, tipo: t.tipoEv })]).then(function (respuestas) {
+      var r = respuestas[0], rt = respuestas[1];
       if (pedido !== t.pedidoEv || !t.q('EvRes')) return;
       if (r.error) { z.innerHTML = '<div class="aviso bad">No se pudo buscar: ' + esc(r.error.message) + '</div>'; return; }
       t.eventos = r.data || []; t.totalEv = r.count || 0;
       t.pintarEventosLista();
+      t.pintarTerritorioEventos(rt);
     });
+  };
+
+  Jornadas.prototype.pintarTerritorioEventos = function (respuesta) {
+    var t = this, z = t.q('EvTerritorio');
+    if (!z) return;
+    if (!respuesta || respuesta.error) {
+      z.innerHTML = '<div class="aviso warn">No se pudo calcular el territorio cubierto' +
+        (respuesta && respuesta.error ? ': ' + esc(respuesta.error.message) : '.') + '</div>';
+      return;
+    }
+    var r = resumirTerritorioEventos(window.FARM, respuesta.data || []);
+    if (!r.jornadas) {
+      z.innerHTML = '<div class="vacio">Todavía no hay jornadas con este filtro para contar comunas y comunidades.</div>';
+      return;
+    }
+    var faltantes = [];
+    if (r.sinComuna) faltantes.push(r.sinComuna + (r.sinComuna === 1 ? ' jornada sin comuna anotada' : ' jornadas sin comuna anotada'));
+    if (r.sinComunidad) faltantes.push(r.sinComunidad + (r.sinComunidad === 1 ? ' jornada sin comunidad anotada' : ' jornadas sin comunidad anotada'));
+    z.innerHTML =
+      '<h3 class="sub-t">Territorio cubierto</h3>' +
+      '<p class="sub chico">Conteo completo según el filtro actual; no se limita a las jornadas de esta página.</p>' +
+      '<div class="cifras">' +
+        cif(r.jornadas, r.jornadas === 1 ? 'jornada registrada' : 'jornadas registradas') +
+        cif(r.totalComunas, r.totalComunas === 1 ? 'comuna atendida' : 'comunas atendidas') +
+        cif(r.totalComunidades, r.totalComunidades === 1 ? 'comunidad atendida' : 'comunidades atendidas') +
+      '</div>' +
+      (faltantes.length ? '<div class="aviso warn"><b>Datos por completar</b><span>' + esc(faltantes.join(' · ')) +
+        '. No se deducen por el nombre del lugar.</span></div>' : '') +
+      '<div class="dos-columnas territorio-grid">' +
+        '<div><h3 class="sub-t">Jornadas por comuna</h3>' +
+          (r.comunas.length ? '<div class="tabla-caja"><table class="tabla" id="' + t.id('TablaComunas') + '">' +
+            '<thead><tr><th>Comuna</th><th class="der">Jornadas</th><th class="der">Comunidades</th></tr></thead><tbody>' +
+            r.comunas.map(function (c) { return '<tr><td>' + esc(c.comuna) + '</td><td class="der num"><b>' +
+              c.jornadas + '</b></td><td class="der num">' + c.comunidades + '</td></tr>'; }).join('') +
+            '</tbody></table></div>' : '<div class="vacio">No hay comunas anotadas.</div>') + '</div>' +
+        '<div><h3 class="sub-t">Jornadas por comunidad</h3>' +
+          (r.comunidades.length ? '<div class="tabla-caja"><table class="tabla" id="' + t.id('TablaComunidades') + '">' +
+            '<thead><tr><th>Comuna</th><th>Comunidad</th><th class="der">Jornadas</th></tr></thead><tbody>' +
+            r.comunidades.map(function (c) { return '<tr><td>' + esc(c.comuna) + '</td><td>' + esc(c.comunidad) +
+              '</td><td class="der num"><b>' + c.jornadas + '</b></td></tr>'; }).join('') +
+            '</tbody></table></div>' : '<div class="vacio">No hay comunidades anotadas.</div>') + '</div>' +
+      '</div>';
   };
 
   Jornadas.prototype.pintarEventosLista = function () {
@@ -1246,6 +1367,7 @@
   // Se expone para las pruebas unitarias: es lógica pura, sin DOM.
   window.JORNADAS_CALCULAR_CIFRAS = calcularCifrasEvento;
   window.JORNADAS_PREPARAR_INFORME = prepararInformeEvento;
+  window.JORNADAS_RESUMIR_TERRITORIO = resumirTerritorioEventos;
 
   window.PANTALLA_JORNADAS = function (cliente, contenedor, opciones) {
     var o = opciones || {};
