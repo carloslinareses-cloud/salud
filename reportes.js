@@ -223,6 +223,7 @@
         head: [b.encabezados],
         body: b.filas,
         foot: b.pie ? [b.pie] : undefined,
+        showFoot: 'lastPage',
         styles: { fontSize: 8, cellPadding: 1.8, overflow: 'linebreak' },
         headStyles: { fillColor: [10, 35, 81], textColor: 255, fontStyle: 'bold', fontSize: 8 },
         footStyles: { fillColor: [238, 242, 249], textColor: [10, 35, 81], fontStyle: 'bold' },

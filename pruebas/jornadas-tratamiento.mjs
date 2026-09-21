@@ -25,6 +25,12 @@ catch { console.error('Falta puppeteer-core:  npm i -g puppeteer-core'); process
 
 const RAIZ = path.resolve(path.dirname(new URL(import.meta.url).pathname.slice(1)), '..')
 const CHROME = process.env.CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+const BAJADAS = path.join(RAIZ, 'tmp', 'pdfs', 'jornadas-informe')
+if (!path.resolve(BAJADAS).startsWith(path.resolve(RAIZ, 'tmp', 'pdfs') + path.sep)) {
+  throw new Error('La carpeta temporal de descargas quedó fuera del proyecto.')
+}
+fs.rmSync(BAJADAS, { recursive: true, force: true })
+fs.mkdirSync(BAJADAS, { recursive: true })
 
 let ok = 0, mal = 0
 const fallos = []
@@ -48,7 +54,13 @@ const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 const PAGINA_PRUEBA = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Prueba del tratamiento</title>
 <link rel="stylesheet" href="/__estilos.css"></head>
 <body><div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="/comunes.js"></script>
+<script src="/logos-base64.js"></script>
+<script src="/pdf-header.js"></script>
+<script src="/reportes.js"></script>
 <script src="/picker.js"></script>
 <script src="/jornadas.js"></script>
 <script src="/__doble.js"></script>
@@ -64,7 +76,10 @@ function consulta(tabla) {
     ilike: function (campo, patron) { q._texto = String(patron).split('*').join('').toLowerCase(); return q },
     eq: function () { return q },
     order: function () { return q },
-    range: function () { return Promise.resolve({ data: [], count: 0, error: null }) },
+    range: function () {
+      var data = tabla === 'jornadas_registros' && window.JORNADA_PERSONAS ? window.JORNADA_PERSONAS : [];
+      return Promise.resolve({ data: data, count: data.length, error: null })
+    },
     or: function () { return q },
     in: function () { return q },
     is: function () { return q },
@@ -113,6 +128,8 @@ const BASE = 'http://127.0.0.1:' + servidor.address().port
 
 const nav = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--no-sandbox'] })
 const pag = await nav.newPage()
+const cliente = await pag.createCDPSession()
+await cliente.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: BAJADAS })
 const errores = []
 pag.on('pageerror', e => errores.push(String(e)))
 await pag.setViewport({ width: 1200, height: 900 })
@@ -251,6 +268,102 @@ try {
   prueba('los renglones de productos caben completos en el teléfono',
     movil.chips.every(n => n <= movil.ventana), JSON.stringify(movil))
 
+  console.log('\n--- Informe detallado de una jornada ---')
+  await pag.setViewport({ width: 1200, height: 900 })
+  await pag.evaluate(() => {
+    window.DESCARGAS_JORNADA = []
+    var generadorReal = window.FARMREP
+    window.FARMREP = {
+      excel: (archivo, hojas) => {
+        window.DESCARGAS_JORNADA.push({ tipo: 'excel', archivo, hojas })
+        generadorReal.excel(archivo, hojas)
+      },
+      pdfInforme: (opciones) => {
+        window.DESCARGAS_JORNADA.push({ tipo: 'pdf', opciones })
+        generadorReal.pdfInforme(opciones)
+      }
+    }
+    window.JORNADA_PERSONAS = [
+      { id: 'p1', nombre: 'ANA PRUEBA', cedula: '12345678', sexo: 'F', edad_texto: '34',
+        telefono: '04120000001', direccion: 'CALLE UNO', item: 'SECTOR A',
+        tratamiento: 'ALCOHOL X2 / DICLOFENAC X3', recipe: true, estado: 'activo' },
+      { id: 'p2', nombre: 'LUIS PRUEBA', cedula: '87654321', sexo: 'M', edad_texto: '40',
+        telefono: '04120000002', direccion: 'CALLE DOS', item: 'SECTOR B',
+        tratamiento: 'alcohol X4', recipe: false, estado: 'activo' },
+      { id: 'p3', nombre: 'MARIA HISTORICA', cedula: '', sexo: 'F', edad_texto: 'SIN DATO',
+        telefono: '', direccion: '', item: 'SECTOR C', tratamiento: 'ACETAMINOFEN',
+        recipe: null, estado: 'por_revisar' }
+    ]
+    window.T.eventoActual = {
+      id: 'ev-informe', tipo: 'jornadas', fecha: '2026-09-18', lugar: 'LA MAGDALENA',
+      parroquia: 'CHARALLAVE', comuna: 'COMUNA PRUEBA', comunidad: 'LA MAGDALENA',
+      dietista: 'RESPONSABLE PRUEBA', firmas: ['FIRMA UNO']
+    }
+    window.T.modoEv = 'detalle'
+    window.T.verEventoDetalle()
+  })
+  await pag.waitForSelector('#joDetExcel', { timeout: 10000 })
+  await new Promise(r => setTimeout(r, 250))
+  const detalleJornada = await pag.$eval('#joZona', e => e.innerText.replace(/\s+/g, ' '))
+  prueba('la jornada muestra pacientes, unidades, productos distintos, renglones y récipes',
+    /3 pacientes atendidos/i.test(detalleJornada) && /9 unidades realmente entregadas/i.test(detalleJornada) &&
+    /2 medicamentos o insumos distintos/i.test(detalleJornada) && /3 renglones de productos/i.test(detalleJornada) &&
+    /1 con récipe/i.test(detalleJornada), detalleJornada.slice(0, 800))
+  const filaAlcohol = await pag.evaluate(() => {
+    const fila = [...document.querySelectorAll('#joZona table tr')].find(tr => /ALCOHOL/i.test(tr.innerText))
+    return fila ? fila.innerText.replace(/\s+/g, ' ').trim() : ''
+  })
+  prueba('ALCOHOL se agrupa aunque cambien mayúsculas y suma 2 + 4 = 6',
+    /ALCOHOL\s+6\s+2\s+2/i.test(filaAlcohol), filaAlcohol)
+  prueba('se muestran las tres entregas detalladas por paciente y producto',
+    (await pag.$$('#joZona table')) && (await pag.$$eval('#joZona table', ts =>
+      ts.reduce((n, t) => n + (t.querySelectorAll('tbody tr').length || 0), 0))) >= 6)
+  prueba('la fecha se muestra larga y también numérica',
+    /viernes 18 de septiembre de 2026 · 18\/09\/2026/i.test(detalleJornada))
+
+  await pag.click('#joDetExcel')
+  await new Promise(r => setTimeout(r, 300))
+  const excel = await pag.evaluate(() => window.DESCARGAS_JORNADA.find(x => x.tipo === 'excel'))
+  prueba('el Excel trae Resumen, Medicamentos, Detalle por paciente, Pacientes y Sin cantidad',
+    JSON.stringify(excel.hojas.map(h => h.nombre)) ===
+    JSON.stringify(['Resumen', 'Medicamentos', 'Detalle por paciente', 'Pacientes', 'Sin cantidad']),
+    JSON.stringify(excel && excel.hojas && excel.hojas.map(h => h.nombre)))
+  prueba('el Excel incluye todas las personas y cada producto entregado',
+    excel.hojas.find(h => h.nombre === 'Pacientes').filas.length === 3 &&
+    excel.hojas.find(h => h.nombre === 'Detalle por paciente').filas.length === 3)
+  prueba('el Excel conserva las columnas completas y cuadradas', excel.hojas.every(h =>
+    h.filas.every(f => f.length === h.encabezados.length) && h.anchos.length === h.encabezados.length))
+  await new Promise(r => setTimeout(r, 1200))
+  const archivoExcel = fs.readdirSync(BAJADAS).find(n => /\.xlsx$/i.test(n))
+  prueba('el Excel completo se genera y descarga de verdad', !!archivoExcel, fs.readdirSync(BAJADAS).join(', '))
+
+  await pag.click('#joDetPdf')
+  await new Promise(r => setTimeout(r, 300))
+  const pdf = await pag.evaluate(() => window.DESCARGAS_JORNADA.find(x => x.tipo === 'pdf'))
+  prueba('el PDF incluye datos, totales por producto, detalle, pacientes, tratamientos y pendientes',
+    JSON.stringify(pdf.opciones.bloques.map(b => b.titulo)) === JSON.stringify([
+      'Datos de la jornada', 'Totales por medicamento o insumo', 'Detalle por paciente y producto',
+      'Datos completos de las personas atendidas', 'Tratamiento completo por paciente',
+      'Productos sin cantidad anotada'
+    ]), JSON.stringify(pdf && pdf.opciones && pdf.opciones.bloques.map(b => b.titulo)))
+  prueba('el PDF lleva las seis cifras principales', pdf.opciones.resumen.length === 6)
+  await new Promise(r => setTimeout(r, 1200))
+  const archivoPdf = fs.readdirSync(BAJADAS).find(n => /\.pdf$/i.test(n))
+  prueba('el PDF completo se genera y descarga de verdad', !!archivoPdf &&
+    fs.readFileSync(path.join(BAJADAS, archivoPdf)).subarray(0, 5).toString('latin1') === '%PDF-',
+    fs.readdirSync(BAJADAS).join(', '))
+
+  await pag.setViewport({ width: 375, height: 812 })
+  await new Promise(r => setTimeout(r, 250))
+  const movilInforme = await pag.evaluate(() => ({
+    ancho: document.documentElement.scrollWidth, ventana: window.innerWidth,
+    botones: [...document.querySelectorAll('#joZona .descargas button')].map(e => e.getBoundingClientRect().height)
+  }))
+  prueba('el informe detallado tampoco desborda en un teléfono de 375 px',
+    movilInforme.ancho <= movilInforme.ventana, JSON.stringify(movilInforme))
+  prueba('los botones de descarga miden al menos 44 px en teléfono',
+    movilInforme.botones.every(n => n >= 44), JSON.stringify(movilInforme))
+
   prueba('NADA se escribió en la base: elegir no mueve el inventario',
     (await pag.evaluate(() => window.ESCRITURAS.length)) === 0,
     JSON.stringify(await pag.evaluate(() => window.ESCRITURAS)))
@@ -261,6 +374,7 @@ try {
 } finally {
   await nav.close()
   servidor.close()
+  fs.rmSync(BAJADAS, { recursive: true, force: true })
 }
 
 console.log('\n' + '='.repeat(58))

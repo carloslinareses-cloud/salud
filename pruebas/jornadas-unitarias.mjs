@@ -86,8 +86,12 @@ const cuerpoIIFE = extraerModulo('(function () {') + ')';
 const ventana = {};
 new Function('window', 'return ' + cuerpoIIFE)(ventana)();
 const calcularCifrasEvento = ventana.JORNADAS_CALCULAR_CIFRAS;
+const prepararInformeEvento = ventana.JORNADAS_PREPARAR_INFORME;
 if (typeof calcularCifrasEvento !== 'function') {
   throw new Error('jornadas.js no dejó "JORNADAS_CALCULAR_CIFRAS" en window -- ¿cambió el nombre?');
+}
+if (typeof prepararInformeEvento !== 'function') {
+  throw new Error('jornadas.js no dejó "JORNADAS_PREPARAR_INFORME" en window -- ¿cambió el nombre?');
 }
 
 grupo('Los totales de una jornada se cuentan solos, no se escriben a mano');
@@ -113,6 +117,18 @@ prueba('un nombre sin cantidad no se inventa como una unidad', cifras.sinCantida
 prueba('el nombre sin cantidad queda visible para revisión', cifras.medsSinCantidad.ACETAMINOFEN, 1);
 prueba('sin tratamiento anotado no rompe la cuenta ni suma nada',
   cifras.ordenMeds.join(',').includes('undefined'), false);
+
+grupo('Informe completo de una jornada');
+const informe = prepararInformeEvento(FARM, { lugar: 'LA MAGDALENA', fecha: '2026-09-18' }, personas);
+prueba('cantidad de medicamentos o insumos distintos', informe.cifras.productosDistintos, 4);
+prueba('renglones con cantidad comprobable', informe.cifras.renglonesConCantidad, 5);
+prueba('personas que recibieron productos con cantidad', informe.cifras.personasConEntrega, 3);
+prueba('el detalle conserva una fila por paciente y producto', informe.detalle.length, 5);
+prueba('el resumen por producto dice unidades, personas y renglones', JSON.stringify(informe.productos[0]),
+  JSON.stringify({ producto: 'NUTAMIN', unidades: 5, personas: 2, renglones: 2 }));
+prueba('los nombres sin cantidad van a una lista separada y no se suman',
+  JSON.stringify([informe.sinCantidad.length, informe.sinCantidad[0].producto]), JSON.stringify([1, 'ACETAMINOFEN']));
+prueba('el Excel y el PDF podrán partir del listado completo de pacientes', informe.pacientes.length, 5);
 
 console.log('\n' + '='.repeat(60));
 console.log(`Pasaron ${ok} de ${ok + mal} pruebas.`);

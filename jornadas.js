@@ -39,6 +39,15 @@
     var p = String(f).slice(0, 10).split('-');
     return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(f);
   }
+  function larga(f) {
+    if (!f) return '';
+    var d = new Date(String(f).slice(0, 10) + 'T12:00:00');
+    var dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    var meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto',
+                 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    return dias[d.getDay()] + ' ' + d.getDate() + ' de ' + meses[d.getMonth()] + ' de ' + d.getFullYear() +
+      ' · ' + corta(f);
+  }
   function retardo(fn, ms) {
     var t; return function () { var a = arguments, s = this;
       clearTimeout(t); t = setTimeout(function () { fn.apply(s, a); }, ms); };
@@ -102,11 +111,88 @@
              medsSinCantidad: medsSinCantidad, ordenSinCantidad: ordenSinCantidad };
   }
 
+  /* Arma una sola fuente de verdad para la pantalla, el PDF y el Excel.
+     Cada fila de `detalle` es un producto entregado a una persona; así el
+     total general siempre sale de sumar esas mismas cantidades. */
+  function prepararInformeEvento(FARM, evento, personas) {
+    var lista = personas || [];
+    var cifras = calcularCifrasEvento(FARM, lista);
+    var detalle = [], sinCantidad = [], pacientes = [];
+    var porProducto = {}, ordenProductos = [];
+
+    lista.forEach(function (p, indice) {
+      var piezas = FARM && FARM.piezasTratamientoCant
+        ? FARM.piezasTratamientoCant(p.tratamiento) : [];
+      var unidades = 0, renglones = 0, pendientes = 0;
+      piezas.forEach(function (m) {
+        var base = {
+          numero: indice + 1, paciente: p.nombre || 'Sin nombre', cedula: p.cedula || '',
+          sexo: p.sexo === 'F' ? 'Femenino' : (p.sexo === 'M' ? 'Masculino' : 'Sin dato'),
+          edad: p.edad_texto || '', telefono: p.telefono || '', direccion: p.direccion || '',
+          sector: p.item || '', producto: m.nombre || 'Sin identificar',
+          recipe: p.recipe === true ? 'Sí' : (p.recipe === false ? 'No' : 'No consta')
+        };
+        if (!m.anotada || !(Number(m.cantidad) > 0)) {
+          pendientes++;
+          sinCantidad.push(base);
+          return;
+        }
+        var cantidad = Number(m.cantidad);
+        unidades += cantidad; renglones++;
+        detalle.push(Object.assign({}, base, { cantidad: cantidad }));
+        var claveProducto = FARM && FARM.sinAcentos ? FARM.sinAcentos(base.producto) : base.producto.toLowerCase();
+        if (!porProducto[claveProducto]) {
+          porProducto[claveProducto] = { producto: base.producto, unidades: 0, personas: 0, renglones: 0 };
+          ordenProductos.push(claveProducto);
+        }
+        porProducto[claveProducto].unidades += cantidad;
+        porProducto[claveProducto].personas++;
+        porProducto[claveProducto].renglones++;
+      });
+      pacientes.push({
+        numero: indice + 1, nombre: p.nombre || 'Sin nombre', cedula: p.cedula || '',
+        sexo: p.sexo === 'F' ? 'Femenino' : (p.sexo === 'M' ? 'Masculino' : 'Sin dato'),
+        edad: p.edad_texto || '', telefono: p.telefono || '', direccion: p.direccion || '',
+        sector: p.item || '', tratamiento: p.tratamiento || '', recipe: p.recipe === true ? 'Sí' :
+          (p.recipe === false ? 'No' : 'No consta'), estado: p.estado || '',
+        unidades: unidades, renglones: renglones, pendientes: pendientes
+      });
+    });
+
+    var productos = ordenProductos.map(function (clave) { return porProducto[clave]; })
+      .sort(function (a, b) { return b.unidades - a.unidades || a.producto.localeCompare(b.producto); });
+    cifras.productosDistintos = productos.length;
+    cifras.renglonesConCantidad = detalle.length;
+    cifras.personasConEntrega = pacientes.filter(function (p) { return p.unidades > 0; }).length;
+    cifras.personasSinTratamiento = pacientes.filter(function (p) {
+      return !p.tratamiento.trim();
+    }).length;
+    cifras.personasConCantidadPendiente = pacientes.filter(function (p) { return p.pendientes > 0; }).length;
+
+    return { evento: evento || {}, cifras: cifras, productos: productos, detalle: detalle,
+             pacientes: pacientes, sinCantidad: sinCantidad };
+  }
+
   var CAMPOS = 'id,evento_id,conjunto,hoja_origen,item,fecha,nombre,edad_texto,sexo,cedula,' +
                'telefono,direccion,tratamiento,recipe,estado,motivo_revision';
   var CAMPOS_EVENTO = 'id,tipo,fecha,lugar,parroquia,dietista,autoridad_salud,trabajador_social,' +
                       'comuna,comunidad,firmas,creado_por_nombre,creado_en';
   var CAMPOS_EVENTO_LISTA = CAMPOS_EVENTO + ',pacientes,recipes';
+
+  /* Supabase entrega como máximo 1.000 filas por consulta. Una jornada
+     grande tiene que cargar todas sus personas antes de calcular o exportar. */
+  function cargarRegistrosEvento(sb, eventoId) {
+    var todos = [];
+    function pagina(desde) {
+      return sb.from('jornadas_registros').select(CAMPOS).eq('evento_id', eventoId)
+        .order('nombre').order('id').range(desde, desde + 999).then(function (r) {
+          if (r.error) return r;
+          todos = todos.concat(r.data || []);
+          return (r.data || []).length === 1000 ? pagina(desde + 1000) : { data: todos, error: null };
+        });
+    }
+    return pagina(0);
+  }
 
   /* ================================================================ */
   function Jornadas(sb, raiz, pfx) {
@@ -447,10 +533,7 @@
 
     z.innerHTML = '<div class="cargando">Cargando la jornada…</div>';
 
-    t.sb.from('jornadas_registros')
-      .select('id,nombre,cedula,edad_texto,sexo,telefono,tratamiento,recipe,item')
-      .eq('evento_id', ev.id)
-      .order('nombre')
+    cargarRegistrosEvento(t.sb, ev.id)
       .then(function (r) {
         if (!t.q('Zona')) return;
         if (r.error) {
@@ -460,9 +543,10 @@
         var personas = r.data || [];
         t.personasEvento = personas;
 
-        var cifras = calcularCifrasEvento(window.FARM, personas);
-        var totalMeds = cifras.totalMedicamentos, recipes = cifras.recipes,
-            meds = cifras.meds, ordenMeds = cifras.ordenMeds;
+        var informe = prepararInformeEvento(window.FARM, ev, personas);
+        t.informeEvento = informe;
+        var cifras = informe.cifras;
+        var totalMeds = cifras.totalMedicamentos, recipes = cifras.recipes;
 
         var equipo = [];
         if (ev.dietista) equipo.push({ rotulo: 'Responsable de la Jornada', nombre: ev.dietista });
@@ -475,10 +559,14 @@
             '<h2>' + esc(ev.lugar) + '</h2>' +
             '<button type="button" class="principal" id="' + i('DetAgregar') + '">+ Agregar persona</button>' +
           '</div>' +
-          '<p class="sub">' + [corta(ev.fecha), CONJUNTOS[ev.tipo] || ev.tipo,
+          '<p class="sub">' + [larga(ev.fecha), CONJUNTOS[ev.tipo] || ev.tipo,
             ev.parroquia ? 'Parroquia ' + ev.parroquia : null,
             ev.comuna ? 'Comuna ' + ev.comuna : null,
             ev.comunidad ? 'Comunidad ' + ev.comunidad : null].filter(Boolean).map(esc).join(' · ') + '</p>' +
+          '<div class="descargas">' +
+            '<button type="button" id="' + i('DetExcel') + '">Descargar informe completo en Excel</button>' +
+            '<button type="button" id="' + i('DetPdf') + '">Descargar informe completo en PDF</button>' +
+          '</div>' +
 
           (equipo.length ? '<div class="renglones">' + equipo.map(function (q) {
             return '<div class="renglon"><div class="que"><b>' + esc(q.rotulo) + '</b>' +
@@ -489,20 +577,38 @@
 
           '<div class="cifras">' +
             cif(personas.length, personas.length === 1 ? 'paciente atendido' : 'pacientes atendidos') +
-            cif(totalMeds, totalMeds === 1 ? 'unidad entregada con cantidad' : 'unidades entregadas con cantidad') +
+            cif(cifras.personasConEntrega, 'personas con productos y cantidad') +
+            cif(totalMeds, totalMeds === 1 ? 'unidad realmente entregada' : 'unidades realmente entregadas') +
+            cif(cifras.productosDistintos, cifras.productosDistintos === 1 ? 'medicamento o insumo distinto' : 'medicamentos o insumos distintos') +
+            cif(cifras.renglonesConCantidad, cifras.renglonesConCantidad === 1 ? 'renglón de producto' : 'renglones de productos') +
             cif(recipes, recipes === 1 ? 'con récipe' : 'con récipes') +
           '</div>' +
+
+          '<p class="sub chico">Las unidades salen de sumar las cantidades de los renglones detallados abajo. ' +
+            'Un producto distinto indica cuántos nombres diferentes se entregaron; no es lo mismo que el total de unidades.</p>' +
 
           (cifras.sinCantidad
             ? '<div class="aviso warn"><b>' + cifras.sinCantidad + ' medicamento(s) sin cantidad anotada</b>' +
               '<span>Se muestran para revisión, pero no se suman como unidades entregadas.</span></div>' : '') +
 
-          (ordenMeds.length
-            ? '<p class="sub chico">Detalle de lo entregado con cantidad comprobable</p>' +
-              '<div class="tabla-caja"><table class="tabla"><thead><tr><th>Medicamento</th><th class="der">Unidades</th></tr></thead><tbody>' +
-              ordenMeds.map(function (m) { return '<tr><td>' + esc(m) + '</td><td class="der num">' + meds[m] + '</td></tr>'; }).join('') +
+          (informe.productos.length
+            ? '<h2 class="sub-t">Totales por medicamento o insumo</h2>' +
+              '<div class="tabla-caja"><table class="tabla"><thead><tr><th>Medicamento o insumo</th><th class="der">Unidades</th><th class="der">Personas</th><th class="der">Renglones</th></tr></thead><tbody>' +
+              informe.productos.map(function (m) {
+                return '<tr><td>' + esc(m.producto) + '</td><td class="der num"><b>' + m.unidades +
+                  '</b></td><td class="der num">' + m.personas + '</td><td class="der num">' + m.renglones + '</td></tr>';
+              }).join('') +
               '</tbody></table></div>'
             : '') +
+
+          (informe.detalle.length
+            ? '<h2 class="sub-t">Detalle por paciente y producto</h2>' +
+              '<div class="tabla-caja"><table class="tabla"><thead><tr><th>#</th><th>Paciente</th><th>Cédula</th><th>Medicamento o insumo</th><th class="der">Cantidad</th><th>Récipe</th></tr></thead><tbody>' +
+              informe.detalle.map(function (d) {
+                return '<tr><td class="num">' + d.numero + '</td><td>' + esc(d.paciente) + '</td><td>' +
+                  esc(d.cedula || 'Sin cédula') + '</td><td>' + esc(d.producto) + '</td><td class="der num"><b>' +
+                  d.cantidad + '</b></td><td>' + esc(d.recipe) + '</td></tr>';
+              }).join('') + '</tbody></table></div>' : '') +
 
           (cifras.ordenSinCantidad.length
             ? '<p class="sub chico">Nombres que todavía no tienen cantidad</p>' +
@@ -518,6 +624,9 @@
                 datos.push(p.cedula ? 'C.I. ' + p.cedula : 'Sin cédula');
                 if (p.edad_texto) datos.push(p.edad_texto);
                 if (p.sexo) datos.push(p.sexo === 'F' ? 'Femenino' : 'Masculino');
+                if (p.telefono) datos.push(p.telefono);
+                if (p.item) datos.push(p.item);
+                if (p.direccion) datos.push(p.direccion);
                 return '<button type="button" class="ficha" data-id="' + esc(p.id) + '">' +
                   '<div class="ficha-nom"><b>' + esc(p.nombre) + '</b>' +
                     '<span class="ficha-pres">' + esc(datos.join(' · ')) + '</span>' +
@@ -531,6 +640,8 @@
             : '<div class="vacio">Todavía no has cargado a nadie en esta jornada.</div>');
 
         t.q('DetVolver').addEventListener('click', function () { t.modoEv = 'lista'; t.pintar(); });
+        t.q('DetExcel').addEventListener('click', function () { t.descargarEvento('excel', this); });
+        t.q('DetPdf').addEventListener('click', function () { t.descargarEvento('pdf', this); });
         t.q('DetAgregar').addEventListener('click', function () {
           t.origenPersona = { tipo: 'evento', id: ev.id };
           t.quien = null; t.modo = 'nuevo';
@@ -552,6 +663,128 @@
           });
         });
       });
+  };
+
+  Jornadas.prototype.descargarEvento = function (tipo, boton) {
+    var t = this, R = window.FARMREP, ev = t.eventoActual;
+    if (!R) { t.aviso('bad', 'Todavía se está cargando el generador de reportes. Inténtalo en unos segundos.'); return; }
+    if (!ev) { t.aviso('bad', 'No hay una jornada abierta para preparar el informe.'); return; }
+    var inf = t.informeEvento || prepararInformeEvento(window.FARM, ev, t.personasEvento || []);
+    var c = inf.cifras;
+    var nombre = 'Jornada de Salud - ' + (ev.lugar || 'Sin lugar') + ' - ' + corta(ev.fecha);
+    var titulo = (CONJUNTOS[ev.tipo] || 'Jornada de Salud') + ' — ' + (ev.lugar || 'Sin lugar');
+    var ubicacion = [ev.parroquia ? 'Parroquia ' + ev.parroquia : '', ev.comuna ? 'Comuna ' + ev.comuna : '',
+                     ev.comunidad ? 'Comunidad ' + ev.comunidad : ''].filter(Boolean).join(' · ');
+    var datosEvento = [
+      ['Fecha', larga(ev.fecha)], ['Lugar', ev.lugar || 'Sin dato'], ['Tipo', CONJUNTOS[ev.tipo] || ev.tipo || 'Sin dato'],
+      ['Ubicación', ubicacion || 'Sin dato'], ['Responsable de la Jornada', ev.dietista || 'No consta'],
+      ['Autoridad Única de Salud', ev.autoridad_salud || 'No consta'],
+      ['Trabajador Social', ev.trabajador_social || 'No consta'],
+      ['Firmas', (ev.firmas || []).join(', ') || 'No constan']
+    ];
+    var resumen = [
+      ['Pacientes atendidos', c.pacientes], ['Personas con productos y cantidad', c.personasConEntrega],
+      ['Unidades realmente entregadas', c.totalMedicamentos], ['Medicamentos o insumos distintos', c.productosDistintos],
+      ['Renglones de productos con cantidad', c.renglonesConCantidad], ['Personas con récipe', c.recipes],
+      ['Renglones sin cantidad', c.sinCantidad], ['Personas sin tratamiento anotado', c.personasSinTratamiento]
+    ];
+    var productos = inf.productos.map(function (p) {
+      return [p.producto, p.unidades, p.personas, p.renglones];
+    });
+    var detalle = inf.detalle.map(function (d) {
+      return [d.numero, d.paciente, d.cedula || 'Sin cédula', d.sexo, d.edad, d.telefono, d.direccion,
+              d.sector, d.producto, d.cantidad, d.recipe];
+    });
+    var pacientes = inf.pacientes.map(function (p) {
+      return [p.numero, p.nombre, p.cedula || 'Sin cédula', p.sexo, p.edad, p.telefono, p.direccion, p.sector,
+              p.tratamiento, p.renglones, p.unidades, p.pendientes, p.recipe, p.estado];
+    });
+    var pendientes = inf.sinCantidad.map(function (d) {
+      return [d.numero, d.paciente, d.cedula || 'Sin cédula', d.producto, d.recipe];
+    });
+    var textoBoton = boton ? boton.textContent : '';
+    if (boton) { boton.disabled = true; boton.textContent = 'Preparando…'; }
+
+    setTimeout(function () {
+      try {
+        if (tipo === 'excel') {
+          var hojas = [
+            { nombre: 'Resumen', titulo: titulo + ' — resumen completo', encabezados: ['Indicador', 'Información'],
+              filas: datosEvento.concat(resumen), anchos: [42, 72] },
+            { nombre: 'Medicamentos', titulo: titulo + ' — totales por medicamento o insumo',
+              encabezados: ['Medicamento o insumo', 'Unidades', 'Personas', 'Renglones'], filas: productos,
+              anchos: [48, 14, 14, 14] },
+            { nombre: 'Detalle por paciente', titulo: titulo + ' — cada producto entregado a cada paciente',
+              encabezados: ['#', 'Paciente', 'Cédula', 'Sexo', 'Edad', 'Teléfono', 'Dirección', 'Comuna / sector',
+                            'Medicamento o insumo', 'Cantidad', 'Récipe'],
+              filas: detalle, anchos: [6, 32, 15, 12, 12, 17, 34, 24, 42, 12, 12] },
+            { nombre: 'Pacientes', titulo: titulo + ' — listado completo de personas atendidas',
+              encabezados: ['#', 'Nombre y apellido', 'Cédula', 'Sexo', 'Edad', 'Teléfono', 'Dirección', 'Comuna / sector',
+                            'Tratamiento completo', 'Productos con cantidad', 'Unidades', 'Sin cantidad', 'Récipe', 'Estado'],
+              filas: pacientes, anchos: [6, 32, 15, 12, 12, 17, 34, 24, 45, 18, 12, 14, 12, 14] }
+          ];
+          if (pendientes.length) hojas.push({
+            nombre: 'Sin cantidad', titulo: titulo + ' — productos que requieren revisión',
+            encabezados: ['#', 'Paciente', 'Cédula', 'Medicamento o insumo sin cantidad', 'Récipe'],
+            filas: pendientes, anchos: [6, 34, 16, 48, 12]
+          });
+          R.excel(nombre, hojas);
+        } else {
+          R.pdfInforme({
+            titulo: titulo, subtitulo: 'Informe completo · ' + larga(ev.fecha) + (ubicacion ? ' · ' + ubicacion : ''),
+            archivo: nombre, horizontal: true,
+            resumen: [
+              { k: 'Pacientes', v: c.pacientes }, { k: 'Unidades reales', v: c.totalMedicamentos },
+              { k: 'Productos distintos', v: c.productosDistintos }, { k: 'Renglones', v: c.renglonesConCantidad },
+              { k: 'Con récipe', v: c.recipes }, { k: 'Sin cantidad', v: c.sinCantidad }
+            ],
+            bloques: [
+              { titulo: 'Datos de la jornada', encabezados: ['Dato', 'Información'], filas: datosEvento,
+                columnas: { 0: { cellWidth: 48 }, 1: { cellWidth: 160 } } },
+              { titulo: 'Totales por medicamento o insumo',
+                nota: 'Las unidades corresponden a la suma de las cantidades anotadas; “personas” no sustituye a las unidades.',
+                encabezados: ['Medicamento o insumo', 'Unidades', 'Personas', 'Renglones'], filas: productos,
+                pie: ['TOTAL', c.totalMedicamentos, c.personasConEntrega + ' con entrega', c.renglonesConCantidad],
+                columnas: { 0: { cellWidth: 118 }, 1: { cellWidth: 28, halign: 'right' },
+                            2: { cellWidth: 28, halign: 'right' }, 3: { cellWidth: 28, halign: 'right' } } },
+              { titulo: 'Detalle por paciente y producto',
+                encabezados: ['#', 'Paciente', 'Cédula', 'Medicamento o insumo', 'Cantidad', 'Récipe'],
+                filas: inf.detalle.map(function (d) {
+                  return [d.numero, d.paciente, d.cedula || 'Sin cédula', d.producto, d.cantidad, d.recipe];
+                }),
+                columnas: { 0: { cellWidth: 9 }, 1: { cellWidth: 54 }, 2: { cellWidth: 27 },
+                            3: { cellWidth: 94 }, 4: { cellWidth: 24, halign: 'right' }, 5: { cellWidth: 22 } } },
+              { titulo: 'Datos completos de las personas atendidas',
+                encabezados: ['#', 'Nombre y apellido', 'Cédula', 'Sexo', 'Edad', 'Teléfono', 'Comuna / sector', 'Dirección'],
+                filas: inf.pacientes.map(function (p) {
+                  return [p.numero, p.nombre, p.cedula || 'Sin cédula', p.sexo, p.edad, p.telefono, p.sector, p.direccion];
+                }),
+                columnas: { 0: { cellWidth: 9 }, 1: { cellWidth: 49 }, 2: { cellWidth: 26 },
+                            3: { cellWidth: 20 }, 4: { cellWidth: 20 }, 5: { cellWidth: 28 },
+                            6: { cellWidth: 38 }, 7: { cellWidth: 55 } } },
+              { titulo: 'Tratamiento completo por paciente',
+                encabezados: ['#', 'Paciente', 'Cédula', 'Tratamiento anotado', 'Productos', 'Unidades', 'Récipe'],
+                filas: inf.pacientes.map(function (p) {
+                  return [p.numero, p.nombre, p.cedula || 'Sin cédula', p.tratamiento || 'Sin tratamiento anotado',
+                          p.renglones, p.unidades, p.recipe];
+                }),
+                columnas: { 0: { cellWidth: 9 }, 1: { cellWidth: 50 }, 2: { cellWidth: 26 },
+                            3: { cellWidth: 100 }, 4: { cellWidth: 22, halign: 'right' },
+                            5: { cellWidth: 22, halign: 'right' }, 6: { cellWidth: 20 } } },
+              { titulo: 'Productos sin cantidad anotada',
+                nota: 'Se muestran para revisión y no se suman como unidades entregadas.',
+                encabezados: ['#', 'Paciente', 'Cédula', 'Medicamento o insumo', 'Récipe'], filas: pendientes,
+                columnas: { 0: { cellWidth: 9 }, 1: { cellWidth: 62 }, 2: { cellWidth: 28 },
+                            3: { cellWidth: 105 }, 4: { cellWidth: 22 } } }
+            ]
+          });
+        }
+      } catch (e) {
+        t.aviso('bad', 'No se pudo preparar el informe: ' + (e.message || e));
+      } finally {
+        if (boton && document.body.contains(boton)) { boton.disabled = false; boton.textContent = textoBoton; }
+      }
+    }, 20);
   };
 
   /* ================================================================
@@ -1012,6 +1245,7 @@
 
   // Se expone para las pruebas unitarias: es lógica pura, sin DOM.
   window.JORNADAS_CALCULAR_CIFRAS = calcularCifrasEvento;
+  window.JORNADAS_PREPARAR_INFORME = prepararInformeEvento;
 
   window.PANTALLA_JORNADAS = function (cliente, contenedor, opciones) {
     var o = opciones || {};
