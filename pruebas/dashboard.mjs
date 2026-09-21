@@ -44,18 +44,22 @@ const prueba = (n, c, d = '') => {
 }
 
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8' }
-const servidor = http.createServer((req, res) => {
-  let p = decodeURIComponent(req.url.split('?')[0])
-  if (p === '/') p = '/index.html'
-  const f = path.join(RAIZ, p)
-  if (!f.startsWith(path.resolve(RAIZ)) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) {
-    res.writeHead(404); res.end('no'); return
-  }
-  res.writeHead(200, { 'Content-Type': TIPOS[path.extname(f)] || 'application/octet-stream' })
-  res.end(fs.readFileSync(f))
-})
-await new Promise((r) => servidor.listen(0, r))
-const PUERTO = servidor.address().port
+let servidor = null
+let URL_PRUEBA = process.env.FARMACIA_BASE_URL
+if (!URL_PRUEBA) {
+  servidor = http.createServer((req, res) => {
+    let p = decodeURIComponent(req.url.split('?')[0])
+    if (p === '/') p = '/index.html'
+    const f = path.join(RAIZ, p)
+    if (!f.startsWith(path.resolve(RAIZ)) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) {
+      res.writeHead(404); res.end('no'); return
+    }
+    res.writeHead(200, { 'Content-Type': TIPOS[path.extname(f)] || 'application/octet-stream' })
+    res.end(fs.readFileSync(f))
+  })
+  await new Promise((r) => servidor.listen(0, r))
+  URL_PRUEBA = `http://127.0.0.1:${servidor.address().port}/`
+}
 
 fs.rmSync(BAJADAS, { recursive: true, force: true })
 fs.mkdirSync(BAJADAS, { recursive: true })
@@ -93,7 +97,7 @@ try {
   console.log('='.repeat(64))
 
   console.log('\n--- 1. Entrar y abrir el Dashboard, dentro de Mercancía ---')
-  await pag.goto(`http://127.0.0.1:${PUERTO}/`, { waitUntil: 'domcontentloaded' })
+  await pag.goto(URL_PRUEBA, { waitUntil: 'domcontentloaded' })
   await pag.waitForFunction(() => !document.getElementById('btnEntrar').disabled, { timeout: 25000 })
   await pag.type('#correo', ADMIN)
   await pag.type('#clave', CLAVE)
@@ -203,7 +207,7 @@ try {
   if (errores.length) { console.log('  Errores capturados:'); errores.forEach((er) => console.log('    ' + er)) }
   try { await pag.screenshot({ path: RAIZ + '/fallo-dashboard.png', fullPage: true }) } catch {}
 } finally {
-  await nav.close(); servidor.close()
+  await nav.close(); if (servidor) servidor.close()
   fs.rmSync(RAIZ + '/perfil-dashboard', { recursive: true, force: true })
 }
 
