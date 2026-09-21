@@ -376,6 +376,9 @@ prueba('X pegada',        F.conCantidad('SUERO ORAL X2'),      { nombre: 'SUERO 
 prueba('x minuscula',     F.conCantidad('SUERO ORAL x2'),      { nombre: 'SUERO ORAL', cantidad: 2 });
 prueba('con espacio',     F.conCantidad('ACETAMINOFEN X 10'),  { nombre: 'ACETAMINOFEN', cantidad: 10 });
 prueba('entre parentesis', F.conCantidad('IBUPROFENO (3)'),    { nombre: 'IBUPROFENO', cantidad: 3 });
+prueba('cantidad escrita como unidades', F.conCantidad('ALCOHOL 2 unidades'), { nombre: 'ALCOHOL', cantidad: 2 });
+prueba('cantidad escrita como unidad', F.conCantidad('DICLOFENAC 1 unidad'), { nombre: 'DICLOFENAC', cantidad: 1 });
+prueba('abreviatura de unidades', F.conCantidad('GASA 5X5 3 und.'), { nombre: 'GASA 5X5', cantidad: 3 });
 prueba('sin cantidad',    F.conCantidad('AMOXICILINA'),        { nombre: 'AMOXICILINA', cantidad: null });
 prueba('NO es cantidad: dosis', F.conCantidad('LOSARTAN 50MG'), { nombre: 'LOSARTAN 50MG', cantidad: null });
 prueba('NO es cantidad: B12',   F.conCantidad('VITAMINA B12'),  { nombre: 'VITAMINA B12', cantidad: null });
@@ -401,6 +404,10 @@ prueba('lista con cantidades',
   F.piezasTratamientoCant('ACETAMINOFEN SUS X2 / AMOXICILINA'),
   [{ nombre: 'ACETAMINOFEN SUS', cantidad: 2, anotada: true },
    { nombre: 'AMOXICILINA', cantidad: 1, anotada: false }]);
+prueba('suma cantidades escritas como las dice el usuario',
+  F.piezasTratamientoCant('ALCOHOL 2 unidades / DICLOFENAC 3 unidades'),
+  [{ nombre: 'ALCOHOL', cantidad: 2, anotada: true },
+   { nombre: 'DICLOFENAC', cantidad: 3, anotada: true }]);
 prueba('lo repetido se suma (asi estaba el excel)',
   F.piezasTratamientoCant('SUERO ORAL/SUERO ORAL'),
   [{ nombre: 'SUERO ORAL', cantidad: 2, anotada: false }]);

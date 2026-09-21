@@ -697,14 +697,26 @@ button.suave.malo:hover{background:var(--bad-bg)}
 .trat-chip{display:inline-flex; align-items:center; gap:2px; padding:4px 4px 4px 11px;
   border-radius:999px; border:1px solid var(--ok-line); background:var(--ok-bg); color:var(--ok-ink);
   font-size:13px; font-weight:750}
-.trat-chip b{font-weight:750; margin-right:4px}
-.trat-chip em{font-style:normal; font-weight:800; font-variant-numeric:tabular-nums;
-  min-width:20px; text-align:center}
-.trat-chip button{width:26px; height:26px; flex:none; display:grid; place-items:center;
+.trat-chip b{font-weight:750; margin-right:4px; min-width:0; overflow-wrap:anywhere}
+.trat-chip .trat-cantidad{width:70px; min-height:42px; padding:5px 7px; margin:0 2px;
+  border:1px solid var(--ok-line); border-radius:8px; background:var(--card); color:var(--ink);
+  font:inherit; font-weight:800; font-variant-numeric:tabular-nums; text-align:center}
+.trat-chip button{width:34px; height:34px; flex:none; display:grid; place-items:center;
   font:inherit; font-size:14px; font-weight:800; line-height:1; cursor:pointer;
   border-radius:50%; border:0; background:transparent; color:inherit}
 .trat-chip button:hover{background:rgba(0,0,0,.08)}
 .trat-chip .trat-quitar{color:var(--bad-ink); margin-left:2px}
+.trat-total{margin:0; padding:9px 11px; border-radius:9px; font-size:13px; font-weight:800}
+.trat-total.completo{background:var(--ok-bg); color:var(--ok-ink); border:1px solid var(--ok-line)}
+.trat-total.incompleto{background:var(--warn-bg); color:var(--warn-ink); border:1px solid var(--warn-line)}
+@media (max-width:420px){
+  .trat-chips{display:block}
+  .trat-chip{width:100%; box-sizing:border-box; display:grid;
+    grid-template-columns:minmax(0,1fr) 44px 78px 44px 44px; gap:4px;
+    padding:6px; border-radius:12px}
+  .trat-chip .trat-cantidad{width:78px; min-height:44px; margin:0; box-sizing:border-box}
+  .trat-chip button{width:44px; height:44px}
+}
 
 /* ---------- el tratamiento del paciente, para tocarlo ---------- */
 .trat-lista{display:flex; flex-wrap:wrap; gap:7px; margin-top:9px}
@@ -1074,7 +1086,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
      navegador se queda con la version vieja hasta 10 minutos y la gente
      ve el sitio a medias. Version actual: 20260912a -->
 <script src="config.js?v=20260914g"></script>
-<script src="comunes.js?v=20260916g"></script>
+<script src="comunes.js?v=20260921b"></script>
 <script src="logos-base64.js?v=20260914g"></script>
 <script src="pdf-header.js?v=20260914g"></script>
 <script src="reportes.js?v=20260914g"></script>
@@ -1082,7 +1094,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="tablero-entregas.js?v=20260914g"></script>
 <script src="personas.js?v=20260914g"></script>
 <script src="territorio-data.js?v=20260916f"></script>
-<script src="jornadas.js?v=20260921a"></script>
+<script src="jornadas.js?v=20260921b"></script>
 <script src="centros.js?v=20260914g"></script>
 <script src="dashboard.js?v=20260921a"></script>
 <script src="despacho.js?v=20260914g"></script>

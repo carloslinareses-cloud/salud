@@ -323,13 +323,13 @@
      entre paréntesis. Nunca un número suelto: "VITAMINA B12" o
      "LOSARTAN 50MG" son nombres, no cantidades.
   --------------------------------------------------------------- */
-  var CANTIDAD_FINAL = /\s*(?:[x×]\s*(\d{1,4})|\((\d{1,4})\))\s*$/i;
+  var CANTIDAD_FINAL = /\s*(?:[x×]\s*(\d{1,4})|\((\d{1,4})\)|(\d{1,4})\s*(?:unidad(?:es)?|unds?\.?|uds?\.?))\s*$/i;
 
   F.conCantidad = function (pieza) {
     var t = String(pieza == null ? '' : pieza).replace(/\s+/g, ' ').trim();
     var m = t.match(CANTIDAD_FINAL);
     if (!m) return { nombre: t, cantidad: null };
-    var n = parseInt(m[1] || m[2], 10);
+    var n = parseInt(m[1] || m[2] || m[3], 10);
     var nombre = t.replace(CANTIDAD_FINAL, '').trim();
     /* Una medida NO es una cantidad: en "GASA 3X3" o "APOSITO 10X10" la X
        va PEGADA entre dos números y es el tamaño. Gasa 3x3 no es lo mismo

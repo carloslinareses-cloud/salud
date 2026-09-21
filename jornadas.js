@@ -753,16 +753,18 @@
       '<label for="' + i('Direccion') + '">Dirección <span class="opc">(opcional)</span></label>' +
       '<input id="' + i('Direccion') + '" type="text" autocomplete="off" value="' + esc(x.direccion || '') + '">' +
 
-      '<label for="' + i('Tratamiento') + '">Tratamiento <span class="opc">(opcional)</span></label>' +
-      '<input id="' + i('Tratamiento') + '" type="text" autocomplete="off" value="' + esc(x.tratamiento || '') + '">' +
+      '<label for="' + i('Tratamiento') + '">Medicamentos o insumos entregados <span class="opc">(opcional)</span></label>' +
+      '<input id="' + i('Tratamiento') + '" type="text" autocomplete="off" ' +
+        'placeholder="Ej: ALCOHOL 2 unidades / DICLOFENAC 3 unidades" value="' + esc(x.tratamiento || '') + '">' +
       '<div class="trat-ayuda">' +
         '<div class="trat-barra">' +
           '<button type="button" class="suave chico" id="' + i('TratBuscar') + '">Buscar en el inventario</button>' +
-          '<span class="sub chico">Sirve para sacar el nombre rápido y anotar cuántos se entregaron. ' +
+          '<span class="sub chico">Cada producto debe tener su cantidad. Puedes escribirla o ajustarla abajo. ' +
             '<b>No descuenta del inventario.</b></span>' +
         '</div>' +
         '<div id="' + i('TratPicker') + '" class="trat-picker" hidden></div>' +
         '<div id="' + i('TratChips') + '" class="trat-chips"></div>' +
+        '<p id="' + i('TratTotal') + '" class="trat-total" aria-live="polite"></p>' +
       '</div>' +
 
       '<label>¿Se entregó con récipe?</label>' +
@@ -822,8 +824,8 @@
   Jornadas.prototype.armarTratamiento = function () {
     var t = this;
     var campo = t.q('Tratamiento'), chips = t.q('TratChips'), caja = t.q('TratPicker');
-    var boton = t.q('TratBuscar');
-    if (!campo || !chips || !caja || !boton) return;
+    var boton = t.q('TratBuscar'), total = t.q('TratTotal');
+    if (!campo || !chips || !caja || !boton || !total) return;
     var F = window.FARM;
     if (!F || !F.piezasTratamientoCant) { boton.hidden = true; return; }
 
@@ -843,12 +845,22 @@
             return '<span class="trat-chip">' +
               '<b>' + esc(m.nombre) + '</b>' +
               '<button type="button" class="trat-menos" data-k="' + k + '" aria-label="Uno menos">−</button>' +
-              '<em>' + (m.cantidad || 1) + '</em>' +
+              '<input class="trat-cantidad" data-k="' + k + '" type="number" min="1" max="9999" inputmode="numeric" ' +
+                'aria-label="Cantidad de ' + esc(m.nombre) + '" placeholder="Cant." value="' +
+                (m.anotada ? esc(m.cantidad) : '') + '">' +
               '<button type="button" class="trat-mas" data-k="' + k + '" aria-label="Uno más">+</button>' +
               '<button type="button" class="trat-quitar" data-k="' + k + '" aria-label="Quitar">✕</button>' +
             '</span>';
           }).join('')
         : '';
+      var conCantidad = lista.filter(function (m) { return m.anotada && Number(m.cantidad) > 0; });
+      var faltan = lista.length - conCantidad.length;
+      var suma = conCantidad.reduce(function (s, m) { return s + Number(m.cantidad); }, 0);
+      total.className = 'trat-total' + (faltan ? ' incompleto' : ' completo');
+      total.textContent = lista.length
+        ? 'Total real: ' + suma + (suma === 1 ? ' unidad' : ' unidades') +
+          (faltan ? ' · Falta la cantidad de ' + faltan + (faltan === 1 ? ' producto' : ' productos') : ' · Cantidades completas')
+        : 'Todavía no hay productos entregados.';
     };
 
     chips.addEventListener('click', function (ev) {
@@ -857,7 +869,7 @@
       var lista = leer(), k = +b.dataset.k, m = lista[k];
       if (!m) return;
       if (b.classList.contains('trat-quitar')) lista.splice(k, 1);
-      else if (b.classList.contains('trat-mas')) { m.cantidad = (m.cantidad || 1) + 1; m.anotada = true; }
+      else if (b.classList.contains('trat-mas')) { m.cantidad = m.anotada ? (m.cantidad || 1) + 1 : 1; m.anotada = true; }
       else if (b.classList.contains('trat-menos')) {
         m.cantidad = (m.cantidad || 1) - 1;
         m.anotada = true;
@@ -865,6 +877,17 @@
       }
       escribir(lista);
     });
+    chips.addEventListener('change', function (ev) {
+      var entrada = ev.target.closest('input.trat-cantidad[data-k]');
+      if (!entrada) return;
+      var lista = leer(), k = +entrada.dataset.k, m = lista[k];
+      if (!m) return;
+      var cantidad = parseInt(entrada.value, 10);
+      if (cantidad > 0 && cantidad <= 9999) { m.cantidad = cantidad; m.anotada = true; }
+      else { m.cantidad = 1; m.anotada = false; }
+      escribir(lista);
+    });
+    campo.addEventListener('input', pintar);
     campo.addEventListener('change', pintar);
 
     boton.addEventListener('click', function () {
@@ -937,6 +960,16 @@
     var d = t.leerCamposPersona();
     var mal = t.valida(d);
     if (mal) { t.aviso('warn', mal); return; }
+    var tratamiento = window.FARM && window.FARM.piezasTratamientoCant
+      ? window.FARM.piezasTratamientoCant(d.tratamiento) : [];
+    var sinCantidad = tratamiento.filter(function (m) { return !m.anotada || !(Number(m.cantidad) > 0); });
+    var tratamientoCambio = !idExistente || !t.quien ||
+      String(d.tratamiento || '') !== String(t.quien.tratamiento || '');
+    if (sinCantidad.length && tratamientoCambio) {
+      t.aviso('warn', 'Indica cuántas unidades se entregaron de cada producto. Falta la cantidad de: ' +
+        sinCantidad.map(function (m) { return m.nombre; }).join(', ') + '.');
+      return;
+    }
 
     var motivos = [];
     if (!d.cedula) motivos.push('cedula vacia');

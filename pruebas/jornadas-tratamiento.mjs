@@ -167,6 +167,37 @@ try {
   prueba('lo escrito a mano NO se pierde y sale como renglón',
     (await chips()).some(c => /ALGO ESCRITO A MANO/.test(c)), JSON.stringify(await chips()))
 
+  prueba('un producto escrito sin cantidad queda claramente vacío',
+    (await pag.$$eval('.trat-cantidad', ns => ns.map(n => n.value)))[1] === '')
+  await pag.click('#joGuardar')
+  await new Promise(r => setTimeout(r, 250))
+  prueba('no deja guardar una entrega si falta la cantidad de un producto',
+    /Indica cuántas unidades/i.test(await pag.$eval('#joAviso', e => e.textContent)) &&
+    (await pag.evaluate(() => window.ESCRITURAS.length)) === 0)
+
+  await pag.$eval('#joTratamiento', e => {
+    e.value = 'ALCOHOL 2 unidades / DICLOFENAC 3 unidades'
+    e.dispatchEvent(new Event('input'))
+  })
+  await new Promise(r => setTimeout(r, 250))
+  prueba('el ejemplo ALCOHOL 2 + DICLOFENAC 3 muestra un total real de 5',
+    /Total real:\s*5 unidades/i.test(await pag.$eval('#joTratTotal', e => e.textContent)),
+    await pag.$eval('#joTratTotal', e => e.textContent))
+  prueba('las dos cantidades aparecen separadas y auditables',
+    JSON.stringify(await pag.$$eval('.trat-cantidad', ns => ns.map(n => n.value))) === JSON.stringify(['2', '3']))
+
+  await pag.$eval('.trat-cantidad', e => { e.value = '4'; e.dispatchEvent(new Event('change', { bubbles: true })) })
+  await new Promise(r => setTimeout(r, 250))
+  prueba('cambiar una cantidad recalcula inmediatamente 4 + 3 = 7',
+    /Total real:\s*7 unidades/i.test(await pag.$eval('#joTratTotal', e => e.textContent)) &&
+    /ALCOHOL X4 \/ DICLOFENAC X3/.test(await valor()), await valor())
+
+  await pag.$eval('#joTratamiento', e => {
+    e.value = 'ACETAMINOFEN SUSPENSION X2 / ALGO ESCRITO A MANO'
+    e.dispatchEvent(new Event('input'))
+  })
+  await new Promise(r => setTimeout(r, 250))
+
   await pag.click('.trat-chip:nth-child(2) .trat-quitar')
   await new Promise(r => setTimeout(r, 250))
   prueba('la ✕ quita solo ese', await valor() === 'ACETAMINOFEN SUSPENSION X2', await valor())
@@ -199,6 +230,26 @@ try {
     await new Promise(r => setTimeout(r, 400))
     prueba('y allí también se anota con su cantidad', /X1/.test(await valor()), await valor())
   }
+
+  await pag.$eval('#joTratamiento', e => {
+    e.value = 'ALCOHOL 2 unidades / DICLOFENAC 3 unidades'
+    e.dispatchEvent(new Event('input'))
+  })
+  await pag.setViewport({ width: 375, height: 812 })
+  await new Promise(r => setTimeout(r, 250))
+  const movil = await pag.evaluate(() => ({
+    ancho: document.documentElement.scrollWidth,
+    ventana: window.innerWidth,
+    cantidades: [...document.querySelectorAll('.trat-cantidad')].map(e => e.getBoundingClientRect().height),
+    botones: [...document.querySelectorAll('.trat-chip button')].map(e => e.getBoundingClientRect().height),
+    chips: [...document.querySelectorAll('.trat-chip')].map(e => e.getBoundingClientRect().width)
+  }))
+  prueba('en un teléfono de 375 px no aparece desplazamiento horizontal', movil.ancho <= movil.ventana,
+    JSON.stringify(movil))
+  prueba('en teléfono, cantidades y botones miden al menos 44 px de alto',
+    movil.cantidades.every(n => n >= 44) && movil.botones.every(n => n >= 44), JSON.stringify(movil))
+  prueba('los renglones de productos caben completos en el teléfono',
+    movil.chips.every(n => n <= movil.ventana), JSON.stringify(movil))
 
   prueba('NADA se escribió en la base: elegir no mueve el inventario',
     (await pag.evaluate(() => window.ESCRITURAS.length)) === 0,
