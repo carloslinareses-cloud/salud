@@ -9,6 +9,7 @@
   /* La ultima persona o centro elegido, para poder ofrecer volver a
      elegirlo despues de registrar sin tener que buscarlo otra vez. */
   var ultimo = null;
+  var recipes = [], recipeElegido = null;
 
   function esc(t) {
     return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
@@ -407,6 +408,7 @@
 
   function elegirDestino(x) {
     ultimo = x;
+    recipes = []; recipeElegido = null;
     if (modo === 'paciente') {
       var ced = x.cedula ? (x.nacionalidad || 'V') + '-' + x.cedula
                          : (x.cedula_cruda || 'sin cédula válida');
@@ -423,6 +425,14 @@
                   fechaVia: x.ultima_solicitud || null,
                   nVias: Number(x.solicitudes) || 0 };
       pintarDestino(); pintarRenglones();
+      sb.from('v_solicitudes').select('solicitud_id,creado_en,indicado_por,activa')
+        .eq('paciente_id', x.id).eq('via', 'recipe').eq('activa', true)
+        .order('creado_en', { ascending: false }).limit(30).then(function (r) {
+          if (!destino || destino.id !== x.id) return;
+          if (r.error) { aviso('bad', 'No se pudieron consultar los récipes: ' + r.error.message); return; }
+          recipes = r.data || [];
+          pintarRenglones();
+        });
       cargarHistorial('paciente', x.id);
       sb.from('v_tratamiento_paciente')
         .select('tratamiento_id,producto_id,producto,dosificacion,texto_original,disponible,situacion,origen')
@@ -798,6 +808,7 @@
          como suyas: dirian que vienen de un papel que no existe. Se
          anotan como lo que son, medicinas que la persona necesita. */
       var deSolicitud = via && sid;
+      if (via === 'recipe' && sid) recipeElegido = sid;
 
       /* Puede que la persona ya estuviera registrada y ya tuviera anotada
          alguna de estas medicinas. Se leen las que tiene y no se repiten:
@@ -845,6 +856,7 @@
               return;
             }
             elegirDestino(f.data);
+            if (via === 'recipe' && sid) { recipeElegido = sid; pintarRenglones(); }
             /* Nunca se dice "guardado" de lo que el servidor no confirmo. */
             var pega = [];
             if (falloSol) pega.push('no qued\u00f3 anotado por qu\u00e9 vino (' + falloSol + ')');
@@ -2080,6 +2092,17 @@
         '<div class="aviso warn"><b>Falta elegir a quién se le entrega</b>' +
         'Los medicamentos ya están puestos. Busca arriba a la persona o ' +
         'al centro y toca su nombre.</div>') +
+      (destino && destino.tipo === 'paciente'
+        ? '<label for="recipeEntrega">Récipe de esta entrega</label>' +
+          '<select id="recipeEntrega"><option value="">No corresponde a un récipe</option>' +
+          recipes.map(function (r) {
+            return '<option value="' + esc(r.solicitud_id) + '"' +
+              (recipeElegido === r.solicitud_id ? ' selected' : '') + '>Récipe del ' +
+              fecha(window.FARM && window.FARM.hoyCaracas
+                ? window.FARM.hoyCaracas(r.creado_en) : String(r.creado_en).slice(0, 10)) +
+              (r.indicado_por ? ' · ' + esc(r.indicado_por) : '') + '</option>';
+          }).join('') + '</select>'
+        : '') +
       '<div class="botonera">' +
         /* Nunca deshabilitado: si falta algo, el boton lo dice y lleva
            hasta donde se arregla. */
@@ -2091,6 +2114,10 @@
       '</div>';
 
     document.getElementById('btnRegistrar').addEventListener('click', registrar);
+    var selectorRecipe = document.getElementById('recipeEntrega');
+    if (selectorRecipe) selectorRecipe.addEventListener('change', function () {
+      recipeElegido = selectorRecipe.value || null;
+    });
 
     function pon(i, valor) {
       var max = Math.round(cesta[i].disponible);
@@ -2164,6 +2191,7 @@
                 clave_idempotencia: 'e-' + destino.id + '-' + Date.now() };
     if (destino.tipo === 'paciente') {
       cab.paciente_id = destino.id;
+      cab.solicitud_id = recipeElegido;
     } else {
       cab.institucion_id = destino.id;
       var rn = document.getElementById('recibeNombre');
@@ -2179,15 +2207,11 @@
 
     btn.disabled = true; btn.textContent = 'Registrando…';
 
-    sb.from('entregas').insert(cab).select().single().then(function (r) {
+    sb.rpc('entrega_guardar', { p_id: null, p_datos: Object.assign({}, cab, {
+      items: cesta.map(function (c) { return { lote_id: c.lote_id, cantidad: c.cantidad }; })
+    }) }).then(function (r) {
       if (r.error) throw r.error;
-      var idEnt = r.data.id;
-      return sb.from('entrega_detalle').insert(cesta.map(function (c) {
-        return { entrega_id: idEnt, lote_id: c.lote_id, cantidad: c.cantidad };
-      })).select().then(function (d) {
-        if (d.error) throw d.error;
-        return { id: idEnt, n: (d.data || []).length };
-      });
+      return { id: r.data, n: cesta.length };
     }).then(function (res) {
       /* Se guarda copia de lo entregado ANTES de vaciar la cesta, para
          poder imprimir el acta o el comprobante después. */
@@ -2215,7 +2239,7 @@
                   res.n + (res.n === 1 ? ' medicamento' : ' medicamentos') +
                   '. Ya quedó descontado del inventario.');
       var atendido = ultimo;
-      destino = null; cesta = []; olvidaTratamiento();
+      destino = null; cesta = []; recipes = []; recipeElegido = null; olvidaTratamiento();
       /* Tambien se limpia la busqueda. Si no, el nombre sigue escrito y
          la persona sigue en la lista de abajo, y parece que sigue
          elegida cuando ya no lo esta. */

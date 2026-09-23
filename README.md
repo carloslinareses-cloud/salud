@@ -14,6 +14,23 @@ Control de inventario de la farmacia municipal.
 | Inventario | Registra la mercancía que llega y mantiene productos y lotes (crear, consultar, corregir y borrar solo los que no tienen historia) |
 | Despacho | Entrega medicamentos y descuenta del stock, consulta existencias |
 
+## Entregas con récipe
+
+En **Entregar** se elige el récipe activo de la persona antes de confirmar la
+entrega. Paciente, récipe, medicamentos y descuento se guardan juntos mediante
+`farmacia.entrega_guardar`: si falla un renglón, no queda una entrega incompleta.
+
+En **Mercancía → Lo entregado** y **Administración → Entregas**, los perfiles de
+Inventario y Administración pueden consultar, corregir o anular entregas hechas
+en el sistema. Corregir conserva la anterior anulada y crea una nueva; anular
+devuelve las cantidades al inventario. Ambas acciones requieren un motivo y
+quedan en la bitácora. Las entregas importadas del Excel son históricas y no se
+alteran porque sus cantidades no constan.
+
+Antes de publicar estas pantallas, aplicar `sql/33-entregas-recipe-crud.sql` con
+`node migracion/16_entregas_recipe_crud.mjs --aplicar` y verificar con
+`node migracion/16_entregas_recipe_crud.mjs --probar` (la prueba revierte sus datos).
+
 ## Cómo se publica
 
 Sitio estático en GitHub Pages. Al hacer `git push origin main` se publica solo.
