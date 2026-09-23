@@ -425,12 +425,15 @@
                   fechaVia: x.ultima_solicitud || null,
                   nVias: Number(x.solicitudes) || 0 };
       pintarDestino(); pintarRenglones();
-      sb.from('v_solicitudes').select('solicitud_id,creado_en,indicado_por,activa')
+      sb.from('solicitudes').select('id,creado_en,indicado_por,activa,representante_nombre')
         .eq('paciente_id', x.id).eq('via', 'recipe').eq('activa', true)
         .order('creado_en', { ascending: false }).limit(30).then(function (r) {
           if (!destino || destino.id !== x.id) return;
           if (r.error) { aviso('bad', 'No se pudieron consultar los récipes: ' + r.error.message); return; }
-          recipes = r.data || [];
+          recipes = (r.data || []).map(function (s) {
+            s.solicitud_id = s.id;
+            return s;
+          });
           pintarRenglones();
         });
       cargarHistorial('paciente', x.id);
@@ -482,10 +485,18 @@
 
     z.innerHTML =
       '<h2 class="sub-t">' + (V ? V.titulo : 'Registrar una persona nueva') + '</h2>' +
-      '<p class="sub">' + (V ? V.sub + ' ' : '') +
+      '<p class="sub" id="nIntro">' + (V ? V.sub + ' ' : '') +
       'Escribe la cédula y pulsa <b>Buscar en el registro</b>: trae el nombre y calcula ' +
       'la edad. Lo demás se completa a mano.</p>' +
 
+      (formVia === 'recipe'
+        ? '<div class="trat via-caja"><label for="nMenorSinCedula">' +
+          '<input id="nMenorSinCedula" type="checkbox"> ¿Es menor de edad y no tiene cédula?</label>' +
+          '<p class="sub chico">El récipe y la entrega quedarán a nombre del menor. ' +
+          'El representante será solo un contacto de este récipe.</p></div>'
+        : '') +
+
+      '<div id="nIdentificacion">' +
       '<label>Nacionalidad</label>' +
       '<div class="chips" id="nNac">' +
         '<button type="button" data-n="V" class="on">V · Venezolana</button>' +
@@ -499,6 +510,20 @@
         '<button type="button" class="suave" id="nBuscarCne">Buscar en el registro</button>' +
       '</div>' +
       '<p class="sub chico" id="nAvisoCne"></p>' +
+      '</div>' +
+
+      (formVia === 'recipe'
+        ? '<div id="nRepresentante" hidden>' +
+          '<h2 class="sub-t">Representante del menor</h2>' +
+          '<p class="sub chico">No se crea ni se usa una ficha de paciente para el representante.</p>' +
+          '<label for="nRepNombre">Nombre y apellido</label>' +
+          '<input id="nRepNombre" type="text" autocomplete="off">' +
+          '<label for="nRepCedula">Cédula <span class="opc">(opcional)</span></label>' +
+          '<input id="nRepCedula" type="text" inputmode="numeric" autocomplete="off">' +
+          '<label for="nRepTelefono">Teléfono <span class="opc">(opcional)</span></label>' +
+          '<input id="nRepTelefono" type="tel" inputmode="tel" autocomplete="off">' +
+          '</div>'
+        : '') +
 
       '<label for="nNombre">Nombre y apellido</label>' +
       '<input id="nNombre" type="text" autocomplete="off" ' +
@@ -511,7 +536,7 @@
         '<button type="button" data-s="" class="on">No lo dice</button>' +
       '</div>' +
 
-      '<label for="nEdad">Edad <span class="opc">(opcional, tal como la diga)</span></label>' +
+      '<label for="nEdad" id="nEdadRotulo">Edad <span class="opc">(opcional, tal como la diga)</span></label>' +
       '<input id="nEdad" type="text" placeholder="Ej: 34, 2 años, 8 meses">' +
 
       '<label for="nTelefono">Teléfono <span class="opc">(opcional)</span></label>' +
@@ -563,6 +588,17 @@
       pintarDestino();
     });
     document.getElementById('nBuscarCne').addEventListener('click', consultarCne);
+    if (formVia === 'recipe') document.getElementById('nMenorSinCedula').addEventListener('change', function () {
+      document.getElementById('nIdentificacion').hidden = this.checked;
+      document.getElementById('nRepresentante').hidden = !this.checked;
+      document.getElementById('nIntro').innerHTML = this.checked
+        ? 'Registra al menor por su nombre y edad. El récipe y la entrega quedarán en su ficha.'
+        : 'Escribe la cédula y pulsa <b>Buscar en el registro</b>: trae el nombre y calcula la edad. Lo demás se completa a mano.';
+      document.getElementById('nNombre').previousElementSibling.textContent = this.checked
+        ? 'Nombre y apellido del menor' : 'Nombre y apellido';
+      document.getElementById('nEdadRotulo').innerHTML = this.checked
+        ? 'Edad del menor' : 'Edad <span class="opc">(opcional, tal como la diga)</span>';
+    });
     document.getElementById('nCedula').addEventListener('keydown', function (ev) {
       if (ev.key === 'Enter') { ev.preventDefault(); consultarCne(); }
     });
@@ -691,6 +727,10 @@
     var motivo = cMot ? cMot.value.trim() : '';
     var indicado = cInd ? (cInd.value.trim() || null) : null;
     var via = formVia;
+    var esMenor = via === 'recipe' && document.getElementById('nMenorSinCedula').checked;
+    var repNombre = esMenor ? document.getElementById('nRepNombre').value.trim().replace(/\s+/g, ' ') : '';
+    var repCedula = esMenor ? document.getElementById('nRepCedula').value.trim() : '';
+    var repTelefono = esMenor ? document.getElementById('nRepTelefono').value.trim() : '';
 
     function falla(txt, foco) {
       err.innerHTML = txt; err.hidden = false;
@@ -698,7 +738,20 @@
     }
 
     if (nom.length < 4) { falla('Escribe el nombre y el apellido completos.'); return; }
-    if (!/^\d{6,9}$/.test(ced)) { falla('La c\u00e9dula debe tener entre 6 y 9 n\u00fameros.'); return; }
+    if (!esMenor && !/^\d{6,9}$/.test(ced)) { falla('La c\u00e9dula debe tener entre 6 y 9 n\u00fameros.'); return; }
+    if (esMenor && repNombre.length < 4) {
+      falla('Escribe el nombre y apellido del representante.', document.getElementById('nRepNombre')); return;
+    }
+    if (esMenor && repCedula && !/^\d{6,9}$/.test(repCedula)) {
+      falla('La cédula del representante debe tener entre 6 y 9 números, o déjala vacía.',
+        document.getElementById('nRepCedula')); return;
+    }
+    if (esMenor && !edadTxt) {
+      falla('Escribe la edad del menor.', document.getElementById('nEdad')); return;
+    }
+    if (esMenor && /^\s*(?:1[89]|[2-9]\d)\s*(?:a(?:ñ|n)os?)?\s*$/i.test(edadTxt)) {
+      falla('La edad indicada corresponde a una persona adulta.', document.getElementById('nEdad')); return;
+    }
     /* La base tambien lo exige, para que no dependa solo de esta pantalla. */
     if (via === 'operacion' && motivo.length < 4) {
       falla('Escribe de qu\u00e9 es la operaci\u00f3n. Sin eso, dentro de un a\u00f1o nadie ' +
@@ -710,6 +763,22 @@
     var btn = document.getElementById('guardarPac');
     var etiq = btn.textContent;
     btn.disabled = true; btn.textContent = 'Registrando\u2026';
+
+    if (esMenor) {
+      sb.rpc('registrar_menor_recipe', { p_datos: {
+        nombre: nom, sexo: sex, edad_texto: edadTxt, telefono: tel, direccion: dir,
+        indicado_por: indicado, representante_nombre: repNombre,
+        representante_cedula: repCedula || null, representante_telefono: repTelefono || null
+      } }).then(function (r) {
+        if (r.error || !r.data || !r.data.paciente_id || !r.data.solicitud_id) {
+          btn.disabled = false; btn.textContent = etiq;
+          falla('No se pudo registrar al menor y su récipe. ' + esc(r.error ? r.error.message : 'Intenta otra vez.'));
+          return;
+        }
+        rematarRegistro(r.data.paciente_id, motivo, indicado, via, btn, etiq, r.data.solicitud_id);
+      });
+      return;
+    }
 
     sb.from('pacientes').insert({
       nombre: nom, cedula: ced, nacionalidad: nac, cedula_cruda: ced,
@@ -792,8 +861,10 @@
      por recipe o por operacion, anota lo que necesita y deja a la persona
      elegida, con la cesta delante. Es el "y luego me manda al panel de
      que se le va a entregar". */
-  function rematarRegistro(pid, motivo, indicado, via, btn, etiq) {
-    var pedirSolicitud = via
+  function rematarRegistro(pid, motivo, indicado, via, btn, etiq, solicitudExistente) {
+    var pedirSolicitud = solicitudExistente
+      ? Promise.resolve({ data: { id: solicitudExistente }, error: null })
+      : via
       ? sb.from('solicitudes').insert({
           paciente_id: pid, via: via,
           motivo: motivo || null, indicado_por: indicado || null
@@ -2100,7 +2171,9 @@
               (recipeElegido === r.solicitud_id ? ' selected' : '') + '>Récipe del ' +
               fecha(window.FARM && window.FARM.hoyCaracas
                 ? window.FARM.hoyCaracas(r.creado_en) : String(r.creado_en).slice(0, 10)) +
-              (r.indicado_por ? ' · ' + esc(r.indicado_por) : '') + '</option>';
+              (r.indicado_por ? ' · ' + esc(r.indicado_por) : '') +
+              (r.representante_nombre ? ' · representante: ' + esc(r.representante_nombre) : '') +
+              '</option>';
           }).join('') + '</select>'
         : '') +
       '<div class="botonera">' +
