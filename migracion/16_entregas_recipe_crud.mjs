@@ -34,10 +34,13 @@ if (process.argv.includes('--aplicar')) {
   if (despues[0]?.funciones !== 2) throw new Error('No aparecieron las dos funciones nuevas.');
   console.log('Funciones y esquema de entregas: aplicados y verificados.');
 }
-if (process.argv.includes('--probar')) {
-  await sql(readFileSync(new URL('../pruebas/entregas-recipe-crud.sql', import.meta.url), 'utf8'));
+if (process.argv.includes('--probar') || process.argv.includes('--probar-inventario')) {
+  let prueba = readFileSync(new URL('../pruebas/entregas-recipe-crud.sql', import.meta.url), 'utf8');
+  if (process.argv.includes('--probar-inventario')) prueba = prueba.replace("rol = 'admin'", "rol = 'inventario'");
+  await sql(prueba);
   const restos = await sql("select count(*)::int as n from farmacia.pacientes " +
     "where nombre in ('ZZZ PRUEBA CRUD RÉCIPE', 'ZZZ PRUEBA OTRA PERSONA')");
   if (restos[0]?.n !== 0) throw new Error('La prueba dejó pacientes temporales; revisa la base.');
-  console.log('Alta, corrección, anulación y rechazo de récipe ajeno: verificados; prueba revertida.');
+  console.log('Alta, corrección, anulación y rechazo de récipe ajeno: verificados; prueba revertida' +
+    (process.argv.includes('--probar-inventario') ? ' con rol Inventario.' : ' con rol Administración.'));
 }

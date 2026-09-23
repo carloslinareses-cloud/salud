@@ -30,6 +30,7 @@ alteran porque sus cantidades no constan.
 Antes de publicar estas pantallas, aplicar `sql/33-entregas-recipe-crud.sql` con
 `node migracion/16_entregas_recipe_crud.mjs --aplicar` y verificar con
 `node migracion/16_entregas_recipe_crud.mjs --probar` (la prueba revierte sus datos).
+Para comprobar también el perfil de Inventario: `node migracion/16_entregas_recipe_crud.mjs --probar-inventario`.
 
 ## Cómo se publica
 
