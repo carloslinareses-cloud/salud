@@ -48,6 +48,7 @@
   var CAMPOS = 'id,nombre,nacionalidad,cedula,cedula_cruda,rif_digito,sexo,fecha_nac,edad,edad_texto,' +
                'telefono,direccion,estado,motivo_revision,medicamentos,entregas,ultima_entrega,' +
                'patologias,n_patologias';
+  var CAMPOS_INVENTARIO = CAMPOS + ',fallecido,estado_vital_observacion,estado_vital_actualizado_en';
   /* La edad exacta sale de la fecha de nacimiento cuando se tiene. Si
      no -por ejemplo, a quien se registró rápido por récipe, donde solo
      se pregunta la edad tal como la dijo- se muestra esa edad tal
@@ -59,6 +60,9 @@
   /* ================================================================ */
   function Personas(sb, raiz, pfx) {
     this.sb = sb; this.raiz = raiz; this.pfx = pfx;
+    this.esInventario = !!(window.FARMACIA_PERFIL && window.FARMACIA_PERFIL.rol === 'inventario');
+    this.soloAlertas = false;
+    this.totalAlertas = null;
     this.modo = 'lista';          // lista | ficha | nueva
     this.busca = '';
     this.pagina = 0;
@@ -71,7 +75,17 @@
     this.tratamiento = [];        // sus medicinas, con id
     this.pendientes = { pat: [], med: [] };   // lo anotado a alguien que aún no existe
     this.abierto = null;          // 'pat' | 'med' | null
+    this.alertaRetiro = null;
+    this.falloAlertaRetiro = null;
+    this.edicionVital = null;
   }
+
+  Personas.prototype.vistaPacientes = function () {
+    return this.esInventario ? 'v_pacientes_estado' : 'v_pacientes_ficha';
+  };
+  Personas.prototype.camposFicha = function () {
+    return this.esInventario ? CAMPOS_INVENTARIO : CAMPOS;
+  };
 
   Personas.prototype.id = function (n) { return this.pfx + n; };
   Personas.prototype.q = function (n) { return this.raiz.querySelector('#' + this.pfx + n); };
@@ -111,6 +125,11 @@
         '</div>' +
         '<button type="button" class="secundario" id="' + i('Nueva') + '">+ Registrar persona</button>' +
       '</div>' +
+      (t.esInventario
+        ? '<button type="button" class="secundario" id="' + i('SoloAlertas') + '">' +
+          (t.soloAlertas ? 'Ver todas las personas' : 'Ver alertas de seis meses sin retiro') +
+          (t.totalAlertas == null ? '' : ' · ' + num(t.totalAlertas)) + '</button>'
+        : '') +
       '<div id="' + i('Res') + '"><div class="cargando">Cargando…</div></div>';
 
     var caja = t.q('Busca');
@@ -120,6 +139,19 @@
     t.q('Nueva').addEventListener('click', function () {
       t.modo = 'nueva'; t.pendientes = { pat: [], med: [] }; t.abierto = null; t.pintar();
     });
+    if (t.esInventario) {
+      t.q('SoloAlertas').addEventListener('click', function () {
+        t.soloAlertas = !t.soloAlertas; t.pagina = 0; t.verLista();
+      });
+      t.sb.from('v_alertas_retiro').select('id', { count: 'exact', head: true })
+        .then(function (r) {
+          if (r.error || !t.q('SoloAlertas')) return;
+          t.totalAlertas = r.count;
+          var b = t.q('SoloAlertas');
+          b.textContent = (t.soloAlertas ? 'Ver todas las personas' : 'Ver alertas de seis meses sin retiro') +
+            ' · ' + num(t.totalAlertas);
+        });
+    }
     t.cargarLista();
   };
 
@@ -131,12 +163,15 @@
     z.innerHTML = '<div class="cargando">Cargando…</div>';
 
     var q = t.busca.replace(/[%,()]/g, '');
-    var c = t.sb.from('v_pacientes_ficha').select(CAMPOS, { count: 'exact' });
+    var c = t.sb.from(t.soloAlertas && t.esInventario ? 'v_alertas_retiro' : t.vistaPacientes())
+      .select(t.camposFicha() + (t.soloAlertas && t.esInventario ? ',fecha_base_alerta' : ''),
+        { count: 'exact' });
     if (q) {
       var sinAc = window.FARM ? window.FARM.sinAcentos(q).toUpperCase() : q.toUpperCase();
       c = c.or('cedula.ilike.*' + q + '*,busqueda.ilike.*' + sinAc + '*,patologias.ilike.*' + sinAc + '*');
     }
-    c.order('nombre').range(t.pagina * POR_PAGINA, t.pagina * POR_PAGINA + POR_PAGINA - 1)
+    c.order(t.soloAlertas ? 'fecha_base_alerta' : 'nombre')
+      .range(t.pagina * POR_PAGINA, t.pagina * POR_PAGINA + POR_PAGINA - 1)
       .then(function (r) {
         if (mio !== t.pedido || !t.q('Res')) return;
         if (r.error) {
@@ -155,8 +190,10 @@
     if (!z) return;
     if (!t.filas.length) {
       z.innerHTML = '<div class="vacio"><b>' +
-        (t.busca ? 'No hay nadie con «' + esc(t.busca) + '»' : 'Todavía no hay nadie registrado') +
-        '</b><span>Se puede registrar con el botón de arriba.</span></div>';
+        (t.busca ? 'No hay nadie con «' + esc(t.busca) + '»'
+          : (t.soloAlertas ? 'No hay alertas pendientes de retiro' : 'Todavía no hay nadie registrado')) +
+        '</b><span>' + (t.soloAlertas ? 'Las alertas resueltas dejan de aparecer aquí.'
+          : 'Se puede registrar con el botón de arriba.') + '</span></div>';
       return;
     }
     var paginas = Math.max(1, Math.ceil(t.total / POR_PAGINA));
@@ -179,8 +216,11 @@
               (x.medicamentos === 1 ? ' medicina' : ' medicinas') + '</span>' +
             '<span class="ficha-vence">' + x.entregas +
               (x.entregas === 1 ? ' entrega' : ' entregas') + '</span>' +
+            (x.fecha_base_alerta ? '<span>Sin retiro desde ' + corta(x.fecha_base_alerta) + '</span>' : '') +
           '</div>' +
           (x.estado === 'por_revisar' ? '<span class="sit ojo">Por revisar</span>' : '') +
+          (x.fallecido ? '<span class="sit gris">Falleció</span>' : '') +
+          (x.fecha_base_alerta ? '<span class="sit mal">6 meses sin retiro</span>' : '') +
         '</button>';
       }).join('') + '</div>' +
       (paginas > 1
@@ -208,6 +248,7 @@
   Personas.prototype.abrir = function (x) {
     var t = this;
     t.quien = x; t.modo = 'ficha'; t.abierto = null;
+    t.edicionVital = null; t.alertaRetiro = null; t.falloAlertaRetiro = null;
     t.patologias = null; t.tratamiento = null;   // nulo = todavía no se sabe
     t.historial = null; t.histTodo = false; t.falloHist = null;
     t.pintar();
@@ -217,7 +258,7 @@
   Personas.prototype.cargarAnexos = function () {
     var t = this;
     var pid = t.quien.id;
-    Promise.all([
+    var consultas = [
       t.sb.from('patologias_paciente').select('id,patologia,nota')
         .eq('paciente_id', pid).eq('activo', true).order('patologia'),
       t.sb.from('v_tratamiento_paciente')
@@ -235,7 +276,15 @@
         .order('creado_en', { ascending: false, nullsFirst: false })
         .order('entrega_id')
         .limit(HIST_TOPE)
-    ]).then(function (r) {
+    ];
+    if (t.esInventario) {
+      consultas.push(t.sb.from('v_alertas_retiro').select('fecha_base_alerta,fallecido')
+        .eq('id', pid).maybeSingle());
+      consultas.push(t.sb.from('v_pacientes_estado')
+        .select('fallecido,estado_vital_observacion,estado_vital_actualizado_en')
+        .eq('id', pid).single());
+    }
+    Promise.all(consultas).then(function (r) {
       if (!t.quien || t.quien.id !== pid || t.modo !== 'ficha') return;
       /* Un error NO significa que la persona no tenga nada: significa que
          no se pudo preguntar. Sobre una ficha de salud la diferencia
@@ -251,6 +300,13 @@
          se quedaría diciendo "Buscando" para siempre. */
       t.falloHist = r[2].error ? r[2].error.message : null;
       t.falloAnexos = (r[0].error || r[1].error || {}).message || null;
+      if (t.esInventario) {
+        t.alertaRetiro = r[3].error ? null : r[3].data;
+        t.falloAlertaRetiro = r[3].error ? r[3].error.message : null;
+        if (r[4].data) Object.assign(t.quien, r[4].data);
+        else t.falloAlertaRetiro = (r[4].error && r[4].error.message) ||
+          'No se pudo confirmar el estado vital.';
+      }
       t.pintarFicha();
     });
   };
@@ -276,6 +332,7 @@
         '</div>' +
       '</div>' +
 
+      (t.esInventario ? t.bloqueEstadoVital() + t.bloqueAlertaRetiro() : '') +
       t.bloquePatologias() +
       t.bloqueMedicinas() +
       t.bloqueHistorial() +
@@ -292,6 +349,111 @@
     t.engancharCampos();
     t.q('Guardar').addEventListener('click', function () { t.guardarDatos(); });
     t.engancharAnexos();
+    if (t.esInventario) t.engancharEstadoVital();
+  };
+
+  Personas.prototype.bloqueEstadoVital = function () {
+    var t = this, i = function (n) { return t.id(n); };
+    var x = t.quien;
+    return '<div class="trat via-caja"><span class="lbl">Estado de la persona</span>' +
+      '<p><b>' + (x.fallecido ? 'Falleció' : 'Sin fallecimiento declarado') + '</b></p>' +
+      (x.estado_vital_observacion
+        ? '<p class="sub">Observación: ' + esc(x.estado_vital_observacion) + '</p>' : '') +
+      (t.edicionVital === 'estado'
+        ? '<label for="' + i('VitalNota') + '">Observación obligatoria</label>' +
+          '<textarea id="' + i('VitalNota') + '" rows="3" placeholder="Explica quién informó o cómo se verificó"></textarea>' +
+          '<div class="botonera"><button type="button" class="principal" id="' + i('VitalGuardar') + '">' +
+            (x.fallecido ? 'Confirmar que está viva' : 'Confirmar fallecimiento') + '</button>' +
+          '<button type="button" class="secundario" id="' + i('VitalCancelar') + '">Cancelar</button></div>'
+        : '<button type="button" class="secundario" id="' + i('VitalAbrir') + '">' +
+          (x.fallecido ? 'Corregir: está viva' : 'Declarar fallecimiento') + '</button>') +
+      '</div>';
+  };
+
+  Personas.prototype.bloqueAlertaRetiro = function () {
+    var t = this, i = function (n) { return t.id(n); };
+    if (t.falloAlertaRetiro) return '<div class="aviso bad">No se pudo consultar la alerta de retiro: ' +
+      esc(t.falloAlertaRetiro) + '</div>';
+    var a = t.alertaRetiro;
+    if (!a) return '';
+    return '<div class="trat via-caja"><span class="sit mal">Alerta · 6 meses sin retirar medicinas</span>' +
+      '<p class="sub">Último retiro o registro: ' + corta(a.fecha_base_alerta) +
+      '. Verifica el caso antes de quitar la alerta.</p>' +
+      (t.edicionVital === 'alerta'
+        ? '<label for="' + i('AlertaEstado') + '">Situación de la persona</label>' +
+          '<select id="' + i('AlertaEstado') + '">' +
+            '<option value="viva"' + (t.quien.fallecido ? '' : ' selected') + '>No ha fallecido</option>' +
+            '<option value="fallecida"' + (t.quien.fallecido ? ' selected' : '') + '>Falleció</option>' +
+          '</select>' +
+          '<label for="' + i('AlertaNota') + '">Observación obligatoria</label>' +
+          '<textarea id="' + i('AlertaNota') + '" rows="3" placeholder="Explica por qué se quita la alerta"></textarea>' +
+          '<div class="botonera"><button type="button" class="principal" id="' + i('AlertaGuardar') +
+          '">Quitar alerta y guardar observación</button>' +
+          '<button type="button" class="secundario" id="' + i('AlertaCancelar') + '">Cancelar</button></div>'
+        : '<button type="button" class="secundario" id="' + i('AlertaAbrir') + '">Quitar alerta</button>') +
+      '</div>';
+  };
+
+  Personas.prototype.engancharEstadoVital = function () {
+    var t = this;
+    function abrir(cual) {
+      t.edicionVital = cual; t.pintarFicha();
+      var campo = t.q(cual === 'estado' ? 'VitalNota' : 'AlertaNota');
+      if (campo) campo.focus();
+    }
+    function cancelar() { t.edicionVital = null; t.pintarFicha(); }
+    var b = t.q('VitalAbrir'); if (b) b.addEventListener('click', function () { abrir('estado'); });
+    b = t.q('AlertaAbrir'); if (b) b.addEventListener('click', function () { abrir('alerta'); });
+    b = t.q('VitalCancelar'); if (b) b.addEventListener('click', cancelar);
+    b = t.q('AlertaCancelar'); if (b) b.addEventListener('click', cancelar);
+    var guardarVital = t.q('VitalGuardar');
+    if (guardarVital) guardarVital.addEventListener('click', function () {
+      t.guardarEstadoVital(!t.quien.fallecido, t.q('VitalNota').value, guardarVital);
+    });
+    var guardarAlerta = t.q('AlertaGuardar');
+    if (guardarAlerta) guardarAlerta.addEventListener('click', function () {
+      t.guardarResolucionAlerta(t.q('AlertaEstado').value === 'fallecida',
+        t.q('AlertaNota').value, guardarAlerta);
+    });
+  };
+
+  Personas.prototype.guardarEstadoVital = function (fallecido, nota, btn) {
+    var t = this, pid = t.quien.id;
+    nota = nota.trim();
+    if (nota.length < 8) { t.aviso('warn', 'Escribe una observación de al menos 8 caracteres.'); return; }
+    btn.disabled = true;
+    t.sb.rpc('marcar_estado_vital', {
+      p_paciente: pid, p_fallecido: fallecido, p_observacion: nota
+    }).then(function (r) {
+      if (r.error) { btn.disabled = false; t.aviso('bad', 'No se pudo guardar: ' + r.error.message); return; }
+      if (!t.quien || t.quien.id !== pid) return;
+      t.edicionVital = null;
+      t.cargarAnexos();
+      t.aviso('ok', fallecido ? 'Fallecimiento registrado con observación.'
+        : 'Estado vital corregido con observación.');
+    }).catch(function (e) {
+      btn.disabled = false;
+      t.aviso('bad', 'No se pudo conectar para guardar el estado: ' + (e.message || e));
+    });
+  };
+
+  Personas.prototype.guardarResolucionAlerta = function (fallecido, nota, btn) {
+    var t = this, pid = t.quien.id;
+    nota = nota.trim();
+    if (nota.length < 8) { t.aviso('warn', 'Escribe una observación de al menos 8 caracteres.'); return; }
+    btn.disabled = true;
+    t.sb.rpc('resolver_alerta_retiro', {
+      p_paciente: pid, p_fallecido: fallecido, p_observacion: nota
+    }).then(function (r) {
+      if (r.error) { btn.disabled = false; t.aviso('bad', 'No se pudo quitar la alerta: ' + r.error.message); return; }
+      if (!t.quien || t.quien.id !== pid) return;
+      t.edicionVital = null;
+      t.cargarAnexos();
+      t.aviso('ok', 'La alerta quedó resuelta con tu observación.');
+    }).catch(function (e) {
+      btn.disabled = false;
+      t.aviso('bad', 'No se pudo conectar para quitar la alerta: ' + (e.message || e));
+    });
   };
 
   /* ---------------------------------------------------------------- historial
@@ -828,7 +990,7 @@
         return;
       }
       /* Se vuelve a leer de la ficha para traer la edad recalculada. */
-      t.sb.from('v_pacientes_ficha').select(CAMPOS).eq('id', t.quien.id).single()
+      t.sb.from(t.vistaPacientes()).select(t.camposFicha()).eq('id', t.quien.id).single()
         .then(function (f) {
           if (f.data) t.quien = f.data;
           t.pintarFicha();
@@ -967,7 +1129,7 @@
         if (rr[1] && rr[1].error) falta.push('las medicinas (' + rr[1].error.message + ')');
 
         t.pendientes = { pat: [], med: [] };
-        t.sb.from('v_pacientes_ficha').select(CAMPOS).eq('id', pid).single().then(function (f) {
+        t.sb.from(t.vistaPacientes()).select(t.camposFicha()).eq('id', pid).single().then(function (f) {
           t.quien = f.data || r.data;
           t.modo = 'ficha'; t.abierto = null;
           t.patologias = null; t.tratamiento = null; t.falloAnexos = null;
