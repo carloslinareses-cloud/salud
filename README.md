@@ -14,6 +14,16 @@ Control de inventario de la farmacia municipal.
 | Inventario | Registra la mercancía que llega y mantiene productos y lotes (crear, consultar, corregir y borrar solo los que no tienen historia) |
 | Despacho | Entrega medicamentos y descuenta del stock, consulta existencias |
 
+## Estado vital y alertas de retiro
+
+En **Mercancía → Personas** y **Administración → Personas**, los perfiles de
+Inventario y Administración pueden declarar o corregir un fallecimiento con
+observación. También ven las alertas de seis meses sin retiro y pueden
+resolverlas dejando constancia de si la persona vive o falleció. Despacho no
+tiene acceso a estas acciones. La configuración está en
+`sql/35-personas-fallecimiento-alertas-retiro.sql`; se aplica y comprueba con
+`node migracion/18_personas_fallecimiento_alertas.mjs --aplicar --probar`.
+
 ## Entregas con récipe
 
 En **Entregar** se elige el récipe activo de la persona antes de confirmar la

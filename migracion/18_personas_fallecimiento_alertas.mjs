@@ -42,5 +42,5 @@ if (process.argv.includes('--probar')) {
   const restos = await sql("select count(*)::int as n from farmacia.pacientes " +
     "where nombre like 'ZZZ PRUEBA ALERTA RETIRO %'");
   if (restos[0]?.n) throw new Error('La prueba dejó pacientes temporales; revisa la base.');
-  console.log('Alertas, fallecimiento, resolución y bloqueo a Administración: verificados; prueba revertida.');
+  console.log('Alertas y estado vital para Inventario y Administración; bloqueo a Despacho verificado; prueba revertida.');
 }

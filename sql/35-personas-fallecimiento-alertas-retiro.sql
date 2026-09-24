@@ -1,5 +1,5 @@
 -- Personas: estado vital y alertas por seis meses sin retirar medicinas.
--- Solo Inventario puede cambiar el estado vital o resolver la alerta.
+-- Inventario y Administración pueden cambiar el estado vital o resolver la alerta.
 -- Repetible. Aplicar antes de publicar la pantalla.
 
 alter table farmacia.pacientes add column if not exists fallecido boolean not null default false;
@@ -25,7 +25,7 @@ revoke all on farmacia.alertas_retiro_resueltas from anon, authenticated;
 grant select on farmacia.alertas_retiro_resueltas to authenticated, service_role;
 drop policy if exists alertas_retiro_inventario_ve on farmacia.alertas_retiro_resueltas;
 create policy alertas_retiro_inventario_ve on farmacia.alertas_retiro_resueltas
-  for select to authenticated using (farmacia.mi_rol() = 'inventario');
+  for select to authenticated using (farmacia.mi_rol() in ('inventario', 'admin'));
 
 -- Las notas clínicas no se copian a la bitácora general. Quedan en su
 -- registro propio, mientras la bitácora conserva autor, fecha y acción.
@@ -41,14 +41,15 @@ create trigger tr_bitacora_alertas_retiro_resueltas
   for each row execute function farmacia.fn_bitacora();
 
 -- El permiso genérico de edición de pacientes no puede servir para
--- modificar el estado vital desde Administración o Despacho.
+-- modificar el estado vital desde Despacho.
 create or replace function farmacia.fn_cuidar_estado_vital()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   if new.fallecido is distinct from old.fallecido or
      new.estado_vital_observacion is distinct from old.estado_vital_observacion then
-    if farmacia.mi_rol() is distinct from 'inventario' then
-      raise exception 'Solo Inventario puede modificar el estado vital.' using errcode = '42501';
+    if farmacia.mi_rol() is distinct from 'inventario' and
+       farmacia.mi_rol() is distinct from 'admin' then
+      raise exception 'Solo Inventario y Administración pueden modificar el estado vital.' using errcode = '42501';
     end if;
     if length(btrim(coalesce(new.estado_vital_observacion, ''))) < 8 then
       raise exception 'Escribe una observación de al menos 8 caracteres.' using errcode = '22023';
@@ -67,12 +68,12 @@ create trigger tr_cuidar_estado_vital before update on farmacia.pacientes
 
 create or replace view farmacia.v_pacientes_estado as
 select f.*, p.fallecido,
-  case when farmacia.mi_rol() = 'inventario' then p.estado_vital_observacion end
+  case when farmacia.mi_rol() in ('inventario', 'admin') then p.estado_vital_observacion end
     as estado_vital_observacion,
   p.estado_vital_actualizado_en
 from farmacia.v_pacientes_ficha f
 join farmacia.pacientes p on p.id = f.id
-where farmacia.mi_rol() = 'inventario';
+where farmacia.mi_rol() in ('inventario', 'admin');
 grant select on farmacia.v_pacientes_estado to authenticated, service_role;
 alter view farmacia.v_pacientes_estado set (security_invoker = true);
 
@@ -98,8 +99,9 @@ create or replace function farmacia.marcar_estado_vital(
   p_paciente uuid, p_fallecido boolean, p_observacion text)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  if farmacia.mi_rol() is distinct from 'inventario' then
-    raise exception 'Solo Inventario puede cambiar el estado vital.' using errcode = '42501';
+  if farmacia.mi_rol() is distinct from 'inventario' and
+     farmacia.mi_rol() is distinct from 'admin' then
+    raise exception 'Solo Inventario y Administración pueden cambiar el estado vital.' using errcode = '42501';
   end if;
   if p_fallecido is null or length(btrim(coalesce(p_observacion, ''))) < 8 then
     raise exception 'Elige el estado y escribe una observación de al menos 8 caracteres.' using errcode = '22023';
@@ -120,8 +122,9 @@ declare
   v_ultima date;
   v_base date;
 begin
-  if farmacia.mi_rol() is distinct from 'inventario' then
-    raise exception 'Solo Inventario puede resolver alertas de retiro.' using errcode = '42501';
+  if farmacia.mi_rol() is distinct from 'inventario' and
+     farmacia.mi_rol() is distinct from 'admin' then
+    raise exception 'Solo Inventario y Administración pueden resolver alertas de retiro.' using errcode = '42501';
   end if;
   if p_fallecido is null or length(btrim(coalesce(p_observacion, ''))) < 8 then
     raise exception 'Indica si falleció y escribe una observación de al menos 8 caracteres.' using errcode = '22023';

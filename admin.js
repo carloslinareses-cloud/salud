@@ -31,6 +31,7 @@
         '<div class="conmuta">' +
           '<button type="button" data-p="tablero">Tablero</button>' +
           '<button type="button" data-p="entregas">Entregas</button>' +
+          '<button type="button" data-p="personas">Personas</button>' +
           '<button type="button" data-p="bitacora">Bitácora</button>' +
           '<button type="button" data-p="usuarios">Usuarios</button>' +
           '<button type="button" data-p="historial">Historial</button>' +
@@ -43,8 +44,18 @@
       b.addEventListener('click', function () { pestana = b.dataset.p; pintar(); });
       b.classList.toggle('on', b.dataset.p === pestana);
     });
-    ({ tablero: verTablero, entregas: verEntregas, bitacora: verBitacora,
+    ({ tablero: verTablero, entregas: verEntregas, personas: verPersonas, bitacora: verBitacora,
        historial: verHistorial, usuarios: verUsuarios, revisar: verRevisar })[pestana]();
+  }
+
+  function verPersonas() {
+    var z = document.getElementById('zonaAdm');
+    if (typeof window.PANTALLA_PERSONAS !== 'function') {
+      z.innerHTML = '<div class="aviso warn">La pantalla de personas todavía se está cargando. ' +
+                    'Vuelve a entrar en unos segundos.</div>';
+      return;
+    }
+    window.PANTALLA_PERSONAS(sb, z, { prefijo: 'admPersonas' });
   }
 
   /* ------------------------------------------------------- lo que se entregó

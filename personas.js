@@ -60,7 +60,8 @@
   /* ================================================================ */
   function Personas(sb, raiz, pfx) {
     this.sb = sb; this.raiz = raiz; this.pfx = pfx;
-    this.esInventario = !!(window.FARMACIA_PERFIL && window.FARMACIA_PERFIL.rol === 'inventario');
+    this.esInventario = !!(window.FARMACIA_PERFIL &&
+      ['inventario', 'admin'].includes(window.FARMACIA_PERFIL.rol));
     this.soloAlertas = false;
     this.totalAlertas = null;
     this.modo = 'lista';          // lista | ficha | nueva
