@@ -231,7 +231,8 @@ try {
   /* La ayuda tiene que estar en TODOS los sitios donde se anota una
      persona: en "Registros" (lo de arriba), dentro de una jornada y
      dentro de la ruta materna, que usan el mismo formulario. */
-  for (const [tipo, comoSeLlama] of [['jornadas', 'una jornada'], ['ruta_materna', 'la ruta materna']]) {
+  for (const [tipo, comoSeLlama] of [['jornadas', 'una jornada'], ['ruta_materna', 'la ruta materna'],
+                                    ['salud_escuela', 'Salud a la Escuela']]) {
     await pag.evaluate((tipo) => {
       window.T.origenPersona = { tipo: 'evento', id: 'zzz-1' };
       window.T.eventoActual = { id: 'zzz-1', tipo: tipo, fecha: '2026-09-16', lugar: 'ZZZ' };
@@ -241,6 +242,13 @@ try {
     await new Promise(r => setTimeout(r, 400))
     prueba('dentro de ' + comoSeLlama + ' también está el buscador del inventario',
       !!(await pag.$('#joTratBuscar')) && !!(await pag.$('#joTratChips')))
+    if (tipo === 'salud_escuela') {
+      prueba('la ficha escolar pide representante, dirección y plantel',
+        !!(await pag.$('#joRepNombre')) && !!(await pag.$('#joRepCedula')) &&
+        !!(await pag.$('#joTelefono')) && !!(await pag.$('#joDireccion')) &&
+        !!(await pag.$('#joComuna')) && !!(await pag.$('#joComunidad')) &&
+        !!(await pag.$('#joPlantel')) && !!(await pag.$('#joSeccion')))
+    }
     await pag.click('#joTratBuscar')
     await pag.waitForSelector('#joTratMedBusca', { timeout: 10000 })
     await new Promise(r => setTimeout(r, 500))
@@ -248,6 +256,56 @@ try {
     await new Promise(r => setTimeout(r, 400))
     prueba('y allí también se anota con su cantidad', /X1/.test(await valor()), await valor())
   }
+
+  console.log('\n--- Registro de Salud a la Escuela ---')
+  await pag.evaluate(() => {
+    window.TERRITORIO = { comunidades: {
+      prueba: { nombre: 'COMUNIDAD DE PRUEBA', circuito_comunal: 'COMUNA DE PRUEBA', activo: true }
+    } }
+    window.T.origenPersona = { tipo: 'evento', id: 'zzz-escuela' }
+    window.T.eventoActual = { id: 'zzz-escuela', tipo: 'salud_escuela', fecha: '2026-09-16', lugar: 'PLANTEL DE PRUEBA' }
+    window.T.modo = 'nuevo'
+    window.T.verFormularioPersona({})
+    const escribir = (id, valor) => { document.getElementById(id).value = valor }
+    escribir('joNombre', 'ZZZ NIÑO DE PRUEBA')
+    escribir('joEdad', '8')
+    escribir('joRepNombre', 'ZZZ REPRESENTANTE DE PRUEBA')
+    escribir('joRepCedula', '12345678')
+    escribir('joTelefono', '04141234567')
+    escribir('joDireccion', 'Dirección de prueba')
+    escribir('joComuna', 'COMUNA DE PRUEBA')
+    document.getElementById('joComuna').dispatchEvent(new Event('change'))
+    escribir('joComunidad', 'COMUNIDAD DE PRUEBA')
+    escribir('joPlantel', 'PLANTEL DE PRUEBA')
+    escribir('joSeccion', 'A')
+    escribir('joTratamiento', 'ACETAMINOFEN X2')
+    document.querySelector('#joSexo [data-v="M"]').click()
+  })
+  await pag.click('#joGuardar')
+  await new Promise(r => setTimeout(r, 150))
+  const escuelaGuardada = await pag.evaluate(() => window.ESCRITURAS.filter(e =>
+    e.tabla === 'jornadas_registros' && e.op === 'insert').at(-1)?.d)
+  prueba('guarda todos los campos escolares con el niño como paciente',
+    escuelaGuardada?.conjunto === 'salud_escuela' && escuelaGuardada?.nombre === 'ZZZ NIÑO DE PRUEBA' &&
+    escuelaGuardada?.sexo === 'M' && escuelaGuardada?.edad_texto === '8' &&
+    escuelaGuardada?.tratamiento === 'ACETAMINOFEN X2' &&
+    escuelaGuardada?.representante_nombre === 'ZZZ REPRESENTANTE DE PRUEBA' &&
+    escuelaGuardada?.representante_cedula === '12345678' && escuelaGuardada?.telefono === '04141234567' &&
+    escuelaGuardada?.direccion === 'Dirección de prueba' && escuelaGuardada?.comuna === 'COMUNA DE PRUEBA' &&
+    escuelaGuardada?.comunidad === 'COMUNIDAD DE PRUEBA' && escuelaGuardada?.plantel === 'PLANTEL DE PRUEBA' &&
+    escuelaGuardada?.seccion === 'A' && escuelaGuardada?.estado === 'activo',
+    JSON.stringify(escuelaGuardada))
+
+  await pag.evaluate(() => window.T.verEventoForm())
+  await pag.click('#joEvFTipo [data-v="salud_escuela"]')
+  prueba('una jornada nueva permite elegir Salud a la Escuela',
+    (await pag.evaluate(() => window.T.elegido('EvFTipo'))) === 'salud_escuela')
+
+  await pag.evaluate(() => {
+    window.ESCRITURAS = []
+    window.T.modo = 'nuevo'
+    window.T.verFormularioPersona({})
+  })
 
   await pag.$eval('#joTratamiento', e => {
     e.value = 'ALCOHOL 2 unidades / DICLOFENAC 3 unidades'
@@ -398,6 +456,35 @@ try {
     movilInforme.ancho <= movilInforme.ventana, JSON.stringify(movilInforme))
   prueba('los botones de descarga miden al menos 44 px en teléfono',
     movilInforme.botones.every(n => n >= 44), JSON.stringify(movilInforme))
+
+  console.log('\n--- Informes de Salud a la Escuela ---')
+  await pag.evaluate((registro) => {
+    window.FARMREP = {
+      excel: (archivo, hojas) => { window.EXCEL_ESCUELA = { archivo, hojas } },
+      pdfInforme: (opciones) => { window.PDF_ESCUELA = opciones }
+    }
+    window.T.eventoActual = {
+      id: 'zzz-escuela', tipo: 'salud_escuela', fecha: '2026-09-16', lugar: 'PLANTEL DE PRUEBA'
+    }
+    window.T.personasEvento = [registro]
+    window.T.informeEvento = null
+    window.T.descargarEvento('excel')
+    window.T.descargarEvento('pdf')
+  }, escuelaGuardada)
+  await new Promise(r => setTimeout(r, 100))
+  const informesEscuela = await pag.evaluate(() => ({ excel: window.EXCEL_ESCUELA, pdf: window.PDF_ESCUELA }))
+  const hojaEscuela = informesEscuela.excel?.hojas.find(h => h.nombre === 'Salud a la Escuela')
+  prueba('el Excel escolar contiene todos los campos y columnas cuadradas',
+    hojaEscuela?.encabezados.length === 13 && hojaEscuela?.filas[0].length === 13 &&
+    hojaEscuela?.anchos.length === 13 && hojaEscuela?.filas[0][5] === 'ZZZ REPRESENTANTE DE PRUEBA' &&
+    hojaEscuela?.filas[0][11] === 'PLANTEL DE PRUEBA')
+  const bloquesEscuela = informesEscuela.pdf?.bloques.filter(b => b.titulo.includes('Salud a la Escuela')) || []
+  prueba('el PDF escolar contiene los datos del niño, representante, dirección y plantel',
+    bloquesEscuela.length === 2 && bloquesEscuela[0].filas[0][5] === 'PLANTEL DE PRUEBA' &&
+    bloquesEscuela[1].filas[0][2] === 'ZZZ REPRESENTANTE DE PRUEBA' &&
+    bloquesEscuela[1].filas[0][6] === 'COMUNA DE PRUEBA')
+  prueba('las dos tablas escolares del PDF caben en el ancho útil', bloquesEscuela.every(b =>
+    Object.values(b.columnas).reduce((n, c) => n + c.cellWidth, 0) <= 251))
 
   prueba('NADA se escribió en la base: elegir no mueve el inventario',
     (await pag.evaluate(() => window.ESCRITURAS.length)) === 0,

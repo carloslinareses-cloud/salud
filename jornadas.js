@@ -1,4 +1,4 @@
-/* JORNADAS: las jornadas de salud y la ruta materna, como EVENTOS.
+/* JORNADAS: jornadas de salud, ruta materna y Salud a la Escuela, como EVENTOS.
 
    Es una base APARTE de "Personas": no toca pacientes, ni tratamientos,
    ni patologías del sistema general.
@@ -17,7 +17,8 @@
 
   var POR_PAGINA = 50;
 
-  var CONJUNTOS = { jornadas: 'Jornada de salud', ruta_materna: 'Ruta materna' };
+  var CONJUNTOS = { jornadas: 'Jornada de salud', ruta_materna: 'Ruta materna',
+                    salud_escuela: 'Salud a la Escuela' };
 
   /* Las hojas del Excel de donde salió cada registro migrado. */
   var HOJAS = [
@@ -229,7 +230,8 @@
   }
 
   var CAMPOS = 'id,evento_id,conjunto,hoja_origen,item,fecha,nombre,edad_texto,sexo,cedula,' +
-               'telefono,direccion,tratamiento,recipe,estado,motivo_revision';
+               'telefono,direccion,tratamiento,recipe,estado,motivo_revision,' +
+               'representante_nombre,representante_cedula,comuna,comunidad,plantel,seccion';
   var CAMPOS_EVENTO = 'id,tipo,fecha,lugar,parroquia,dietista,autoridad_salud,trabajador_social,' +
                       'comuna,comunidad,firmas,creado_por_nombre,creado_en';
   var CAMPOS_EVENTO_LISTA = CAMPOS_EVENTO + ',pacientes,recipes';
@@ -356,6 +358,7 @@
           '<option value="todos">Todos los tipos</option>' +
           '<option value="jornadas"' + (t.tipoEv === 'jornadas' ? ' selected' : '') + '>Jornada de salud</option>' +
           '<option value="ruta_materna"' + (t.tipoEv === 'ruta_materna' ? ' selected' : '') + '>Ruta materna</option>' +
+          '<option value="salud_escuela"' + (t.tipoEv === 'salud_escuela' ? ' selected' : '') + '>Salud a la Escuela</option>' +
         '</select>' +
       '</div>' +
       '<div id="' + i('EvRes') + '"></div>' +
@@ -507,6 +510,7 @@
       '<div class="chips" id="' + i('EvFTipo') + '">' +
         '<button type="button" data-v="jornadas" class="on">Jornada de salud</button>' +
         '<button type="button" data-v="ruta_materna">Ruta materna</button>' +
+        '<button type="button" data-v="salud_escuela">Salud a la Escuela</button>' +
       '</div>' +
 
       '<div class="dos-columnas">' +
@@ -742,15 +746,21 @@
           (personas.length
             ? '<div class="fichas">' + personas.map(function (p) {
                 var datos = [];
-                datos.push(p.cedula ? 'C.I. ' + p.cedula : 'Sin cédula');
+                if (p.conjunto !== 'salud_escuela') datos.push(p.cedula ? 'C.I. ' + p.cedula : 'Sin cédula');
                 if (p.edad_texto) datos.push(p.edad_texto);
                 if (p.sexo) datos.push(p.sexo === 'F' ? 'Femenino' : 'Masculino');
                 if (p.telefono) datos.push(p.telefono);
                 if (p.item) datos.push(p.item);
                 if (p.direccion) datos.push(p.direccion);
+                if (p.comuna) datos.push(p.comuna);
+                if (p.comunidad) datos.push(p.comunidad);
                 return '<button type="button" class="ficha" data-id="' + esc(p.id) + '">' +
                   '<div class="ficha-nom"><b>' + esc(p.nombre) + '</b>' +
                     '<span class="ficha-pres">' + esc(datos.join(' · ')) + '</span>' +
+                    (p.representante_nombre ? '<span class="ficha-pres">Representante: ' +
+                      esc(p.representante_nombre) + ' · C.I. ' + esc(p.representante_cedula || '') + '</span>' : '') +
+                    (p.plantel ? '<span class="ficha-pres">' + esc(p.plantel) +
+                      (p.seccion ? ' · Sección ' + esc(p.seccion) : '') + '</span>' : '') +
                   '</div>' +
                   '<div class="ficha-datos">' +
                     '<span class="ficha-lotes">' + esc(p.tratamiento || 'Sin tratamiento anotado') + '</span>' +
@@ -792,7 +802,8 @@
     if (!ev) { t.aviso('bad', 'No hay una jornada abierta para preparar el informe.'); return; }
     var inf = t.informeEvento || prepararInformeEvento(window.FARM, ev, t.personasEvento || []);
     var c = inf.cifras;
-    var nombre = 'Jornada de Salud - ' + (ev.lugar || 'Sin lugar') + ' - ' + corta(ev.fecha);
+    var nombre = (CONJUNTOS[ev.tipo] || 'Jornada de Salud') + ' - ' +
+      (ev.lugar || 'Sin lugar') + ' - ' + corta(ev.fecha);
     var titulo = (CONJUNTOS[ev.tipo] || 'Jornada de Salud') + ' — ' + (ev.lugar || 'Sin lugar');
     var ubicacion = [ev.parroquia ? 'Parroquia ' + ev.parroquia : '', ev.comuna ? 'Comuna ' + ev.comuna : '',
                      ev.comunidad ? 'Comunidad ' + ev.comunidad : ''].filter(Boolean).join(' · ');
@@ -823,6 +834,12 @@
     var pendientes = inf.sinCantidad.map(function (d) {
       return [d.numero, d.paciente, d.cedula || 'Sin cédula', d.producto, d.recipe];
     });
+    var escolares = ev.tipo === 'salud_escuela' ? (t.personasEvento || []).map(function (p, n) {
+      return [n + 1, p.nombre || '', p.sexo === 'F' ? 'Femenino' :
+        (p.sexo === 'M' ? 'Masculino' : 'Sin dato'), p.edad_texto || '', p.tratamiento || '',
+        p.representante_nombre || '', p.representante_cedula || '', p.telefono || '',
+        p.direccion || '', p.comuna || '', p.comunidad || '', p.plantel || '', p.seccion || ''];
+    }) : [];
     var textoBoton = boton ? boton.textContent : '';
     if (boton) { boton.disabled = true; boton.textContent = 'Preparando…'; }
 
@@ -848,6 +865,13 @@
             nombre: 'Sin cantidad', titulo: titulo + ' — productos que requieren revisión',
             encabezados: ['#', 'Paciente', 'Cédula', 'Medicamento o insumo sin cantidad', 'Récipe'],
             filas: pendientes, anchos: [6, 34, 16, 48, 12]
+          });
+          if (ev.tipo === 'salud_escuela') hojas.push({
+            nombre: 'Salud a la Escuela', titulo: titulo + ' — fichas completas de los niños y niñas',
+            encabezados: ['#', 'Nombre y apellido del niño', 'Sexo', 'Edad', 'Tratamiento',
+                          'Representante', 'Cédula del representante', 'Teléfono', 'Dirección',
+                          'Comuna', 'Comunidad', 'Plantel', 'Sección'],
+            filas: escolares, anchos: [6, 34, 12, 9, 43, 34, 20, 17, 40, 32, 32, 38, 15]
           });
           R.excel(nombre, hojas);
         } else {
@@ -897,7 +921,23 @@
                 encabezados: ['#', 'Paciente', 'Cédula', 'Medicamento o insumo', 'Récipe'], filas: pendientes,
                 columnas: { 0: { cellWidth: 9 }, 1: { cellWidth: 62 }, 2: { cellWidth: 28 },
                             3: { cellWidth: 105 }, 4: { cellWidth: 22 } } }
-            ]
+            ].concat(ev.tipo === 'salud_escuela' ? [
+              { titulo: 'Salud a la Escuela — niños, tratamiento y plantel',
+                encabezados: ['#', 'Niño o niña', 'Sexo', 'Edad', 'Tratamiento', 'Plantel', 'Sección'],
+                filas: escolares.map(function (p) { return [p[0], p[1], p[2], p[3], p[4], p[11], p[12]]; }),
+                columnas: { 0: { cellWidth: 9 }, 1: { cellWidth: 50 }, 2: { cellWidth: 20 },
+                            3: { cellWidth: 15 }, 4: { cellWidth: 80 }, 5: { cellWidth: 52 },
+                            6: { cellWidth: 22 } } },
+              { titulo: 'Salud a la Escuela — representantes y direcciones',
+                encabezados: ['#', 'Niño o niña', 'Representante', 'Cédula', 'Teléfono',
+                              'Dirección', 'Comuna', 'Comunidad'],
+                filas: escolares.map(function (p) {
+                  return [p[0], p[1], p[5], p[6], p[7], p[8], p[9], p[10]];
+                }),
+                columnas: { 0: { cellWidth: 9 }, 1: { cellWidth: 42 }, 2: { cellWidth: 42 },
+                            3: { cellWidth: 24 }, 4: { cellWidth: 25 }, 5: { cellWidth: 50 },
+                            6: { cellWidth: 27 }, 7: { cellWidth: 32 } } }
+            ] : [])
           });
         }
       } catch (e) {
@@ -926,6 +966,7 @@
           '<option value="todos">Todos los conjuntos</option>' +
           '<option value="jornadas"' + (t.conjunto === 'jornadas' ? ' selected' : '') + '>Jornada de salud</option>' +
           '<option value="ruta_materna"' + (t.conjunto === 'ruta_materna' ? ' selected' : '') + '>Ruta materna</option>' +
+          '<option value="salud_escuela"' + (t.conjunto === 'salud_escuela' ? ' selected' : '') + '>Salud a la Escuela</option>' +
         '</select>' +
         '<select id="' + i('Hoja') + '">' +
           '<option value="todos">Todas las hojas</option>' +
@@ -968,7 +1009,13 @@
         'telefono.ilike.%' + b + '%,' +
         'direccion.ilike.%' + b + '%,' +
         'tratamiento.ilike.%' + b + '%,' +
-        'item.ilike.%' + b + '%'
+        'item.ilike.%' + b + '%,' +
+        'representante_nombre.ilike.%' + b + '%,' +
+        'representante_cedula.ilike.%' + b + '%,' +
+        'plantel.ilike.%' + b + '%,' +
+        'seccion.ilike.%' + b + '%,' +
+        'comuna.ilike.%' + b + '%,' +
+        'comunidad.ilike.%' + b + '%'
       );
     }
     if (t.conjunto !== 'todos') qy = qy.eq('conjunto', t.conjunto);
@@ -999,13 +1046,14 @@
       '<p class="conteo">' + t.total + (t.total === 1 ? ' registro' : ' registros') + '</p>' +
       '<div class="fichas">' + t.filas.map(function (f) {
         var quien = [];
-        quien.push(f.cedula ? 'C.I. ' + f.cedula : 'Sin cédula');
+        if (f.conjunto !== 'salud_escuela') quien.push(f.cedula ? 'C.I. ' + f.cedula : 'Sin cédula');
         if (f.edad_texto) quien.push(f.edad_texto);
         if (f.sexo) quien.push(f.sexo === 'F' ? 'Femenino' : 'Masculino');
 
         var contacto = [];
         if (f.telefono) contacto.push(f.telefono);
         if (f.direccion) contacto.push(f.direccion);
+        if (f.representante_nombre) contacto.push('Representante: ' + f.representante_nombre);
 
         var cuando = [corta(f.fecha), CONJUNTOS[f.conjunto] || f.conjunto];
         if (f.hoja_origen) cuando.push(HOJAS_TXT[f.hoja_origen] || f.hoja_origen);
@@ -1016,6 +1064,8 @@
             '<span class="ficha-pres">' + esc(quien.join(' · ')) + '</span>' +
             (contacto.length ? '<span class="ficha-pres">' + esc(contacto.join(' · ')) + '</span>' : '') +
             (f.item ? '<span class="ficha-pres">' + esc(f.item) + '</span>' : '') +
+            (f.plantel ? '<span class="ficha-pres">' + esc(f.plantel) +
+              (f.seccion ? ' · Sección ' + esc(f.seccion) : '') + '</span>' : '') +
           '</div>' +
           '<div class="ficha-datos">' +
             '<span class="ficha-lotes">' + esc(f.tratamiento || 'Sin tratamiento anotado') + '</span>' +
@@ -1050,12 +1100,115 @@
   /* ================================================================
      FORMULARIO DE UNA PERSONA — lo comparten Registros y una jornada
   ================================================================ */
+  Jornadas.prototype.verFormularioEscuela = function (x) {
+    var t = this, i = function (n) { return t.id(n); };
+    var enEvento = t.origenPersona && t.origenPersona.tipo === 'evento';
+    var z = t.q('Zona');
+    z.innerHTML =
+      '<button type="button" class="volver" id="' + i('Volver') + '">← ' +
+        (enEvento ? 'Volver a la jornada' : 'Volver a la lista') + '</button>' +
+      '<h2>' + (t.modo === 'ficha' ? 'Corregir registro escolar' : 'Registrar niño o niña') + '</h2>' +
+      (enEvento ? '<p class="sub chico">Salud a la Escuela: <b>' + esc(t.eventoActual.lugar) +
+        '</b> · ' + corta(t.eventoActual.fecha) + '</p>' : '') +
+      '<label for="' + i('Fecha') + '">Fecha de atención</label>' +
+      '<input id="' + i('Fecha') + '" type="date" value="' +
+        esc(x.fecha || (enEvento ? t.eventoActual.fecha : hoyEs())) + '">' +
+      '<label for="' + i('Nombre') + '">Nombre y apellido del niño o niña</label>' +
+      '<input id="' + i('Nombre') + '" type="text" autocomplete="off" value="' + esc(x.nombre || '') + '">' +
+      '<div class="dos-columnas"><div><label>Sexo</label>' +
+        '<div class="chips" id="' + i('Sexo') + '">' +
+          '<button type="button" data-v="F"' + (x.sexo === 'F' ? ' class="on"' : '') + '>Femenino</button>' +
+          '<button type="button" data-v="M"' + (x.sexo === 'M' ? ' class="on"' : '') + '>Masculino</button>' +
+        '</div></div>' +
+        '<div><label for="' + i('Edad') + '">Edad (años)</label>' +
+          '<input id="' + i('Edad') + '" type="number" min="0" max="25" inputmode="numeric" value="' +
+          esc(x.edad_texto || '') + '"></div></div>' +
+      '<label for="' + i('Tratamiento') + '">Tratamiento <span class="opc">(si se indicó alguno)</span></label>' +
+      '<input id="' + i('Tratamiento') + '" type="text" autocomplete="off" value="' +
+        esc(x.tratamiento || '') + '" placeholder="Medicamento y cantidad, si se entregó">' +
+      '<div class="trat-ayuda"><div class="trat-barra">' +
+        '<button type="button" class="suave chico" id="' + i('TratBuscar') + '">Buscar en el inventario</button>' +
+        '<span class="sub chico">Si se entregaron productos, anota la cantidad de cada uno. ' +
+          '<b>Este registro no descuenta del inventario.</b></span></div>' +
+        '<div id="' + i('TratPicker') + '" class="trat-picker" hidden></div>' +
+        '<div id="' + i('TratChips') + '" class="trat-chips"></div>' +
+        '<p id="' + i('TratTotal') + '" class="trat-total" aria-live="polite"></p></div>' +
+      '<h3 class="sub-t">Representante</h3>' +
+      '<label for="' + i('RepNombre') + '">Nombre completo del representante</label>' +
+      '<input id="' + i('RepNombre') + '" type="text" autocomplete="off" value="' +
+        esc(x.representante_nombre || '') + '">' +
+      '<div class="dos-columnas">' +
+        '<div><label for="' + i('RepCedula') + '">Cédula del representante</label>' +
+          '<input id="' + i('RepCedula') + '" type="text" inputmode="numeric" autocomplete="off" value="' +
+            esc(x.representante_cedula || '') + '"></div>' +
+        '<div><label for="' + i('Telefono') + '">Teléfono del representante</label>' +
+          '<input id="' + i('Telefono') + '" type="tel" inputmode="tel" autocomplete="off" value="' +
+            esc(x.telefono || '') + '"></div></div>' +
+      '<h3 class="sub-t">Dirección del niño o niña</h3>' +
+      '<label for="' + i('Direccion') + '">Dirección</label>' +
+      '<input id="' + i('Direccion') + '" type="text" autocomplete="off" value="' +
+        esc(x.direccion || '') + '">' +
+      '<div class="dos-columnas">' +
+        '<div><label for="' + i('Comuna') + '">Comuna</label><select id="' + i('Comuna') + '"></select></div>' +
+        '<div><label for="' + i('Comunidad') + '">Comunidad</label><select id="' + i('Comunidad') + '"></select></div>' +
+      '</div>' +
+      '<h3 class="sub-t">Colegio</h3>' +
+      '<label for="' + i('Plantel') + '">Nombre del plantel</label>' +
+      '<input id="' + i('Plantel') + '" type="text" autocomplete="off" value="' + esc(x.plantel || '') + '">' +
+      '<label for="' + i('Seccion') + '">Sección</label>' +
+      '<input id="' + i('Seccion') + '" type="text" autocomplete="off" value="' + esc(x.seccion || '') + '">' +
+      '<div class="pie-form"><button type="button" class="principal" id="' + i('Guardar') + '">' +
+        (t.modo === 'ficha' ? 'Guardar los cambios' : 'Registrar') + '</button>' +
+        (t.modo === 'ficha' ? '<button type="button" class="suave" id="' + i('Borrar') +
+          '">Borrar este registro</button>' : '') + '</div>';
+
+    t.q('Sexo').querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        t.q('Sexo').querySelectorAll('button').forEach(function (o) { o.classList.remove('on'); });
+        b.classList.add('on');
+      });
+    });
+    t.llenarTerritorioEscuela(x);
+    t.q('Volver').addEventListener('click', function () {
+      t.modo = 'lista';
+      if (enEvento) t.modoEv = 'detalle';
+      t.quien = null; t.pintar();
+    });
+    t.q('Guardar').addEventListener('click', function () { t.guardarPersona(x.id || null); });
+    var borrar = t.q('Borrar');
+    if (borrar) borrar.addEventListener('click', function () { t.borrarPersona(x.id); });
+    t.armarTratamiento();
+  };
+
+  Jornadas.prototype.llenarTerritorioEscuela = function (x) {
+    var t = this, co = t.q('Comuna'), cd = t.q('Comunidad');
+    var datos = window.TERRITORIO && window.TERRITORIO.comunidades;
+    var lista = datos ? Object.keys(datos).map(function (k) { return datos[k]; })
+      .filter(function (c) { return c.activo !== false; }) : [];
+    var unicos = function (a) { return a.filter(Boolean).filter(function (v, n) {
+      return a.indexOf(v) === n;
+    }).sort(); };
+    var opciones = function (sel, valores, vacio, previo) {
+      sel.innerHTML = '<option value="">' + vacio + '</option>' + valores.map(function (v) {
+        return '<option value="' + esc(v) + '"' + (v === previo ? ' selected' : '') + '>' + esc(v) + '</option>';
+      }).join('');
+    };
+    opciones(co, unicos(lista.map(function (c) { return c.circuito_comunal; })), 'Elige la comuna', x.comuna);
+    var pintarComunidades = function (previo) {
+      opciones(cd, unicos(lista.filter(function (c) { return c.circuito_comunal === co.value; })
+        .map(function (c) { return c.nombre; })), 'Elige la comunidad', previo);
+    };
+    co.addEventListener('change', function () { pintarComunidades(''); });
+    pintarComunidades(x.comunidad);
+  };
+
   Jornadas.prototype.verFormularioPersona = function (x) {
     var t = this, i = function (n) { return t.id(n); };
     var z = t.q('Zona');
     x = x || {};
     var enEvento = t.origenPersona && t.origenPersona.tipo === 'evento';
     var conj = enEvento ? t.eventoActual.tipo : (x.conjunto || 'jornadas');
+    if (conj === 'salud_escuela') return t.verFormularioEscuela(x);
 
     z.innerHTML =
       '<button type="button" class="volver" id="' + i('Volver') + '">← ' +
@@ -1285,9 +1438,32 @@
   Jornadas.prototype.leerCamposPersona = function () {
     var t = this;
     var enEvento = t.origenPersona && t.origenPersona.tipo === 'evento';
+    var conjunto = enEvento ? t.eventoActual.tipo :
+      (t.quien && t.quien.conjunto === 'salud_escuela' ? 'salud_escuela' :
+        (t.elegido('Conjunto') || 'jornadas'));
+    if (conjunto === 'salud_escuela') return {
+      conjunto: conjunto,
+      evento_id: enEvento ? t.origenPersona.id : (t.quien ? t.quien.evento_id || null : null),
+      fecha: t.q('Fecha').value || null,
+      item: null,
+      nombre: t.q('Nombre').value.trim().replace(/\s+/g, ' '),
+      edad_texto: t.q('Edad').value.trim() || null,
+      sexo: t.elegido('Sexo') || null,
+      cedula: null,
+      telefono: t.q('Telefono').value.trim() || null,
+      direccion: t.q('Direccion').value.trim() || null,
+      tratamiento: t.q('Tratamiento').value.trim() || null,
+      recipe: null,
+      representante_nombre: t.q('RepNombre').value.trim().replace(/\s+/g, ' ') || null,
+      representante_cedula: t.q('RepCedula').value.replace(/\D/g, '') || null,
+      comuna: t.q('Comuna').value || null,
+      comunidad: t.q('Comunidad').value || null,
+      plantel: t.q('Plantel').value.trim() || null,
+      seccion: t.q('Seccion').value.trim() || null
+    };
     var recipeV = t.elegido('Recipe');
     return {
-      conjunto: enEvento ? t.eventoActual.tipo : (t.elegido('Conjunto') || 'jornadas'),
+      conjunto: conjunto,
       evento_id: enEvento ? t.origenPersona.id : (t.quien ? (t.quien.evento_id || null) : null),
       fecha: t.q('Fecha').value || null,
       item: t.q('Item').value.trim() || null,
@@ -1304,6 +1480,22 @@
 
   Jornadas.prototype.valida = function (d) {
     if (!d.nombre || d.nombre.length < 4) return 'Escribe el nombre y el apellido completos.';
+    if (d.conjunto === 'salud_escuela') {
+      if (!d.sexo) return 'Selecciona el sexo del niño o niña.';
+      if (!/^\d{1,2}$/.test(d.edad_texto || '') || Number(d.edad_texto) > 25)
+        return 'Indica la edad en años, entre 0 y 25.';
+      if (!d.representante_nombre || d.representante_nombre.length < 4)
+        return 'Escribe el nombre completo del representante.';
+      if (!/^\d{6,9}$/.test(d.representante_cedula || ''))
+        return 'La cédula del representante debe tener entre 6 y 9 números.';
+      if (!d.telefono || d.telefono.replace(/\D/g, '').length < 10)
+        return 'Escribe el teléfono del representante con al menos 10 números.';
+      if (!d.direccion || d.direccion.length < 5) return 'Escribe la dirección del niño o niña.';
+      if (!d.comuna) return 'Selecciona la comuna.';
+      if (!d.comunidad) return 'Selecciona la comunidad.';
+      if (!d.plantel || d.plantel.length < 3) return 'Escribe el nombre del plantel.';
+      if (!d.seccion) return 'Escribe la sección.';
+    }
     if (d.cedula && !/^\d{6,9}$/.test(d.cedula)) return 'La cédula debe tener entre 6 y 9 números.';
     if (d.fecha && d.fecha > hoyEs()) return 'La fecha no puede ser futura.';
     return null;
@@ -1326,7 +1518,7 @@
     }
 
     var motivos = [];
-    if (!d.cedula) motivos.push('cedula vacia');
+    if (!d.cedula && d.conjunto !== 'salud_escuela') motivos.push('cedula vacia');
     if (!d.sexo) motivos.push('sexo vacio');
     d.estado = motivos.length ? 'por_revisar' : 'activo';
     d.motivo_revision = motivos.length ? motivos.join(' | ') + ' (cargado desde la página, no del excel)' : null;

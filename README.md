@@ -14,6 +14,17 @@ Control de inventario de la farmacia municipal.
 | Inventario | Registra la mercancía que llega y mantiene productos y lotes (crear, consultar, corregir y borrar solo los que no tienen historia) |
 | Despacho | Entrega medicamentos y descuenta del stock, consulta existencias |
 
+## Salud a la Escuela
+
+En **Mercancía → Jornadas → + Nueva jornada** se puede elegir **Salud a la
+Escuela**. Dentro de cada jornada se registra a cada niño o niña con nombre,
+sexo, edad, tratamiento, representante (nombre, cédula y teléfono), dirección,
+comuna, comunidad, plantel y sección. Las fichas aparecen también en
+**Jornadas → Registros**, se pueden corregir y se incluyen completas en el
+Excel y PDF de la jornada. El tratamiento no descuenta el inventario, igual
+que en Ruta Materna. Aplicar antes de publicar:
+`node migracion/19_salud_escuela.mjs --aplicar --probar`.
+
 ## Estado vital y alertas de retiro
 
 En **Mercancía → Personas** y **Administración → Personas**, los perfiles de
