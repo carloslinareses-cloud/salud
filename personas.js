@@ -63,6 +63,7 @@
     this.esInventario = !!(window.FARMACIA_PERFIL &&
       ['inventario', 'admin'].includes(window.FARMACIA_PERFIL.rol));
     this.soloAlertas = false;
+    this.mostrarRetiradas = false;
     this.totalAlertas = null;
     this.modo = 'lista';          // lista | ficha | nueva
     this.busca = '';
@@ -79,6 +80,7 @@
     this.alertaRetiro = null;
     this.falloAlertaRetiro = null;
     this.edicionVital = null;
+    this.retiroResumen = null;
   }
 
   Personas.prototype.vistaPacientes = function () {
@@ -131,6 +133,10 @@
           (t.soloAlertas ? 'Ver todas las personas' : 'Ver alertas de seis meses sin retiro') +
           (t.totalAlertas == null ? '' : ' · ' + num(t.totalAlertas)) + '</button>'
         : '') +
+      (t.esInventario
+        ? '<button type="button" class="secundario" id="' + i('Retiradas') + '">' +
+          (t.mostrarRetiradas ? 'Ver personas activas' : 'Ver personas retiradas') + '</button>'
+        : '') +
       '<div id="' + i('Res') + '"><div class="cargando">Cargando…</div></div>';
 
     var caja = t.q('Busca');
@@ -142,7 +148,11 @@
     });
     if (t.esInventario) {
       t.q('SoloAlertas').addEventListener('click', function () {
-        t.soloAlertas = !t.soloAlertas; t.pagina = 0; t.verLista();
+        t.soloAlertas = !t.soloAlertas; t.mostrarRetiradas = false; t.pagina = 0; t.verLista();
+      });
+      t.q('Retiradas').addEventListener('click', function () {
+        t.mostrarRetiradas = !t.mostrarRetiradas;
+        t.soloAlertas = false; t.pagina = 0; t.verLista();
       });
       t.sb.from('v_alertas_retiro').select('id', { count: 'exact', head: true })
         .then(function (r) {
@@ -162,6 +172,23 @@
     var z = t.q('Res');
     if (!z) return;
     z.innerHTML = '<div class="cargando">Cargando…</div>';
+
+    if (t.mostrarRetiradas && t.esInventario) {
+      var r = t.sb.from('pacientes')
+        .select('id,nombre,nacionalidad,cedula,fecha_nac,edad_texto,retirada_motivo,retirada_en',
+          { count: 'exact' }).eq('estado', 'inactivo');
+      var b = t.busca.replace(/[%,()]/g, '').trim();
+      if (b) r = r.or('cedula.ilike.*' + b + '*,nombre.ilike.*' + b + '*');
+      r.order('nombre').range(t.pagina * POR_PAGINA, t.pagina * POR_PAGINA + POR_PAGINA - 1)
+        .then(function (res) {
+          if (mio !== t.pedido || !t.q('Res')) return;
+          if (res.error) { t.q('Res').innerHTML = '<div class="aviso bad">' + esc(res.error.message) + '</div>'; return; }
+          t.filas = res.data || [];
+          t.total = res.count == null ? t.filas.length : res.count;
+          t.pintarListaRetiradas();
+        });
+      return;
+    }
 
     var q = t.busca.replace(/[%,()]/g, '');
     var c = t.sb.from(t.soloAlertas && t.esInventario ? 'v_alertas_retiro' : t.vistaPacientes())
@@ -183,6 +210,35 @@
         t.total = r.count == null ? t.filas.length : r.count;
         t.pintarLista();
       });
+  };
+
+  Personas.prototype.pintarListaRetiradas = function () {
+    var t = this, z = t.q('Res');
+    if (!z) return;
+    if (!t.filas.length) {
+      z.innerHTML = '<div class="vacio"><b>No hay personas retiradas' +
+        (t.busca ? ' con esa búsqueda' : '') + '.</b></div>';
+      return;
+    }
+    var paginas = Math.max(1, Math.ceil(t.total / POR_PAGINA));
+    z.innerHTML = '<p class="conteo">' + num(t.total) + ' personas retiradas</p>' +
+      '<div class="fichas">' + t.filas.map(function (x, n) {
+        return '<div class="ficha retirada"><div class="ficha-nom"><b>' + esc(x.nombre) + '</b>' +
+          '<span class="ficha-pres">' + esc((x.nacionalidad || 'V') + '-' + (x.cedula || 'sin cédula')) + '</span>' +
+          '<span class="ficha-pat">Motivo: ' + esc(x.retirada_motivo || 'No indicado') + '</span></div>' +
+          '<button type="button" class="secundario" data-reactivar="' + n + '">Reactivar</button></div>';
+      }).join('') + '</div>' +
+      (paginas > 1 ? '<div class="paginador">' +
+        '<button type="button" data-pag="-1"' + (t.pagina === 0 ? ' disabled' : '') + '>Anteriores</button>' +
+        '<span>Página ' + (t.pagina + 1) + ' de ' + paginas + '</span>' +
+        '<button type="button" data-pag="1"' + (t.pagina >= paginas - 1 ? ' disabled' : '') + '>Siguientes</button>' +
+        '</div>' : '');
+    z.querySelectorAll('[data-reactivar]').forEach(function (btn) {
+      btn.addEventListener('click', function () { t.reactivar(t.filas[+btn.dataset.reactivar], btn); });
+    });
+    z.querySelectorAll('[data-pag]').forEach(function (btn) {
+      btn.addEventListener('click', function () { t.pagina += Number(btn.dataset.pag); t.cargarLista(); });
+    });
   };
 
   Personas.prototype.pintarLista = function () {
@@ -250,6 +306,7 @@
     var t = this;
     t.quien = x; t.modo = 'ficha'; t.abierto = null;
     t.edicionVital = null; t.alertaRetiro = null; t.falloAlertaRetiro = null;
+    t.retiroResumen = null;
     t.patologias = null; t.tratamiento = null;   // nulo = todavía no se sabe
     t.historial = null; t.histTodo = false; t.falloHist = null;
     t.pintar();
@@ -318,6 +375,8 @@
     var t = this, i = function (n) { return t.id(n); };
     var z = t.q('Zona');
     if (!z) return;
+    var motivoEnCurso = t.q('RetiroMotivo') && t.q('RetiroMotivo').value;
+    var nombreEnCurso = t.q('RetiroNombre') && t.q('RetiroNombre').value;
     var x = t.quien;
     var ced = x.cedula ? (x.nacionalidad || 'V') + '-' + x.cedula
                        : (x.cedula_cruda || 'sin cédula');
@@ -342,7 +401,8 @@
       t.camposPersona(x) +
       '<div class="botonera">' +
         '<button type="button" class="principal" id="' + i('Guardar') + '">Guardar los cambios</button>' +
-      '</div>';
+      '</div>' +
+      (t.esInventario ? t.bloqueRetiro() : '');
 
     t.q('Volver').addEventListener('click', function () {
       t.modo = 'lista'; t.quien = null; t.abierto = null; t.limpiaAviso(); t.pintar();
@@ -351,6 +411,90 @@
     t.q('Guardar').addEventListener('click', function () { t.guardarDatos(); });
     t.engancharAnexos();
     if (t.esInventario) t.engancharEstadoVital();
+    if (t.esInventario) t.engancharRetiro();
+    if (t.q('RetiroMotivo') && motivoEnCurso) t.q('RetiroMotivo').value = motivoEnCurso;
+    if (t.q('RetiroNombre') && nombreEnCurso) t.q('RetiroNombre').value = nombreEnCurso;
+  };
+
+  Personas.prototype.bloqueRetiro = function () {
+    var t = this, i = function (n) { return t.id(n); };
+    if (!t.retiroResumen) return '<div class="trat via-caja"><span class="lbl">Retirar esta persona</span>' +
+      '<p class="sub">Guarda primero cualquier cambio de la ficha. Antes de retirarla se revisarán sus entregas y el inventario.</p>' +
+      '<button type="button" class="peligro" id="' + i('RetiroAbrir') + '">Revisar retiro o eliminación</button></div>';
+    var r = t.retiroResumen;
+    return '<div class="trat via-caja"><span class="lbl">Retirar esta persona</span>' +
+      '<p>Registros ligados: <b>' + num(r.entregas) + ' entregas</b>, ' +
+      num(r.tratamientos) + ' tratamientos, ' + num(r.patologias) + ' patologías, ' +
+      num(r.solicitudes) + ' solicitudes y ' + num(r.alertas_resueltas) + ' alertas resueltas.</p>' +
+      (r.puede_eliminar
+        ? '<p class="sub">Puede eliminarse la ficha y esos registros. La bitácora conservará la constancia.</p>'
+        : '<p class="aviso warn">Hay ' + num(r.movimientos) + ' movimientos de inventario, ' +
+          num(r.detalles) + ' detalles de entrega u otros registros protegidos. La ficha se desactivará y su historial permanecerá.</p>') +
+      '<label for="' + i('RetiroMotivo') + '">Motivo obligatorio</label>' +
+      '<textarea id="' + i('RetiroMotivo') + '" rows="3" placeholder="Explica por qué se retira la ficha"></textarea>' +
+      '<label for="' + i('RetiroNombre') + '">Escribe el nombre completo para confirmar</label>' +
+      '<input id="' + i('RetiroNombre') + '" type="text" autocomplete="off" placeholder="' + esc(t.quien.nombre) + '">' +
+      '<div class="botonera">' +
+        (r.puede_eliminar ? '<button type="button" class="peligro" id="' + i('RetiroEliminar') + '">Eliminar ficha y registros</button>' : '') +
+        '<button type="button" class="secundario" id="' + i('RetiroDesactivar') + '">Desactivar la ficha</button>' +
+        '<button type="button" class="secundario" id="' + i('RetiroCancelar') + '">Cancelar</button>' +
+      '</div></div>';
+  };
+
+  Personas.prototype.engancharRetiro = function () {
+    var t = this;
+    var abrir = t.q('RetiroAbrir');
+    if (abrir) abrir.addEventListener('click', function () {
+      var pid = t.quien.id;
+      abrir.disabled = true; abrir.textContent = 'Comprobando…';
+      t.sb.rpc('persona_resumen_retiro', { p_paciente: pid }).then(function (r) {
+        if (!t.quien || t.quien.id !== pid) return;
+        if (r.error) { abrir.disabled = false; t.aviso('bad', 'No se pudo revisar: ' + r.error.message); return; }
+        t.retiroResumen = r.data;
+        t.pintarFicha();
+      });
+    });
+    var cancelar = t.q('RetiroCancelar');
+    if (cancelar) cancelar.addEventListener('click', function () { t.retiroResumen = null; t.pintarFicha(); });
+    ['Eliminar', 'Desactivar'].forEach(function (accion) {
+      var btn = t.q('Retiro' + accion);
+      if (btn) btn.addEventListener('click', function () { t.retirar(accion.toLowerCase(), btn); });
+    });
+  };
+
+  Personas.prototype.retirar = function (accion, btn) {
+    var t = this, pid = t.quien.id;
+    var motivo = t.q('RetiroMotivo').value.trim();
+    var nombre = t.q('RetiroNombre').value.trim();
+    if (motivo.length < 10) { t.aviso('warn', 'Explica el motivo con al menos 10 caracteres.'); return; }
+    if (nombre.toUpperCase() !== t.quien.nombre.trim().toUpperCase()) {
+      t.aviso('warn', 'Escribe el nombre completo tal como aparece en la ficha.'); return;
+    }
+    btn.disabled = true; btn.textContent = 'Procesando…';
+    t.sb.rpc('persona_retirar', {
+      p_paciente: pid, p_nombre: nombre, p_motivo: motivo, p_accion: accion
+    }).then(function (r) {
+      if (r.error) { btn.disabled = false; btn.textContent = accion === 'eliminar' ? 'Eliminar ficha y registros' : 'Desactivar la ficha';
+        t.aviso('bad', 'No se pudo retirar: ' + r.error.message); return; }
+      t.retiroResumen = null;
+      t.aLaLista();
+      t.aviso('ok', accion === 'eliminar'
+        ? 'La ficha y sus registros ligados se eliminaron. Puede registrarse de nuevo.'
+        : 'La ficha se retiró de la lista activa. Su historial quedó conservado.');
+    });
+  };
+
+  Personas.prototype.reactivar = function (x, btn) {
+    var t = this;
+    var motivo = window.prompt('Motivo para reactivar a ' + x.nombre + ' (mínimo 10 caracteres):');
+    if (motivo === null) return;
+    if (motivo.trim().length < 10) { t.aviso('warn', 'Explica el motivo con al menos 10 caracteres.'); return; }
+    btn.disabled = true; btn.textContent = 'Reactivando…';
+    t.sb.rpc('persona_reactivar', { p_paciente: x.id, p_motivo: motivo.trim() }).then(function (r) {
+      if (r.error) { btn.disabled = false; btn.textContent = 'Reactivar'; t.aviso('bad', 'No se pudo reactivar: ' + r.error.message); return; }
+      t.cargarLista();
+      t.aviso('ok', 'La persona volvió a la lista activa.');
+    });
   };
 
   Personas.prototype.bloqueEstadoVital = function () {

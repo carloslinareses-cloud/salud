@@ -376,6 +376,9 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
   cursor:pointer; padding:13px 15px; border:1px solid var(--line); border-radius:11px;
   background:var(--card); color:var(--ink)}
 .ficha:hover{border-color:var(--navy-2); background:var(--rail)}
+.ficha.retirada{cursor:default; flex-wrap:wrap}
+.ficha.retirada:hover{border-color:var(--line); background:var(--card)}
+.ficha.retirada button{flex:none}
 .ficha-nom{flex:1; min-width:0; overflow-wrap:anywhere}
 .ficha-nom b{display:block; font-size:15px; font-weight:750; line-height:1.25}
 .ficha-pres{display:block; font-size:12px; color:var(--ink-faint); margin-top:2px}
@@ -802,6 +805,7 @@ button.suave{background:var(--rail); color:var(--ink); border:1px solid var(--li
 button.suave:hover{background:var(--line)}
 button.peligro{background:var(--bad-bg); color:var(--bad-ink); border:1px solid var(--bad-line);
   border-radius:8px; font-weight:650; cursor:pointer}
+.via-caja button.peligro{font:inherit; font-weight:750; min-height:48px; padding:12px 18px}
 .fila-clave{display:flex; gap:8px; align-items:stretch}
 .fila-clave input{flex:1; margin:0}
 .fila-clave button{flex:none; padding:0 14px}
@@ -1093,7 +1097,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="reportes.js?v=20260921h"></script>
 <script src="picker.js?v=20260914g"></script>
 <script src="tablero-entregas.js?v=20260923a"></script>
-<script src="personas.js?v=20260924b"></script>
+<script src="personas.js?v=20260925a"></script>
 <script src="territorio-data.js?v=20260916f"></script>
 <script src="jornadas.js?v=20260924e"></script>
 <script src="centros.js?v=20260914g"></script>

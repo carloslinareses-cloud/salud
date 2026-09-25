@@ -24,7 +24,6 @@
 -- ---------------------------------------------------------------------
 grant delete on farmacia.productos     to authenticated;
 grant delete on farmacia.lotes         to authenticated;
-grant delete on farmacia.pacientes     to authenticated;
 grant delete on farmacia.instituciones to authenticated;
 
 -- ---------------------------------------------------------------------
@@ -53,17 +52,11 @@ create policy lotes_admin_borra on farmacia.lotes
   );
 
 -- ---------------------------------------------------------------------
--- Una persona se borra solo si nunca retiró nada y no tiene tratamiento
--- cargado. Si ya retiró, se desactiva: su historial no se toca.
+-- La gestión de Personas pasa por las funciones seguras de 37-personas-crud:
+-- exigen rol, motivo y revisión de las relaciones antes de eliminar o retirar.
 -- ---------------------------------------------------------------------
 drop policy if exists pacientes_admin_borra on farmacia.pacientes;
-create policy pacientes_admin_borra on farmacia.pacientes
-  for delete to authenticated
-  using (
-    farmacia.es_admin()
-    and not exists (select 1 from farmacia.entregas e where e.paciente_id = pacientes.id)
-    and not exists (select 1 from farmacia.tratamientos_paciente t where t.paciente_id = pacientes.id)
-  );
+revoke delete on farmacia.pacientes from authenticated;
 
 -- ---------------------------------------------------------------------
 -- Un centro de salud se borra solo si nunca recibió nada.
