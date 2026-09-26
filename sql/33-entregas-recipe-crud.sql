@@ -14,15 +14,20 @@ declare
   v_entrega farmacia.entregas%rowtype;
   v_mov record;
 begin
-  if farmacia.mi_rol() not in ('admin', 'inventario') then
+  if farmacia.mi_rol() is distinct from 'admin' and farmacia.mi_rol() is distinct from 'inventario' then
     raise exception 'Solo Administración o Inventario pueden anular entregas.' using errcode = '42501';
   end if;
   if length(btrim(coalesce(p_motivo, ''))) < 8 then
     raise exception 'Explica el motivo de la anulación con al menos 8 caracteres.' using errcode = '22023';
   end if;
   select * into v_entrega from farmacia.entregas where id = p_id for update;
-  if not found or v_entrega.origen <> 'sistema' or v_entrega.anulada then
-    raise exception 'La entrega no existe, viene del Excel o ya fue anulada.' using errcode = '22023';
+  if not found or v_entrega.anulada then
+    raise exception 'La entrega no existe o ya fue anulada.' using errcode = '22023';
+  end if;
+  if v_entrega.origen = 'migracion_excel' and
+     (exists(select 1 from farmacia.entrega_detalle where entrega_id=p_id) or
+      exists(select 1 from farmacia.movimientos where entrega_id=p_id)) then
+    raise exception 'La entrega importada tiene inventario asociado y requiere revisión.' using errcode='23503';
   end if;
   -- Se bloquean los lotes antes de devolver cantidades, en orden estable.
   perform 1 from farmacia.lotes l
@@ -58,7 +63,7 @@ declare
   v_items jsonb := p_datos -> 'items';
   v_motivo text := btrim(coalesce(p_datos ->> 'motivo_correccion', ''));
 begin
-  if v_rol not in ('admin', 'inventario', 'despacho') then
+  if v_rol is null or v_rol not in ('admin', 'inventario', 'despacho') then
     raise exception 'Tu usuario no puede registrar entregas.' using errcode = '42501';
   end if;
   if p_id is not null then
@@ -73,7 +78,7 @@ begin
       raise exception 'La entrega no existe, viene del Excel o ya fue anulada.' using errcode = '22023';
     end if;
   end if;
-  if v_tipo not in ('paciente', 'institucion') then
+  if v_tipo is null or v_tipo not in ('paciente', 'institucion') then
     raise exception 'El destinatario no es válido.' using errcode = '22023';
   end if;
   begin
@@ -100,11 +105,19 @@ begin
   end if;
   if v_solicitud is not null and not exists
     (select 1 from farmacia.solicitudes where id = v_solicitud and paciente_id = v_paciente
-      and via = 'recipe' and activa) then
-    raise exception 'El récipe no pertenece a este paciente o no está activo.' using errcode = '22023';
+      and via in ('recipe', 'operacion') and activa) then
+    raise exception 'La solicitud no pertenece a este paciente o no está activa.' using errcode = '22023';
   end if;
   if jsonb_typeof(v_items) is distinct from 'array' or jsonb_array_length(v_items) not between 1 and 30 then
     raise exception 'La entrega debe tener entre 1 y 30 renglones.' using errcode = '22023';
+  end if;
+  if nullif(p_datos ->> 'fecha', '') is not null and
+     (p_datos ->> 'fecha')::date > (now() at time zone 'America/Caracas')::date then
+    raise exception 'La fecha de entrega no puede ser futura.' using errcode = '22023';
+  end if;
+  if v_rol = 'despacho' and nullif(p_datos ->> 'fecha', '') is not null and
+     (p_datos ->> 'fecha')::date <> (now() at time zone 'America/Caracas')::date then
+    raise exception 'Solo Administración e Inventario pueden ajustar la fecha.' using errcode='42501';
   end if;
   -- Todo el RPC es una transacción: si falta stock no queda cabecera huérfana.
   -- La anulación se hace primero para devolver existencias de una corrección.
@@ -117,7 +130,8 @@ begin
   values(v_tipo, v_paciente, v_centro, nullif(btrim(p_datos ->> 'recibe_nombre'), ''),
     nullif(btrim(p_datos ->> 'recibe_cedula'), ''), nullif(btrim(p_datos ->> 'observacion'), ''),
     v_solicitud, p_id,
-    case when p_id is null then (now() at time zone 'America/Caracas')::date else v_anterior.fecha end,
+    coalesce(nullif(p_datos ->> 'fecha', '')::date,
+      case when p_id is null then (now() at time zone 'America/Caracas')::date else v_anterior.fecha end),
     'sistema', nullif(p_datos ->> 'clave_idempotencia', ''))
   returning id into v_nuevo;
   for v_item in select value from jsonb_array_elements(v_items) loop

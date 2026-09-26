@@ -712,7 +712,7 @@
         ? '<b>' + esc(x.producto || '') + '</b>' +
           (x.dosificacion ? '<span class="chico">' + esc(x.dosificacion) + '</span>' : '')
         : '<span class="sin-cant">' + esc(x.lo_entregado || 'No dice qué se entregó') + '</span>';
-      var accion = puedeGestionar && x.origen === 'sistema' && !primera[x.entrega_id]
+      var accion = puedeGestionar && !x.anulada && !primera[x.entrega_id]
         ? '<button type="button" class="suave" data-gest="' + esc(x.entrega_id) + '">Corregir o anular</button>' : '';
       primera[x.entrega_id] = true;
       return '<tr>' +
@@ -755,7 +755,7 @@
     z.innerHTML = '<div class="cargando">Abriendo la entrega…</div>';
     var resultados = await Promise.all([
       t.sb.from('entregas').select('id,tipo_destinatario,paciente_id,institucion_id,' +
-        'recibe_nombre,recibe_cedula,observacion,solicitud_id,anulada,origen').eq('id', id).single(),
+        'recibe_nombre,recibe_cedula,observacion,solicitud_id,anulada,origen,fecha').eq('id', id).single(),
       t.sb.from('entrega_detalle').select('id,lote_id,cantidad').eq('entrega_id', id),
       t.sb.from('v_existencia_lote').select('lote_id,producto,dosificacion,lote,vence,estado,situacion,existencia')
         .range(0, 999)
@@ -763,14 +763,15 @@
     var fallo = resultados.filter(function (r) { return r.error; })[0];
     if (fallo) { z.innerHTML = '<div class="aviso bad">No se pudo abrir: ' + esc(fallo.error.message) + '</div>'; return; }
     var ent = resultados[0].data, det = resultados[1].data || [], lotes = resultados[2].data || [];
-    if (!ent || ent.anulada || ent.origen !== 'sistema') {
+    if (!ent || ent.anulada) {
       z.innerHTML = '<div class="aviso warn">La entrega ya no admite cambios.</div>'; return;
     }
+    if (ent.origen === 'migracion_excel') { t.gestionHistorica(ent); return; }
     var recetas = [];
     if (ent.paciente_id) {
       var r = await t.sb.from('v_solicitudes')
-        .select('solicitud_id,creado_en,indicado_por,activa')
-        .eq('paciente_id', ent.paciente_id).eq('via', 'recipe').eq('activa', true)
+        .select('solicitud_id,creado_en,indicado_por,activa,via')
+        .eq('paciente_id', ent.paciente_id).eq('activa', true)
         .order('creado_en', { ascending: false }).limit(50);
       if (r.error) { z.innerHTML = '<div class="aviso bad">No se pudieron consultar los récipes: ' + esc(r.error.message) + '</div>'; return; }
       recetas = r.data || [];
@@ -800,14 +801,21 @@
         'su existencia y se registra una entrega nueva. Para cambiar el destinatario, anula y ' +
         'registra una nueva desde Entregar.</p>' +
       (ent.paciente_id
-        ? '<label for="' + t.id('RecipeEdit') + '">Récipe asociado</label><select id="' +
-          t.id('RecipeEdit') + '"><option value="">Sin récipe asociado</option>' +
+        ? '<label for="' + t.id('RecipeEdit') + '">Solicitud asociada</label><select id="' +
+          t.id('RecipeEdit') + '"><option value="">Sin solicitud asociada</option>' +
           recetas.map(function (r) { return '<option value="' + esc(r.solicitud_id) + '"' +
-            (r.solicitud_id === ent.solicitud_id ? ' selected' : '') + '>Récipe del ' +
+            (r.solicitud_id === ent.solicitud_id ? ' selected' : '') + '>' + (r.via === 'operacion' ? 'Operación del ' : 'Récipe del ') +
             corta(window.FARM && window.FARM.hoyCaracas
               ? window.FARM.hoyCaracas(r.creado_en) : r.creado_en) +
             (r.indicado_por ? ' · ' + esc(r.indicado_por) : '') + '</option>'; }).join('') + '</select>'
         : '') +
+      '<label for="' + t.id('EditFecha') + '">Fecha de la entrega</label><input type="date" id="' +
+        t.id('EditFecha') + '" max="' + hoyEs() + '" value="' + esc(ent.fecha) + '">' +
+      '<label for="' + t.id('EditObservacion') + '">Observación</label><textarea id="' +
+        t.id('EditObservacion') + '">' + esc(ent.observacion || '') + '</textarea>' +
+      (ent.institucion_id ? '<label>Nombre de quien recibió</label><input id="' + t.id('EditReceptor') +
+        '" value="' + esc(ent.recibe_nombre || '') + '"><label>Cédula de quien recibió</label><input id="' +
+        t.id('EditCedula') + '" value="' + esc(ent.recibe_cedula || '') + '">' : '') +
       '<label>Medicamentos y cantidades</label><div id="' + t.id('EditFilas') + '">' +
         det.map(function (d) { return fila(d.lote_id, d.cantidad); }).join('') + '</div>' +
       '<button type="button" class="secundario" id="' + t.id('EditAgregar') + '">+ Agregar medicamento</button>' +
@@ -832,7 +840,7 @@
     t.q('EditCerrar').onclick = function () { z.innerHTML = ''; };
     function error(m) { t.q('EditAviso').innerHTML = '<div class="aviso bad">' + esc(m) + '</div>'; }
     function ocupado(si) {
-      t.q('EditGuardar').disabled = si; t.q('EditAnular').disabled = si;
+      z.querySelectorAll('button,input,select,textarea').forEach(function (campo) { campo.disabled = si; });
     }
     t.q('EditGuardar').onclick = async function () {
       var motivo = t.q('EditMotivo').value.trim();
@@ -846,12 +854,15 @@
       }
       ocupado(true);
       var datos = { tipo_destinatario: ent.tipo_destinatario, paciente_id: ent.paciente_id,
-        institucion_id: ent.institucion_id, recibe_nombre: ent.recibe_nombre,
-        recibe_cedula: ent.recibe_cedula, observacion: ent.observacion,
+        institucion_id: ent.institucion_id, recibe_nombre: t.q('EditReceptor') ? t.q('EditReceptor').value : ent.recibe_nombre,
+        recibe_cedula: t.q('EditCedula') ? t.q('EditCedula').value : ent.recibe_cedula,
+        observacion: t.q('EditObservacion').value, fecha: t.q('EditFecha').value,
         solicitud_id: t.q('RecipeEdit') ? t.q('RecipeEdit').value || null : null,
         motivo_correccion: motivo, items: items,
         clave_idempotencia: 'cor-' + id + '-' + Date.now() };
-      var r = await t.sb.rpc('entrega_guardar', { p_id: id, p_datos: datos });
+      var r;
+      try { r = await t.sb.rpc('entrega_guardar', { p_id: id, p_datos: datos }); }
+      catch (e) { ocupado(false); error(e.message || 'No se pudo conectar para corregir.'); return; }
       ocupado(false);
       if (r.error) { error(r.error.message); return; }
       z.innerHTML = '<div class="aviso ok">Corrección registrada. Se actualizaron las existencias.</div>';
@@ -861,12 +872,49 @@
       var motivo = t.q('EditMotivo').value.trim();
       if (motivo.length < 8) { error('Explica la anulación con al menos 8 caracteres.'); return; }
       ocupado(true);
-      var r = await t.sb.rpc('entrega_anular', { p_id: id, p_motivo: motivo });
+      var r;
+      try { r = await t.sb.rpc('entrega_anular', { p_id: id, p_motivo: motivo }); }
+      catch (e) { ocupado(false); error(e.message || 'No se pudo conectar para anular.'); return; }
       ocupado(false);
       if (r.error) { error(r.error.message); return; }
       z.innerHTML = '<div class="aviso ok">Entrega anulada. Las cantidades se devolvieron al inventario.</div>';
       t.cargar();
     };
+  };
+
+  Tablero.prototype.gestionHistorica = function (ent) {
+    var t = this, z = t.q('Gestion');
+    z.innerHTML = '<div class="tarjeta" style="margin:16px 0"><h3>Corregir o anular entrega del Excel</h3>' +
+      '<p class="sub">Esta entrega conserva texto histórico sin cantidades de inventario. La corrección queda en la bitácora.</p>' +
+      '<label>Fecha</label><input type="date" id="' + t.id('HistFecha') + '" max="' + hoyEs() + '" value="' + esc(ent.fecha) + '">' +
+      '<label>Medicinas o insumos entregados</label><textarea id="' + t.id('HistTexto') + '">' + esc(ent.observacion || '') + '</textarea>' +
+      '<label>Motivo obligatorio</label><textarea id="' + t.id('HistMotivo') + '"></textarea>' +
+      '<div class="botonera"><button class="principal" id="' + t.id('HistGuardar') + '">Guardar corrección</button>' +
+      '<button class="secundario" id="' + t.id('HistAnular') + '">Anular entrega</button>' +
+      '<button class="secundario" id="' + t.id('HistCerrar') + '">Cancelar</button></div>' +
+      '<div id="' + t.id('HistAviso') + '"></div></div>';
+    t.q('HistCerrar').onclick = function () { z.innerHTML = ''; };
+    async function guardar(anular) {
+      var motivo = t.q('HistMotivo').value.trim();
+      if (motivo.length < 8) { t.q('HistAviso').textContent = 'Explica el motivo con al menos 8 caracteres.'; return; }
+      t.q('HistGuardar').disabled = true; t.q('HistAnular').disabled = true;
+      t.q('HistCerrar').disabled = true;
+      try {
+        var r = await t.sb.rpc(anular ? 'entrega_anular' : 'entrega_historica_corregir', anular
+          ? { p_id: ent.id, p_motivo: motivo }
+          : { p_id: ent.id, p_fecha: t.q('HistFecha').value, p_texto: t.q('HistTexto').value, p_motivo: motivo });
+        if (r.error) throw new Error(r.error.message);
+        z.innerHTML = '<div class="aviso ok">Entrega histórica ' + (anular ? 'anulada' : 'corregida') + '. No se cambiaron existencias.</div>';
+        t.cargar();
+      } catch (e) {
+        t.q('HistGuardar').disabled = false; t.q('HistAnular').disabled = false;
+        t.q('HistCerrar').disabled = false;
+        t.q('HistAviso').textContent = e.message || 'No se pudo guardar.';
+      }
+    }
+    t.q('HistGuardar').onclick = function () { guardar(false); };
+    t.q('HistAnular').onclick = function () { guardar(true); };
+    z.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   /* ---------------------------------------------------------------- descargas

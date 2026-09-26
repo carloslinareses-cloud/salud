@@ -28,6 +28,7 @@ if (!actual[0]?.entregas || !actual[0]?.solicitudes || !actual[0]?.movimientos) 
 console.log('Acceso y tablas necesarios: verificados.');
 if (process.argv.includes('--aplicar')) {
   await sql(readFileSync(new URL('../sql/33-entregas-recipe-crud.sql', import.meta.url), 'utf8'));
+  await sql(readFileSync(new URL('../sql/38-entregas-historicas-crud.sql', import.meta.url), 'utf8'));
   const despues = await sql("select count(*)::int as funciones from pg_proc p join pg_namespace n " +
     "on n.oid = p.pronamespace where n.nspname = 'farmacia' and p.proname in " +
     "('entrega_guardar','entrega_anular')");

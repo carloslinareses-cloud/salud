@@ -11,6 +11,8 @@ declare
   v_primera uuid;
   v_corregida uuid;
   v_saldo numeric;
+  v_historica uuid;
+  v_rechazado boolean := false;
 begin
   select id into v_admin from farmacia.perfiles where rol = 'admin' and activo limit 1;
   if v_admin is null then raise exception 'No hay administrador activo para probar.'; end if;
@@ -49,6 +51,19 @@ begin
   perform farmacia.entrega_anular(v_corregida, 'Anulación de prueba');
   select sum(cantidad) into v_saldo from farmacia.movimientos where lote_id = v_lote;
   if v_saldo <> 10 then raise exception 'La anulación no devolvió las 10 unidades iniciales.'; end if;
+  insert into farmacia.entregas(tipo_destinatario,paciente_id,origen,observacion,fecha)
+    values('paciente',v_paciente,'migracion_excel','Texto original de prueba',current_date - 20)
+    returning id into v_historica;
+  perform farmacia.entrega_historica_corregir(v_historica,current_date - 10,
+    'Medicamento corregido de prueba','Corrección del texto de prueba');
+  if not exists(select 1 from farmacia.entregas where id=v_historica and
+      fecha=current_date-10 and observacion='Medicamento corregido de prueba') then
+    raise exception 'No se corrigió la entrega histórica.';
+  end if;
+  perform farmacia.entrega_anular(v_historica,'Entrega histórica duplicada de prueba');
+  if not exists(select 1 from farmacia.entregas where id=v_historica and anulada) then
+    raise exception 'No se anuló la entrega histórica.';
+  end if;
 
   begin
     perform farmacia.entrega_guardar(null, jsonb_build_object(
@@ -57,5 +72,11 @@ begin
     raise exception 'Aceptó el récipe de otra persona.';
   exception when sqlstate '22023' then null;
   end;
+  perform set_config('request.jwt.claim.sub','',true);
+  begin
+    perform farmacia.entrega_anular(v_historica,'Intento sin perfil de prueba');
+  exception when insufficient_privilege then v_rechazado := true;
+  end;
+  if not v_rechazado then raise exception 'Una sesión sin perfil pasó el control de permisos.'; end if;
 end $$;
 rollback;
