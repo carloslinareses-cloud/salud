@@ -744,10 +744,26 @@
        escrito a mano. Cada uno se corrige y se quita ahi mismo. */
     var lista = m.filter(function (y) { return y.producto_id || y.texto_original; });
 
+    /* El catálogo puede reconocer sólo parte del renglón importado.
+       Se conserva a la vista el texto completo de la fuente. */
+    var originales = [], originalesVistos = Object.create(null);
+    lista.forEach(function (y) {
+      var clave = String(y.tratamiento_id);
+      if (y.origen !== 'migracion' || !y.texto_original || originalesVistos[clave]) return;
+      originalesVistos[clave] = true;
+      originales.push(y.texto_original);
+    });
+
     return '<div class="trat">' +
       '<span class="lbl">' + (lista.length
         ? 'Medicinas que necesita · ' + lista.length
         : 'Medicinas que necesita') + '</span>' +
+      (originales.length
+        ? '<details class="aviso" open><summary>Texto original registrado en Matriz</summary>' +
+          '<p class="sub chico">Transcripción histórica. Confirmar la vigencia con el récipe.</p>' +
+          originales.map(function (texto) { return '<p>' + esc(texto) + '</p>'; }).join('') +
+          '</details>'
+        : '') +
       (lista.length === 0
         ? '<span class="sub chico">Todavía no tiene ninguna anotada.</span>'
         : '<div class="trat-lista">' + lista.map(function (y) {
