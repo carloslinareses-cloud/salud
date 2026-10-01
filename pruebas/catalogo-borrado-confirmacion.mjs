@@ -39,6 +39,7 @@ for (const tipo of ['producto', 'lote']) {
   const borrado = await probar(tipo, { data: [{ id: 'prueba' }], error: null });
   assert.equal(borrado.avisos[0].tipo, 'ok');
   assert.equal(borrado.recargas, 1);
+  assert.ok(borrado.consultas.some(x => Array.isArray(x) && x[0] === 'id' && x[1] === (tipo === 'producto' ? 'producto-prueba' : 'lote-prueba')), 'El borrado exige el identificador de una sola ficha');
   assert.ok(borrado.consultas.some(x => Array.isArray(x) && x[0] === 'select' && x[1] === 'id'));
   const fallo = await probar(tipo, { data: null, error: { message: 'Fallo del servidor' } });
   assert.equal(fallo.avisos[0].tipo, 'bad');
