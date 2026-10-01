@@ -832,7 +832,7 @@
 
           (lotes.length
             ? '<h2 class="sub-t">Lotes que ya tiene</h2>' +
-              '<p class="sub">Si lo que llegó es de un lote que ya está aquí, súmaselo. ' +
+              '<p class="sub">Consulta aquí los lotes registrados. ' +
               'Cada nueva entrada debe usar un lote distinto.</p>' +
               '<div class="tabla-caja"><table class="tabla"><thead><tr>' +
                 '<th>Lote</th><th>Vence</th><th class="der">Existencia</th>' +
