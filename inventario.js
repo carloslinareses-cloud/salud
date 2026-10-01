@@ -1082,8 +1082,9 @@
     }
     if (!window.confirm('¿Borrar el lote ' + (l.lote || 'sin número') + ' de ' + p.producto + '?\n\n' +
         'Solo se puede si nunca tuvo movimientos. Si los tuvo, la base lo va a impedir.')) return;
-    sb.from('lotes').delete().eq('id', l.lote_id).then(function (r) {
+    sb.from('lotes').delete().eq('id', l.lote_id).select('id').then(function (r) {
       if (r.error) throw r.error;
+      if (!r.data || r.data.length !== 1) throw new Error('El lote no se borró. Puede tener movimientos o entregas asociados, o ya no estar disponible.');
       aviso('ok', 'Lote borrado.');
       verProducto(p);
     }).catch(function (e) {
@@ -1098,8 +1099,9 @@
     }
     if (!window.confirm('¿Borrar ' + p.producto + ' del catálogo?\n\n' +
         'Solo se puede si nunca tuvo lotes ni lo tiene nadie en su tratamiento. No se puede deshacer.')) return;
-    sb.from('productos').delete().eq('id', p.producto_id).then(function (r) {
+    sb.from('productos').delete().eq('id', p.producto_id).select('id').then(function (r) {
       if (r.error) throw r.error;
+      if (!r.data || r.data.length !== 1) throw new Error('El medicamento no se borró. Puede tener lotes o tratamientos asociados, o ya no estar disponible.');
       aviso('ok', p.producto + ' se borró del catálogo.');
       document.getElementById('catDetalle').innerHTML = '';
       cat.modo = 'lista'; cat.filas = [];
