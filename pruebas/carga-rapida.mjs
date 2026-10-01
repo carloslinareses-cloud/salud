@@ -3,7 +3,7 @@
    Cinco datos y listo: insumo, presentacion y componentes, lote, fecha de
    vencimiento y cantidad. Comprueba que:
      · crea el insumo si no existe,
-     · reutiliza el lote si ya existe en vez de abrir otro igual,
+     · rechaza el lote si ya existe en cualquier medicamento,
      · y que la existencia queda bien en los dos casos.
 
        npm install puppeteer-core
@@ -141,7 +141,7 @@ try {
 
   console.log('\n--- Cargar MAS del mismo lote ---')
   msg = await cargar(LOTE, CANT2, VENCE)
-  prueba('avisa que se lo sumo a un lote que ya existia', /ya existía/i.test(msg), msg)
+  prueba('rechaza el lote que ya estaba registrado', /ya está registrado/i.test(msg), msg)
 
   f = await sql(`select count(*) lotes, sum(v.existencia) total
      from farmacia.v_existencia_lote v
@@ -149,8 +149,8 @@ try {
      join farmacia.productos p on p.id = l.producto_id
     where p.nombre = '${INSUMO}';`)
   prueba('NO abrio un lote repetido', Number(f[0].lotes) === 1, JSON.stringify(f[0]))
-  prueba(`la existencia quedo en ${CANT1 + CANT2}`,
-    Number(f[0].total) === CANT1 + CANT2, JSON.stringify(f[0]))
+  prueba(`la existencia quedo en ${CANT1}`,
+    Number(f[0].total) === CANT1, JSON.stringify(f[0]))
 
   f = await sql(`select count(*) c from farmacia.productos where nombre = '${INSUMO}';`)
   prueba('NO creo el insumo dos veces', Number(f[0].c) === 1, JSON.stringify(f[0]))
@@ -164,7 +164,7 @@ try {
     where p.nombre = '${INSUMO}';`)
   prueba('ahora si abre un lote aparte', Number(f[0].lotes) === 2, JSON.stringify(f[0]))
   prueba('y la existencia suma los dos lotes',
-    Number(f[0].total) === CANT1 + CANT2 + 15, JSON.stringify(f[0]))
+    Number(f[0].total) === CANT1 + 15, JSON.stringify(f[0]))
 
   console.log('\n--- Corregir el nombre desde la hoja de conteo ---')
   const NOMBRE2 = INSUMO + ' CORREGIDO'

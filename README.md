@@ -53,6 +53,16 @@ Antes de publicar estas pantallas, aplicar `sql/33-entregas-recipe-crud.sql` con
 `node migracion/16_entregas_recipe_crud.mjs --probar` (la prueba revierte sus datos).
 Para comprobar también el perfil de Inventario: `node migracion/16_entregas_recipe_crud.mjs --probar-inventario`.
 
+## Lotes únicos en todo el inventario
+
+Cada nueva entrada debe indicar un lote que no esté registrado, aunque corresponda
+a otro medicamento o tenga otra fecha de vencimiento. No se permite sumar nuevas
+entradas a un lote ya recibido. Las correcciones de existencia siguen requiriendo
+motivo. Los lotes históricos se conservan íntegros.
+
+Aplicar antes de publicar: `node migracion/21_lote_unico_inventario.mjs --aplicar --probar`.
+Comprobar los formularios: `node pruebas/lote-unico-formularios.mjs`.
+
 ## Cómo se publica
 
 Sitio estático en GitHub Pages. Al hacer `git push origin main` se publica solo.

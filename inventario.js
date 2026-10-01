@@ -3,8 +3,7 @@
    Tres pantallas:
      · Alertas        — qué está vencido o por vencerse.
      · Catálogo       — todo el catálogo, con su existencia a la vista.
-                        Desde aquí se registra lo que llega, sumando a un
-                        lote que ya existe o abriendo uno nuevo.
+                        Desde aquí se registra lo que llega con un lote nuevo.
      · Conteo         — una hoja tipo Excel para corregir muchas
                         existencias de una vez.
 
@@ -317,7 +316,7 @@
      Es la pantalla que más se usa cuando se está montando el inventario:
      se escribe lo que hay en la caja y se guarda. El sistema hace solo lo
      demás: si el insumo no está en el catálogo lo crea, si el lote es
-     nuevo lo abre, y si ese lote ya existía le suma.
+     nuevo lo abre; cada entrada requiere un lote distinto en todo el inventario.
   ================================================================ */
   var ultimo = null;   // lo último que se cargó, para poder repetirlo
 
@@ -326,7 +325,7 @@
     z.innerHTML =
       '<h2 class="sub-t">Registrar lo que llega</h2>' +
       '<p class="sub">Escribe lo que dice la caja y guarda. Si el insumo no está en el ' +
-      'catálogo se crea solo; si el lote ya existía, se le suma.</p>' +
+      'catálogo se crea solo. El lote debe ser único en todo el inventario.</p>' +
 
       '<label for="rInsumo">Insumo</label>' +
       '<input id="rInsumo" type="text" autocomplete="off" ' +
@@ -339,8 +338,8 @@
 
       '<div class="dos-columnas">' +
         '<div>' +
-          '<label for="rLote">Lote</label>' +
-          '<input id="rLote" type="text" autocomplete="off" ' +
+          '<label for="rLote">Lote * (único en el inventario)</label>' +
+          '<input id="rLote" type="text" required autocomplete="off" ' +
             'placeholder="Como viene impreso">' +
         '</div>' +
         '<div>' +
@@ -394,8 +393,8 @@
               iIns.value = x.producto;
               if (x.presentacion) document.getElementById('rPres').value = x.presentacion;
               document.getElementById('rParecidos').innerHTML =
-                '<p class="sub chico"><span class="ok-txt">Se le sumará a «' + esc(x.producto) +
-                '», que ya tiene ' + num(x.disponible) + ' unidades.</span></p>';
+                '<p class="sub chico"><span class="ok-txt">Registrarás una entrada para «' + esc(x.producto) +
+                '» con un lote nuevo.</span></p>';
               document.getElementById('rLote').focus();
             });
           });
@@ -463,6 +462,10 @@
       aviso('warn', 'Falta la cantidad.');
       document.getElementById('rCant').focus(); return;
     }
+    if (!lote) {
+      aviso('warn', 'Escribe un número de lote. Debe ser único en todo el inventario.');
+      document.getElementById('rLote').focus(); return;
+    }
     if (!vence && !window.confirm('No pusiste fecha de vencimiento.\n\n' +
         'Sin ella el sistema no puede avisar cuándo se vence ni sacar primero el que ' +
         'vence antes. ¿Registrar igual?')) return;
@@ -475,7 +478,9 @@
     }
 
     /* 1. El insumo: se busca por nombre exacto; si no está, se crea. */
-    sb.from('productos').select('id,nombre,presentacion').ilike('nombre', insumo).limit(1)
+    comprobarLoteNuevo(lote).then(function () {
+      return sb.from('productos').select('id,nombre,presentacion').ilike('nombre', insumo).limit(1);
+    })
       .then(function (r) {
         if (r.error) throw r.error;
         if (r.data && r.data.length) return r.data[0];
@@ -487,21 +492,13 @@
           return rr.data;
         });
       })
-      /* 2. El lote: si ese producto ya tiene ese lote con esa fecha, se
-            reutiliza en vez de abrir otro igual. */
+      /* 2. La base reserva el código globalmente y rechaza entradas repetidas. */
       .then(function (prod) {
-        var q = sb.from('lotes').select('id').eq('producto_id', prod.id);
-        q = lote ? q.ilike('codigo', lote) : q.is('codigo', null);
-        q = vence ? q.eq('vence', vence) : q.is('vence', null);
-        return q.limit(1).then(function (r) {
-          if (r.error) throw r.error;
-          if (r.data && r.data.length) return { prod: prod, lote: r.data[0], nuevo: false };
-          return sb.from('lotes').insert({ producto_id: prod.id, codigo: lote, vence: vence })
+        return sb.from('lotes').insert({ producto_id: prod.id, codigo: lote, vence: vence })
             .select().single().then(function (rr) {
               if (rr.error) throw rr.error;
               return { prod: prod, lote: rr.data, nuevo: true };
             });
-        });
       })
       /* 3. La entrada. */
       .then(function (x) {
@@ -516,7 +513,7 @@
       .then(function (x) {
         aviso('ok', 'Registradas ' + num(cant) + ' unidades de ' + x.prod.nombre +
                     (lote ? ' (lote ' + lote + ')' : '') +
-                    (x.nuevo ? '.' : '. Se le sumaron a un lote que ya existía.'));
+                    '.');
         ultimo = { insumo: x.prod.nombre, pres: pres, lote: lote, vence: vence, cantidad: cant };
         verCargar();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -836,7 +833,7 @@
           (lotes.length
             ? '<h2 class="sub-t">Lotes que ya tiene</h2>' +
               '<p class="sub">Si lo que llegó es de un lote que ya está aquí, súmaselo. ' +
-              'Así no se parte la existencia en dos.</p>' +
+              'Cada nueva entrada debe usar un lote distinto.</p>' +
               '<div class="tabla-caja"><table class="tabla"><thead><tr>' +
                 '<th>Lote</th><th>Vence</th><th class="der">Existencia</th>' +
                 '<th>Situación</th><th class="der">Qué hacer</th>' +
@@ -848,9 +845,7 @@
                     (l.en_cajas ? '<span class="sub chico">' + esc(l.en_cajas) + '</span>' : '') + '</td>' +
                   '<td>' + sit(l.situacion) + '</td>' +
                   '<td class="der"><div class="acciones-lote">' +
-                    (l.situacion === 'vencido'
-                      ? '<span class="sub chico">vencido</span>'
-                      : '<button type="button" class="suave" data-suma="' + i + '">Sumar</button>') +
+                    (l.situacion === 'vencido' ? '<span class="sub chico">vencido</span>' : '') +
                     '<button type="button" class="suave" data-editalote="' + i + '">Corregir</button>' +
                     '<button type="button" class="suave" data-ajusta="' + i + '">Ajustar</button>' +
                     (puedeBorrarCatalogo() && !(Number(l.existencia) > 0)
@@ -873,9 +868,6 @@
           document.getElementById('catDetalle').innerHTML = '';
           cat.modo = 'lista';
           pintarCatalogo();
-        });
-        zz.querySelectorAll('[data-suma]').forEach(function (b) {
-          b.addEventListener('click', function () { formSumar(p, lotes[+b.dataset.suma]); });
         });
         zz.querySelectorAll('[data-editalote]').forEach(function (b) {
           b.addEventListener('click', function () { formEditarLote(p, lotes[+b.dataset.editalote]); });
@@ -993,7 +985,7 @@
       '<div class="elegido"><div><b>Corregir el lote ' + esc(l.lote || 'sin número') + '</b>' +
       '<span>' + esc(p.producto) + ' · ahora hay ' + num(l.existencia) + ' unidades</span></div>' +
       '<button type="button" class="quitar" id="elCancelar">Cancelar</button></div>' +
-      '<label for="elCodigo">Número de lote <span class="opc">(vacío si la caja no lo trae)</span></label>' +
+      '<label for="elCodigo">Número de lote <span class="opc">(un código nuevo no puede repetirse)</span></label>' +
       '<input id="elCodigo" type="text" autocomplete="off" value="' + esc(l.lote || '') + '">' +
       '<label for="elVence">Fecha de vencimiento</label>' +
       '<input id="elVence" type="date" value="' + esc(l.vence ? String(l.vence).slice(0, 10) : '') + '">' +
@@ -1112,59 +1104,13 @@
     });
   }
 
-  /* ---------- sumar a un lote que ya existe ---------- */
-  function formSumar(p, l) {
-    var z = document.getElementById('catForm');
-    z.innerHTML =
-      '<div class="elegido"><div><b>Sumar al lote ' + esc(l.lote || 'sin número') + '</b>' +
-      '<span>' + esc(p.producto) + ' · vence ' + fecha(l.vence) +
-      ' · ahora hay ' + num(l.existencia) + '</span></div>' +
-      '<button type="button" class="quitar" id="sCancelar">Cancelar</button></div>' +
-      cuantoLlego(p, 's') +
-      '<p class="sub chico" id="sQueda"></p>' +
-      '<div class="botonera"><button type="button" class="principal" id="sGuardar">Sumar al lote</button></div>';
-
-    engancharCuanto(p, 's');
-    var caja = document.getElementById('sCant');
-    caja.focus();
-    function alSumar() {
-      var n = unidadesEscritas(p, 's');
-      document.getElementById('sQueda').textContent = n > 0
-        ? 'El lote quedaría con ' + num(Number(l.existencia) + n) + ' unidades' +
-          (comoCajas(Number(l.existencia) + n, p) ? ' (' + comoCajas(Number(l.existencia) + n, p) + ')' : '') + '.'
-        : '';
-    }
-    caja.addEventListener('input', alSumar);
-    var cj = document.getElementById('sCajas');
-    if (cj) cj.addEventListener('input', alSumar);
-    document.getElementById('sCancelar').addEventListener('click', function () { formLoteNuevo(p, null); });
-
-    document.getElementById('sGuardar').addEventListener('click', function () {
-      var n = unidadesEscritas(p, 's');
-      if (!n || n < 1) { aviso('warn', 'Falta cuánto llegó.'); caja.focus(); return; }
-      var btn = this; btn.disabled = true; btn.textContent = 'Registrando…';
-      sb.from('movimientos').insert({
-        lote_id: l.lote_id, tipo: 'entrada', cantidad: n,
-        motivo: 'Entrada de mercancía', origen: 'sistema'
-      }).then(function (r) {
-        if (r.error) throw r.error;
-        aviso('ok', 'Sumadas ' + num(n) + ' unidades al lote ' + (l.lote || 'sin número') +
-                    ' de ' + p.producto + '. Ahora hay ' + num(Number(l.existencia) + n) + '.');
-        verProducto(p);
-      }).catch(function (e) {
-        aviso('bad', 'No se pudo registrar: ' + (e.message || e));
-        btn.disabled = false; btn.textContent = 'Sumar al lote';
-      });
-    });
-  }
-
   /* ---------- abrir un lote nuevo ---------- */
   function formLoteNuevo(p, lotes) {
     var z = document.getElementById('catForm');
     if (!z) return;
     z.innerHTML =
-      '<label for="lCodigo">Número de lote <span class="opc">(como viene en la caja)</span></label>' +
-      '<input id="lCodigo" type="text" autocomplete="off" placeholder="Si la caja no lo trae, déjalo vacío">' +
+      '<label for="lCodigo">Número de lote * <span class="opc">(único en todo el inventario)</span></label>' +
+      '<input id="lCodigo" type="text" required autocomplete="off" placeholder="Escribe un lote que no esté registrado">' +
       '<p class="sub chico" id="lAviso"></p>' +
       '<label for="lVence">Fecha de vencimiento</label>' +
       '<input id="lVence" type="date">' +
@@ -1178,8 +1124,8 @@
     var iVen = document.getElementById('lVence');
     engancharCuanto(p);
 
-    /* Si escribe un número de lote que ya existe, se le dice antes de
-       guardar: casi siempre lo que quiere es sumarle, no crear otro. */
+    /* Los lotes visibles permiten anticipar el aviso; la consulta global y
+       el control de la base rechazan también los de otros medicamentos. */
     iCod.addEventListener('input', function () {
       var av = document.getElementById('lAviso');
       var v = iCod.value.trim().toUpperCase();
@@ -1188,7 +1134,7 @@
       })[0];
       av.innerHTML = ya
         ? '<span class="ojo">Ese lote ya existe con ' + num(ya.existencia) +
-          ' unidades. Mejor súmale arriba, para no partir la existencia.</span>'
+          ' unidades. Usa un lote distinto.</span>'
         : '';
     });
 
@@ -1205,23 +1151,15 @@
       var cod = iCod.value.trim() || null;
       var ven = iVen.value || null;
       var can = unidadesEscritas(p);
+      if (!cod) { aviso('warn', 'Escribe un número de lote. Debe ser único en todo el inventario.'); iCod.focus(); return; }
       if (!can || can < 1) { aviso('warn', 'Falta cuánto llegó.'); return; }
       if (!ven && !window.confirm('No pusiste fecha de vencimiento.\n\n' +
           'Sin ella el sistema no puede avisar cuándo se vence ni ordenar por el que vence primero. ' +
           '¿Registrar igual?')) return;
 
       var btn = this; btn.disabled = true; btn.textContent = 'Registrando…';
-      sb.from('lotes').insert({ producto_id: p.producto_id, codigo: cod, vence: ven })
-        .select().single().then(function (r) {
-          // si ese lote ya existía, se reutiliza en vez de fallar
-          if (r.error && r.error.code === '23505') {
-            var q = sb.from('lotes').select('id').eq('producto_id', p.producto_id);
-            q = cod ? q.eq('codigo', cod) : q.is('codigo', null);
-            q = ven ? q.eq('vence', ven) : q.is('vence', null);
-            return q.single();
-          }
-          if (r.error) throw r.error;
-          return r;
+      comprobarLoteNuevo(cod).then(function () {
+        return sb.from('lotes').insert({ producto_id: p.producto_id, codigo: cod, vence: ven }).select().single();
         }).then(function (r) {
           if (r.error) throw r.error;
           return sb.from('movimientos').insert({
@@ -1237,6 +1175,13 @@
           aviso('bad', 'No se pudo registrar: ' + (e.message || e));
           btn.disabled = false; btn.textContent = 'Registrar la entrada';
         });
+    });
+  }
+
+  function comprobarLoteNuevo(codigo) {
+    return sb.rpc('lote_codigo_disponible', { p_codigo: codigo }).then(function (r) {
+      if (r.error) throw r.error;
+      if (r.data !== true) throw new Error('Ese lote ya está registrado en el inventario. Usa un lote distinto.');
     });
   }
 

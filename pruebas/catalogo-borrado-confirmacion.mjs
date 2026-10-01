@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 
 const fuente = fs.readFileSync(new URL('../inventario.js', import.meta.url), 'utf8');
-const manejadores = fuente.slice(fuente.indexOf('  function borrarLote('), fuente.indexOf('  /* ---------- sumar a un lote'));
+const manejadores = fuente.slice(fuente.indexOf('  function borrarLote('), fuente.indexOf('  /* ---------- abrir un lote nuevo'));
 const errores = fuente.slice(fuente.indexOf('  function enCristiano('), fuente.indexOf('  function sit('));
 const permisos = fuente.slice(fuente.indexOf('  function puedeBorrarCatalogo('), fuente.indexOf('  /* Los errores de la base'));
 
