@@ -137,3 +137,19 @@ escribir `a null m del sitio` sin que nadie se quejara; la `esc()` de
 `asistencia.js` —que es una copia propia, distinta de la de `comunes.js`—
 no la miraba ninguna prueba; y `porTandas()`, que es lo que hace que un
 reporte traiga todas las filas y no las primeras mil, tampoco.
+# Lotes agrupados en el catálogo
+
+En Mercancía → Catálogo, cada medicamento muestra una sola fila y una cantidad
+total por número de lote. «Vencimientos y acciones» conserva las fechas, cantidades
+y acciones de cada recepción original, sin alterar movimientos ni despachos.
+El conteo de lotes del catálogo y sus exportaciones cuenta códigos distintos por
+medicamento. Los registros sin código se mantienen separados.
+
+«Lotes unificados · PDF» descarga todos los lotes repetidos agrupados, con sus
+cantidades actuales y el detalle de vencimientos. La agrupación respeta la ficha
+del producto: no mezcla dosis, presentaciones ni medicamentos distintos.
+
+Configuración: `node migracion/22_lotes_agrupados.mjs --aplicar` publica
+`sql/40-lotes-agrupados-catalogo.sql`; verifica que el catálogo conserve las mismas
+cantidades y que los lotes y movimientos originales permanezcan intactos.
+Prueba: `node pruebas/lotes-agrupados.mjs`.

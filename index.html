@@ -684,6 +684,10 @@ button.deshacer:disabled{opacity:.6; cursor:not-allowed}
   font-size:12.5px; font-weight:650}
 .tot-linea b{font-weight:800; font-variant-numeric:tabular-nums}
 table.tabla tfoot td, .tabla tfoot td{border-top:2px solid var(--line); font-weight:800}
+.detalle-lote summary{cursor:pointer;min-height:44px;display:flex;align-items:center;text-decoration:underline;text-underline-offset:3px}
+.detalle-lote summary:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+.parte-lote{padding:12px 0;border-top:1px solid var(--line);min-width:200px}
+.parte-lote>span{display:block;margin:6px 0}
 
 /* ---------- mantener el catalogo: corregir, ajustar, borrar ---------- */
 .prod-acciones{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
@@ -1104,7 +1108,7 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="dashboard.js?v=20260921a"></script>
 <script src="despacho.js?v=20260923b"></script>
 <script src="insumos.js?v=20260917b"></script>
-<script src="inventario.js?v=20261001b"></script>
+<script src="inventario.js?v=20261001c"></script>
 <script src="admin.js?v=20260924a"></script>
 <script src="asistencia.js?v=20260921a"></script>
 <script src="app.js?v=20260916g"></script>

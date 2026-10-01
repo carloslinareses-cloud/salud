@@ -542,6 +542,7 @@
         '<input id="catBusca" type="search" autocomplete="off" aria-label="Buscar en el catálogo" ' +
           'placeholder="Buscar medicamento o insumo…">' +
         '<button type="button" class="secundario" id="catCrear">+ Registrar medicamento</button>' +
+        '<button type="button" class="secundario" id="catLotesPdf">Lotes unificados · PDF</button>' +
       '</div>' +
       '<div class="chips" id="catFiltros">' + FILTROS_CAT.map(function (f) {
         return '<button type="button" data-f="' + f.id + '">' + f.txt + '</button>';
@@ -558,6 +559,7 @@
     document.getElementById('catCrear').addEventListener('click', function () {
       formProducto(cat.busca);
     });
+    document.getElementById('catLotesPdf').addEventListener('click', function () { bajarLotesUnificados(this); });
 
     z.querySelectorAll('#catFiltros button').forEach(function (b) {
       b.classList.toggle('on', b.dataset.f === cat.filtro);
@@ -781,6 +783,60 @@
   }
 
   /* ---------- un medicamento y sus lotes ---------- */
+  /* Una fila por medicamento y código. Las fechas y movimientos originales
+     siguen siendo independientes para despachar y corregir con trazabilidad. */
+  function agruparLotes(lotes) {
+    var grupos = new Map();
+    lotes.forEach(function (l, i) {
+      var codigo = String(l.lote || '').trim().replace(/\s+/g, ' ').toUpperCase();
+      var clave = JSON.stringify([l.producto_id || '', codigo || ('sin-codigo:' + l.lote_id)]);
+      if (!grupos.has(clave)) grupos.set(clave, { lote: codigo, existencia: 0, detalle: [] });
+      var g = grupos.get(clave);
+      g.existencia += Number(l.existencia) || 0;
+      g.detalle.push({ lote: l, indice: i });
+    });
+    return Array.from(grupos.values());
+  }
+
+  function bajarLotesUnificados(btn) {
+    var texto = btn.textContent, todo = [];
+    btn.disabled = true; btn.textContent = 'Preparando…';
+    function traer(desde) {
+      return sb.from('v_existencia_lote')
+        .select('lote_id,producto_id,producto,dosificacion,presentacion,lote,vence,existencia,estado,situacion')
+        .eq('estado', 'disponible').order('lote_id').range(desde, desde + 999)
+        .then(function (r) {
+          if (r.error) throw r.error;
+          todo = todo.concat(r.data || []);
+          if ((r.data || []).length === 1000) return traer(desde + 1000);
+        });
+    }
+    traer(0).then(function () {
+      var grupos = agruparLotes(todo).filter(function (g) { return g.detalle.length > 1 && g.lote; });
+      grupos.sort(function (a, b) {
+        return a.detalle[0].lote.producto.localeCompare(b.detalle[0].lote.producto, 'es') || a.lote.localeCompare(b.lote, 'es');
+      });
+      var total = grupos.reduce(function (n, g) { return n + g.existencia; }, 0);
+      window.FARMREP.pdfTabla({
+        titulo: 'Lotes unificados de Farmacia',
+        subtitulo: grupos.length + ' lotes · ' + num(total) + ' unidades · Vencimientos conservados',
+        encabezados: ['Medicamento', 'Presentación', 'Lote', 'Cantidad total', 'Detalle por vencimiento'],
+        filas: grupos.map(function (g) {
+          var p = g.detalle[0].lote;
+          return [p.producto, [p.dosificacion, p.presentacion].filter(Boolean).join(' · '), g.lote,
+            num(g.existencia), g.detalle.map(function (d) {
+              return fecha(d.lote.vence) + ': ' + num(d.lote.existencia) + ' unidades';
+            }).join('\n')];
+        }),
+        horizontal: true, archivo: 'Lotes unificados Farmacia',
+        columnas: { 0: { cellWidth: 62 }, 1: { cellWidth: 43 }, 2: { cellWidth: 34 },
+          3: { cellWidth: 30, halign: 'right' }, 4: { cellWidth: 82 } }
+      });
+    }).catch(function (e) {
+      aviso('bad', 'No se pudo preparar la lista: ' + (e.message || e));
+    }).finally(function () { btn.disabled = false; btn.textContent = texto; });
+  }
+
   function verProducto(p) {
     var z = document.getElementById('catDetalle');
     cat.modo = 'detalle';
@@ -806,7 +862,9 @@
       .then(function (r) {
         var zz = document.getElementById('catDetalle');
         if (!zz) return;
+        if (r.error) { zz.innerHTML = '<div class="aviso bad">' + esc(r.error.message) + '</div>'; return; }
         var lotes = (r.data || []).filter(function (l) { return l.estado === 'disponible'; });
+        var grupos = agruparLotes(lotes);
         /* El total siempre a la vista: es lo primero que se quiere saber. */
         var totalLotes = lotes.reduce(function (n, l) { return n + Number(l.existencia || 0); }, 0);
 
@@ -821,7 +879,7 @@
               '<span><b>' + num(p.disponible) + '</b> disponibles' +
                 (p.en_cajas ? ' <em class="pc-cajas">' + esc(p.en_cajas) + '</em>' : '') + '</span>' +
               (Number(p.vencido) > 0 ? '<span class="mal"><b>' + num(p.vencido) + '</b> vencidas</span>' : '') +
-              '<span><b>' + lotes.length + '</b> ' + (lotes.length === 1 ? 'lote' : 'lotes') + '</span>' +
+              '<span><b>' + grupos.length + '</b> ' + (grupos.length === 1 ? 'lote' : 'lotes') + '</span>' +
             '</div>' +
             '<div class="prod-acciones">' +
               '<button type="button" class="suave" id="catEditar">Corregir sus datos</button>' +
@@ -833,12 +891,33 @@
           (lotes.length
             ? '<h2 class="sub-t">Lotes que ya tiene</h2>' +
               '<p class="sub">Consulta aquí los lotes registrados. ' +
-              'Cada nueva entrada debe usar un lote distinto.</p>' +
+              'El mismo número de lote aparece una sola vez con su cantidad total. ' +
+              'Los vencimientos y las acciones están en el detalle. Cada nueva entrada debe usar un lote distinto.</p>' +
               '<div class="tabla-caja"><table class="tabla"><thead><tr>' +
                 '<th>Lote</th><th>Vence</th><th class="der">Existencia</th>' +
                 '<th>Situación</th><th class="der">Qué hacer</th>' +
               '</tr></thead><tbody>' +
-              lotes.map(function (l, i) {
+              grupos.map(function (g) {
+                if (g.detalle.length > 1) {
+                  var fechas = Array.from(new Set(g.detalle.map(function (d) { return d.lote.vence || ''; })));
+                  var vencidas = g.detalle.reduce(function (n, d) {
+                    return n + (d.lote.situacion === 'vencido' ? Number(d.lote.existencia) || 0 : 0);
+                  }, 0);
+                  return '<tr data-lote-unificado="' + esc(g.lote) + '"><td><b>' + esc(g.lote) + '</b></td>' +
+                    '<td>' + (fechas.length === 1 ? fecha(fechas[0]) : fechas.length + ' fechas · ver detalle') + '</td>' +
+                    '<td class="der num"><b>' + num(g.existencia) + '</b></td>' +
+                    '<td>' + (vencidas > 0 ? '<span class="sit rojo">' + num(vencidas) + ' vencidas</span>' : '<span class="sit gris">Vencimientos en detalle</span>') + '</td>' +
+                    '<td><details class="detalle-lote"><summary>Vencimientos y acciones</summary>' +
+                    g.detalle.map(function (d) {
+                      var l = d.lote, i = d.indice;
+                      return '<div class="parte-lote"><b>Vence: ' + fecha(l.vence) + '</b>' +
+                        '<span>' + num(l.existencia) + ' unidades · ' + sit(l.situacion) + '</span>' +
+                        '<div class="acciones-lote"><button type="button" class="suave" data-editalote="' + i + '">Corregir</button>' +
+                        '<button type="button" class="suave" data-ajusta="' + i + '">Ajustar</button>' +
+                        (puedeBorrarCatalogo() && !(Number(l.existencia) > 0) ? '<button type="button" class="suave malo" data-borralote="' + i + '">Borrar</button>' : '') + '</div></div>';
+                    }).join('') + '</details></td></tr>';
+                }
+                var l = g.detalle[0].lote, i = g.detalle[0].indice;
                 return '<tr><td><b>' + esc(l.lote || 'sin número') + '</b></td>' +
                   '<td>' + fecha(l.vence) + '</td>' +
                   '<td class="der num">' + num(l.existencia) +
