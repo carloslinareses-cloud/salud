@@ -174,7 +174,13 @@
       headStyles: { fillColor: [10, 35, 81], textColor: 255, fontStyle: 'bold', fontSize: 8 },
       alternateRowStyles: { fillColor: [244, 247, 251] },
       columnStyles: opts.columnas || {},
-      margin: { left: 14, right: 14 },
+      rowPageBreak: opts.rowPageBreak || 'auto',
+      margin: opts.repetirEncabezado ? { left: 14, right: 14, top: y + 4, bottom: 20 } : { left: 14, right: 14 },
+      willDrawPage: function () {
+        if (opts.repetirEncabezado && doc.internal.getCurrentPageInfo().pageNumber > 1) {
+          window.dibujarHeaderPDF(doc, { titulo: opts.titulo, subtitulo: opts.subtitulo });
+        }
+      },
       didDrawPage: function () { window.dibujarFooterPDF(doc); }
     });
     return entregar(doc, opts.archivo || opts.titulo, opts.devolver);

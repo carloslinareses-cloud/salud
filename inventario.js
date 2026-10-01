@@ -828,7 +828,7 @@
               return fecha(d.lote.vence) + ': ' + num(d.lote.existencia) + ' unidades';
             }).join('\n')];
         }),
-        horizontal: true, archivo: 'Lotes unificados Farmacia',
+        horizontal: true, archivo: 'Lotes unificados Farmacia', repetirEncabezado: true, rowPageBreak: 'avoid',
         columnas: { 0: { cellWidth: 62 }, 1: { cellWidth: 43 }, 2: { cellWidth: 34 },
           3: { cellWidth: 30, halign: 'right' }, 4: { cellWidth: 82 } }
       });
