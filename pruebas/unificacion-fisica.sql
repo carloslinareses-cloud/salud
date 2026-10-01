@@ -14,7 +14,7 @@ BEGIN
   PERFORM set_config('request.jwt.claims',json_build_object('sub',u,'role','authenticated')::text,true);
   EXECUTE 'SET LOCAL ROLE authenticated';
   SELECT count(*) INTO n FROM farmacia.v_lotes_unificados;
-  IF (perfil IN ('admin','inventario') AND n<>23) OR (perfil='despacho' AND n<>0) THEN RAISE EXCEPTION 'Permiso del informe incorrecto'; END IF;
+  IF (perfil IN ('admin','inventario') AND n<23) OR (perfil='despacho' AND n<>0) THEN RAISE EXCEPTION 'Permiso del informe incorrecto'; END IF;
   EXECUTE 'RESET ROLE';
  END LOOP;
 END $$;
