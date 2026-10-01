@@ -875,7 +875,7 @@
               '<span><b>' + grupos.length + '</b> ' + (grupos.length === 1 ? 'lote' : 'lotes') + '</span>' +
             '</div>' +
             '<div class="prod-acciones">' +
-              '<button type="button" class="suave" id="catEditar">Corregir sus datos</button>' +
+              '<button type="button" class="suave" id="catEditar">Editar medicamento</button>' +
               (puedeBorrarCatalogo()
                 ? '<button type="button" class="suave malo" id="catBorrar">Borrar del catálogo</button>' : '') +
             '</div>' +
@@ -989,8 +989,8 @@
     var z = document.getElementById('catForm');
     if (!z) return;
     z.innerHTML =
-      '<div class="elegido"><div><b>Corregir los datos de este medicamento</b>' +
-      '<span>Cambia cómo se llama o cómo viene empacado. La existencia no se toca aquí.</span></div>' +
+      '<div class="elegido"><div><b>Editar medicamento</b>' +
+      '<span>Corrige el nombre, la dosis, la presentación y el empaque de esta ficha.</span></div>' +
       '<button type="button" class="quitar" id="epCancelar">Cancelar</button></div>' +
       '<label for="epNombre">Nombre</label>' +
       '<input id="epNombre" type="text" autocomplete="off" value="' + esc(p.producto || '') + '">' +
@@ -998,8 +998,13 @@
         '<div><label for="epDosis">Dosificación <span class="opc">(opcional)</span></label>' +
           '<input id="epDosis" type="text" autocomplete="off" placeholder="Ej: 500MG" value="' + esc(p.dosificacion || '') + '"></div>' +
         '<div><label for="epPres">Presentación <span class="opc">(opcional)</span></label>' +
-          '<input id="epPres" type="text" autocomplete="off" placeholder="Ej: TABLETA" value="' + esc(p.presentacion || '') + '"></div>' +
+          '<input id="epPres" type="text" list="epPresentaciones" autocomplete="off" placeholder="Tableta, ampolla, jarabe…" value="' + esc(p.presentacion || '') + '">' +
+          '<datalist id="epPresentaciones"><option value="TABLETAS"><option value="CÁPSULAS"><option value="AMPOLLA"><option value="JARABE"><option value="SUSPENSIÓN"><option value="CREMA"><option value="SOLUCIÓN INYECTABLE"></datalist></div>' +
       '</div>' +
+      '<label for="epUnidad">Cómo se cuenta cada unidad</label>' +
+      '<select id="epUnidad">' +
+        (UNIDADES.indexOf(p.unidad || 'unidad') < 0 ? '<option value="' + esc(p.unidad) + '" selected>' + esc(p.unidad) + '</option>' : '') +
+        UNIDADES.map(function (u) { return '<option value="' + esc(u) + '"' + ((p.unidad || 'unidad') === u ? ' selected' : '') + '>' + esc(u) + '</option>'; }).join('') + '</select>' +
       '<div class="dos-columnas">' +
         '<div><label for="epCat">Qué es</label><select id="epCat">' +
           CATEGORIAS.map(function (c) {
@@ -1031,6 +1036,7 @@
         nombre: nombre,
         dosificacion: document.getElementById('epDosis').value.trim() || null,
         presentacion: document.getElementById('epPres').value.trim() || null,
+        unidad: document.getElementById('epUnidad').value,
         categoria: document.getElementById('epCat').value,
         stock_minimo: Math.max(0, parseInt(document.getElementById('epMinimo').value, 10) || 0),
         empaque: document.getElementById('epEmpaque').value.trim() || null,
@@ -1039,7 +1045,7 @@
       var btn = this; btn.disabled = true; btn.textContent = 'Guardando…';
       sb.from('productos').update(cambio).eq('id', p.producto_id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
         if (r.error) throw r.error;
-        aviso('ok', 'Listo: ahora se llama ' + nombre + '.');
+        aviso('ok', 'Guardé los datos de ' + nombre + '.');
         cat.filas = [];
         verProducto({ producto_id: p.producto_id, producto: nombre });
       }).catch(function (e) {
@@ -1048,6 +1054,8 @@
         btn.disabled = false; btn.textContent = 'Guardar los cambios';
       });
     });
+    if (z.scrollIntoView) z.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('epNombre').focus({ preventScroll: true });
   }
 
   function formEditarLote(p, l) {
