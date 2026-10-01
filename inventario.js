@@ -298,15 +298,10 @@
   function darDeBaja(loteId, nombre, cant) {
     if (!window.confirm('¿Dar de baja ' + cant + ' unidades de ' + nombre + '?\n\n' +
         'Se descuentan del inventario y queda registrado con tu nombre. No se puede deshacer.')) return;
-    sb.from('movimientos').insert({
-      lote_id: loteId, tipo: 'baja', cantidad: -Math.abs(Number(cant)),
-      motivo: 'Baja por vencimiento', origen: 'sistema'
-    }).then(function (r) {
-      if (r.error) { aviso('bad', 'No se pudo: ' + r.error.message); return; }
-      return sb.from('lotes').update({ estado: 'dado_de_baja' }).eq('id', loteId).then(function () {
-        aviso('ok', 'Dadas de baja ' + cant + ' unidades de ' + nombre + '. Quedó registrado.');
-        verAlertas();
-      });
+    sb.rpc('inventario_baja', { p_lote_id: loteId, p_existencia_esperada: Number(cant) }).then(function (r) {
+      if (r.error) { aviso('bad', 'No se pudo dar de baja: ' + r.error.message); return; }
+      aviso('ok', 'Dadas de baja ' + r.data + ' unidades de ' + nombre + '. Quedó registrado.');
+      verAlertas();
     });
   }
 
@@ -586,7 +581,7 @@
 
     var q = sb.from('v_catalogo')
       .select('producto_id,producto,dosificacion,presentacion,categoria,unidad,empaque,' +
-              'unidades_por_empaque,disponible,vencido,lotes,lotes_con_existencia,' +
+              'unidades_por_empaque,stock_minimo,disponible,vencido,lotes,lotes_con_existencia,' +
               'vence_primero,en_cajas,situacion', { count: 'exact' });
 
     if (cat.filtro === 'con')     q = q.gt('disponible', 0);
@@ -849,9 +844,12 @@
     if (p.unidades_por_empaque === undefined) {
       sb.from('v_catalogo')
         .select('producto_id,producto,dosificacion,presentacion,unidad,empaque,' +
-                'unidades_por_empaque,disponible,vencido,en_cajas')
+                'unidades_por_empaque,categoria,stock_minimo,disponible,vencido,en_cajas')
         .eq('producto_id', p.producto_id).single()
-        .then(function (r) { verProducto(r.data || Object.assign({ unidades_por_empaque: null }, p)); });
+        .then(function (r) {
+          if (r.error || !r.data) { aviso('bad', 'No se pudo cargar la ficha completa. Recarga el catálogo e inténtalo de nuevo.'); return; }
+          verProducto(r.data);
+        });
       return;
     }
 
@@ -1044,7 +1042,7 @@
         unidades_por_empaque: porEmp > 1 ? porEmp : null
       };
       var btn = this; btn.disabled = true; btn.textContent = 'Guardando…';
-      sb.from('productos').update(cambio).eq('id', p.producto_id).then(function (r) {
+      sb.from('productos').update(cambio).eq('id', p.producto_id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
         if (r.error) throw r.error;
         aviso('ok', 'Listo: ahora se llama ' + nombre + '.');
         cat.filas = [];
@@ -1076,7 +1074,7 @@
       var cod = document.getElementById('elCodigo').value.trim() || null;
       var ven = document.getElementById('elVence').value || null;
       var btn = this; btn.disabled = true; btn.textContent = 'Guardando…';
-      sb.from('lotes').update({ codigo: cod, vence: ven }).eq('id', l.lote_id).then(function (r) {
+      sb.from('lotes').update({ codigo: cod, vence: ven }).eq('id', l.lote_id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
         if (r.error) throw r.error;
         aviso('ok', 'Lote corregido.');
         verProducto(p);
@@ -1814,60 +1812,8 @@
       return;
     }
 
-    /* Después los datos del lote (número y vencimiento), uno por uno porque
-       cada lote es una fila distinta. Si alguno choca con otro lote que ya
-       tiene ese mismo número y esa misma fecha, se dice cuál y no se sigue. */
-    var cambiosLote = claves.filter(function (k) {
-      return hoja.cambios[k].lote !== undefined || hoja.cambios[k].vence !== undefined;
-    });
-
-    var cadena = Promise.resolve();
-
-    Object.keys(porProducto).forEach(function (id) {
-      cadena = cadena.then(function () {
-        var campos = {};
-        if (porProducto[id].nombre !== undefined) campos.nombre = porProducto[id].nombre;
-        if (porProducto[id].pres !== undefined)   campos.presentacion = porProducto[id].pres || null;
-        return sb.from('productos').update(campos).eq('id', id).then(function (r) {
-          if (r.error) {
-            throw new Error(r.error.code === '23505'
-              ? 'Ya hay otro medicamento con el nombre «' + campos.nombre + '». ' +
-                'No se guardó nada: si son el mismo, cárgalo en el que ya existe.'
-              : 'Al cambiar el medicamento: ' + r.error.message);
-          }
-        });
-      });
-    });
-    cambiosLote.forEach(function (k) {
-      cadena = cadena.then(function () {
-        var c = hoja.cambios[k];
-        var campos = { };
-        if (c.lote !== undefined)  campos.codigo = c.lote || null;
-        if (c.vence !== undefined) campos.vence = c.vence || null;
-        return sb.from('lotes').update(campos).eq('id', k).then(function (r) {
-          if (r.error) {
-            throw new Error(r.error.code === '23505'
-              ? 'En ' + (c.deQuien || 'ese medicamento') + ' ya hay otro lote con ese mismo ' +
-                'número y esa misma fecha. No se guardó nada: revisa ese renglón.'
-              : 'En ' + (c.deQuien || 'ese medicamento') + ': ' + r.error.message);
-          }
-        });
-      });
-    });
-
-    /* Después las cantidades, todas en una sola petición: o entran todas o
-       no entra ninguna, para no dejar un conteo a medias. */
-    cadena.then(function () {
-      var filas = claves.filter(function (k) { return hoja.cambios[k].real !== undefined; })
-        .map(function (k) {
-          var c = hoja.cambios[k];
-          return { lote_id: k, tipo: 'ajuste', cantidad: c.real - c.sis,
-                   motivo: motivo, origen: 'sistema' };
-        });
-      if (!filas.length) return { error: null };
-      return sb.from('movimientos').insert(filas);
-    }).then(function (r) {
-      if (r && r.error) { falla('No se guardaron las cantidades: ' + r.error.message); return; }
+    sb.rpc('inventario_guardar_conteo', { p_cambios: hoja.cambios, p_motivo: motivo }).then(function (r) {
+      if (r.error) { falla('No se guardó ninguna corrección: ' + r.error.message); return; }
       aviso('ok', 'Guardadas ' + claves.length +
                   (claves.length === 1 ? ' corrección' : ' correcciones') +
                   '. Quedaron registradas con tu nombre y el motivo.');

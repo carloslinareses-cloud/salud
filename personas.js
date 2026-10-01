@@ -827,7 +827,7 @@
         var cambio = enCat
           ? { producto_id: enCat.producto_id, texto_original: null }
           : { producto_id: null, texto_original: nuevo };
-        return t.sb.from('tratamientos_paciente').update(cambio).eq('id', id)
+        return t.sb.from('tratamientos_paciente').update(cambio).eq('id', id).select('id').single().then(window.FARM.confirmarFila)
           .then(function (u) {
             if (u.error) { t.aviso('bad', 'No se pudo corregir: ' + u.error.message); return; }
             if (!t.quien || t.quien.id !== pid) return;
@@ -906,7 +906,7 @@
     if (!window.confirm('¿Quitar ' + ((d && d.patologia) || 'esta patología') +
         ' de su ficha?\n\nQueda registrado con tu nombre y se puede volver a anotar.')) return;
 
-    t.sb.from('patologias_paciente').update({ activo: false }).eq('id', id).then(function (r) {
+    t.sb.from('patologias_paciente').update({ activo: false }).eq('id', id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
       if (r.error) { t.aviso('bad', 'No se pudo quitar: ' + r.error.message); return; }
       if (!t.quien || t.quien.id !== pid) return;
       t.recargarAnexos(function () { t.aviso('ok', 'Se quitó de su ficha.'); });
@@ -946,7 +946,7 @@
       : '¿Quitar ' + (nombres[0] || 'esta medicina') + ' de su ficha?';
     if (!window.confirm(pregunta)) return;
 
-    t.sb.from('tratamientos_paciente').update({ activo: false }).eq('id', id).then(function (r) {
+    t.sb.from('tratamientos_paciente').update({ activo: false }).eq('id', id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
       if (r.error) { t.aviso('bad', 'No se pudo quitar: ' + r.error.message); return; }
       if (!t.quien || t.quien.id !== pid) return;
       t.recargarAnexos(function () {
@@ -1142,7 +1142,7 @@
     btn.disabled = true; btn.textContent = 'Guardando…';
     d.cedula_cruda = d.cedula;
 
-    t.sb.from('pacientes').update(d).eq('id', t.quien.id).then(function (r) {
+    t.sb.from('pacientes').update(d).eq('id', t.quien.id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
       btn.disabled = false; btn.textContent = 'Guardar los cambios';
       if (r.error) {
         t.aviso('bad', r.error.code === '23505'

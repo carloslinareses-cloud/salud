@@ -117,7 +117,7 @@
         if (r.error) throw r.error;
         return sb.from('perfiles')
           .update({ debe_cambiar_clave: false, clave_cambiada_en: new Date().toISOString() })
-          .eq('id', usuario.id);
+          .eq('id', usuario.id).select('id').single().then(window.FARM.confirmarFila);
       }).then(function (r) {
         if (r && r.error) throw r.error;
         $('vistaClave').hidden = true;

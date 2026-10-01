@@ -1159,7 +1159,7 @@
       '<input id="' + i('Seccion') + '" type="text" autocomplete="off" value="' + esc(x.seccion || '') + '">' +
       '<div class="pie-form"><button type="button" class="principal" id="' + i('Guardar') + '">' +
         (t.modo === 'ficha' ? 'Guardar los cambios' : 'Registrar') + '</button>' +
-        (t.modo === 'ficha' ? '<button type="button" class="suave" id="' + i('Borrar') +
+        (t.modo === 'ficha' && t.puedeBorrar() ? '<button type="button" class="suave" id="' + i('Borrar') +
           '">Borrar este registro</button>' : '') + '</div>';
 
     t.q('Sexo').querySelectorAll('button').forEach(function (b) {
@@ -1287,7 +1287,7 @@
       '<div class="pie-form">' +
         '<button type="button" class="principal" id="' + i('Guardar') + '">' +
           (t.modo === 'ficha' ? 'Guardar los cambios' : 'Registrar') + '</button>' +
-        (t.modo === 'ficha'
+        (t.modo === 'ficha' && t.puedeBorrar()
           ? '<button type="button" class="suave" id="' + i('Borrar') + '">Borrar este registro</button>' : '') +
       '</div>';
 
@@ -1542,11 +1542,16 @@
     });
   };
 
+  Jornadas.prototype.puedeBorrar = function () {
+    return !!(window.FARMACIA_PERFIL && window.FARMACIA_PERFIL.rol === 'admin');
+  };
+
   Jornadas.prototype.borrarPersona = function (id) {
     var t = this;
+    if (!t.puedeBorrar()) { t.aviso('warn', 'Solo Administración puede borrar registros de Jornadas.'); return; }
     if (!window.confirm('¿Borrar este registro? No se puede deshacer.')) return;
     var volverAEvento = t.origenPersona && t.origenPersona.tipo === 'evento';
-    t.sb.from('jornadas_registros').delete().eq('id', id).then(function (r) {
+    t.sb.from('jornadas_registros').delete().eq('id', id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
       if (r.error) { t.aviso('bad', 'No se pudo borrar: ' + esc(r.error.message)); return; }
       t.modo = 'lista';
       if (volverAEvento) t.modoEv = 'detalle';

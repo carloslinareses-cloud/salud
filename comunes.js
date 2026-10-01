@@ -544,6 +544,16 @@
     };
   };
 
+  /* Una escritura dirigida a una fila sólo se confirma si volvió su id. */
+  F.confirmarFila = function (r) {
+    if (r && r.error && r.error.code !== 'PGRST116') return r;
+    if (r && !r.error && r.data && !Array.isArray(r.data) && r.data.id) return r;
+    return Object.assign({}, r, { data: null, error: {
+      code: 'PGRST116',
+      message: 'No se modificó ninguna fila. El registro ya no está disponible o tu usuario no tiene permiso. Recarga la pantalla e inténtalo de nuevo.'
+    } });
+  };
+
   raiz.FARM = F;
   if (typeof module !== 'undefined' && module.exports) module.exports = F;
 })(typeof window !== 'undefined' ? window : globalThis);

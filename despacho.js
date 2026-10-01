@@ -1860,7 +1860,7 @@
         var cambio = enCat
           ? { producto_id: enCat.producto_id, texto_original: null }
           : { producto_id: null, texto_original: nuevo };
-        return sb.from('tratamientos_paciente').update(cambio).eq('id', tratamientoId)
+        return sb.from('tratamientos_paciente').update(cambio).eq('id', tratamientoId).select('id').single().then(window.FARM.confirmarFila)
           .then(function (u) {
             if (u.error) { avisoTrat('bad', 'No se pudo corregir: ' + u.error.message); return; }
             recargarTratamiento(pid, function () {
@@ -1894,7 +1894,7 @@
 
     /* No se borra: se marca inactiva. La ficha de una persona es un
        historial, y la bitácora deja constancia de quién la cambió. */
-    sb.from('tratamientos_paciente').update({ activo: false }).eq('id', tratamientoId)
+    sb.from('tratamientos_paciente').update({ activo: false }).eq('id', tratamientoId).select('id').single().then(window.FARM.confirmarFila)
       .then(function (r) {
         if (r.error) { avisoTrat('bad', 'No se pudo quitar: ' + r.error.message); return; }
         recargarTratamiento(pid, function () {

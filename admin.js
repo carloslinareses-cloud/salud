@@ -410,7 +410,7 @@
           sb.from('perfiles').update({ activo: activando,
                                        debe_cambiar_clave: activando ? true : undefined,
                                        actualizado_en: new Date().toISOString() })
-            .eq('id', b.dataset.u).then(function (r) {
+            .eq('id', b.dataset.u).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
               b.disabled = false;
               if (r.error) { aviso('bad', r.error.message); return; }
               aviso('ok', 'Listo. Queda registrado en la bitácora.'); verUsuarios();
@@ -659,7 +659,7 @@
             if (!/^\d{6,9}$/.test(val)) { aviso('warn', 'La cédula debe tener entre 6 y 9 números.'); return; }
             sb.from('pacientes').update({ cedula: val, nacionalidad: 'V', estado: 'activo',
                                           motivo_revision: null })
-              .eq('id', f[i].id).then(function (r) {
+              .eq('id', f[i].id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
                 if (r.error) {
                   aviso('bad', r.error.code === '23505'
                     ? 'Esa cédula ya la tiene otro paciente. Revisa cuál es la correcta.'

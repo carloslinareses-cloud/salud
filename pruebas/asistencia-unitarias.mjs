@@ -475,7 +475,7 @@ const OTRA_ZONA = (() => {
     '  delComputador: new Date(' + JSON.stringify(NOCHE) + ').getHours() + ":" + new Date(' + JSON.stringify(NOCHE) + ').getMinutes()' +
     '}));';
   const r = spawnSync(process.execPath, ['-e', guion],
-                      { env: { ...process.env, TZ: 'Asia/Tokyo' }, encoding: 'utf-8' });
+                      { env: { ...process.env, TZ: 'Asia/Tokyo' }, encoding: 'utf-8', windowsHide: true });
   if (r.status !== 0) throw new Error('No se pudo correr la prueba en otra zona horaria: ' + (r.stderr || ''));
   return JSON.parse(r.stdout);
 })();

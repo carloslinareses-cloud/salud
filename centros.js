@@ -599,7 +599,7 @@
     if (!window.confirm('¿Quitar ' + nom + ' de la lista de ' + t.quien.nombre + '?\n\n' +
         'No borra ninguna entrega ya hecha. Queda registrado con tu nombre.')) return;
 
-    t.sb.from('requerimientos_institucion').update({ activo: false }).eq('id', id).then(function (r) {
+    t.sb.from('requerimientos_institucion').update({ activo: false }).eq('id', id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
       if (r.error) { t.aviso('bad', 'No se pudo quitar: ' + r.error.message); return; }
       if (!t.quien || t.quien.id !== cid) return;
       t.recargar(function () { t.aviso('ok', 'Se quitó ' + nom + ' de su lista.'); });
@@ -617,7 +617,7 @@
       return;
     }
     casilla.disabled = true;
-    t.sb.from('requerimientos_institucion').update({ cantidad: n }).eq('id', id).then(function (r) {
+    t.sb.from('requerimientos_institucion').update({ cantidad: n }).eq('id', id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
       casilla.disabled = false;
       if (r.error) { t.aviso('bad', 'No se pudo guardar la cantidad: ' + r.error.message); return; }
       /* Se vuelve a leer para que la columna de situación diga la verdad:
@@ -1079,7 +1079,7 @@
 
     var btn = t.q('Guardar');
     btn.disabled = true; btn.textContent = 'Guardando…';
-    t.sb.from('instituciones').update(d).eq('id', t.quien.id).then(function (r) {
+    t.sb.from('instituciones').update(d).eq('id', t.quien.id).select('id').single().then(window.FARM.confirmarFila).then(function (r) {
       btn.disabled = false; btn.textContent = 'Guardar los cambios';
       if (r.error) {
         t.aviso('bad', r.error.code === '23505'
