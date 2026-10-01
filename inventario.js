@@ -797,9 +797,9 @@
     var texto = btn.textContent, todo = [];
     btn.disabled = true; btn.textContent = 'Preparando…';
     function traer(desde) {
-      return sb.from('v_existencia_lote')
-        .select('lote_id,producto_id,producto,dosificacion,presentacion,lote,vence,existencia,estado,situacion')
-        .eq('estado', 'disponible').order('lote_id').range(desde, desde + 999)
+      return sb.from('v_lotes_unificados')
+        .select('lote_id,producto_id,producto,dosificacion,presentacion,lote,vence,existencia,registros_anteriores,retirado_sin_sumar')
+        .order('producto').order('lote_id').range(desde, desde + 999)
         .then(function (r) {
           if (r.error) throw r.error;
           todo = todo.concat(r.data || []);
@@ -807,21 +807,16 @@
         });
     }
     traer(0).then(function () {
-      var grupos = agruparLotes(todo).filter(function (g) { return g.detalle.length > 1 && g.lote; });
-      grupos.sort(function (a, b) {
-        return a.detalle[0].lote.producto.localeCompare(b.detalle[0].lote.producto, 'es') || a.lote.localeCompare(b.lote, 'es');
-      });
-      var total = grupos.reduce(function (n, g) { return n + g.existencia; }, 0);
+      if (!todo.length) { aviso('warn', 'Todavía no hay unificaciones físicas registradas.'); return; }
+      var total = todo.reduce(function (n, l) { return n + Number(l.existencia || 0); }, 0);
       window.FARMREP.pdfTabla({
         titulo: 'Lotes unificados de Farmacia',
-        subtitulo: grupos.length + ' lotes · ' + num(total) + ' unidades · Vencimientos conservados',
-        encabezados: ['Medicamento', 'Presentación', 'Lote', 'Cantidad total', 'Detalle por vencimiento'],
-        filas: grupos.map(function (g) {
-          var p = g.detalle[0].lote;
-          return [p.producto, [p.dosificacion, p.presentacion].filter(Boolean).join(' · '), g.lote,
-            num(g.existencia), g.detalle.map(function (d) {
-              return fecha(d.lote.vence) + ': ' + num(d.lote.existencia) + ' unidades';
-            }).join('\n')];
+        subtitulo: todo.length + ' lotes · ' + num(total) + ' unidades · Unificación física verificada',
+        encabezados: ['Medicamento', 'Presentación', 'Lote', 'Cantidad total', 'Resultado de la unificación'],
+        filas: todo.map(function (p) {
+          return [p.producto, [p.dosificacion, p.presentacion].filter(Boolean).join(' · '), p.lote,
+            num(p.existencia), 'Vence ' + fecha(p.vence) + '\n' + p.registros_anteriores + ' registros unificados en 1 lote' +
+              (Number(p.retirado_sin_sumar) > 0 ? '\n' + num(p.retirado_sin_sumar) + ' duplicadas retiradas sin sumar' : '')];
         }),
         horizontal: true, archivo: 'Lotes unificados Farmacia', repetirEncabezado: true, rowPageBreak: 'avoid',
         columnas: { 0: { cellWidth: 62 }, 1: { cellWidth: 43 }, 2: { cellWidth: 34 },
