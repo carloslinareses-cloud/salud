@@ -203,7 +203,7 @@
     t.raiz.innerHTML =
       '<h2 class="sub-t">Lo que se entregó</h2>' +
       '<p class="sub">Elige el período y abajo sale todo lo que salió de la farmacia, ' +
-      'contado y listo para descargar en Excel o en PDF.</p>' +
+      'con los conteos de entregas, personas, productos y unidades separados.</p>' +
 
       '<div class="chips" id="' + i('Per') + '">' +
         PERIODOS.map(function (p) {
@@ -479,15 +479,19 @@
 
     z.innerHTML =
       '<div class="cifras-linea">' +
-        cifra(num(c.entregas), c.entregas === 1 ? 'entrega' : 'entregas', '') +
-        cifra(num(c.personas), c.personas === 1 ? 'persona atendida' : 'personas atendidas', '') +
-        cifra(num(c.centros), c.centros === 1 ? 'centro de salud' : 'centros de salud', '') +
-        cifra(num(c.medicamentos), c.medicamentos === 1 ? 'medicamento' : 'medicamentos distintos', '') +
+        cifra(num(c.entregas), 'entregas registradas', '') +
+        cifra(num(c.personas), 'personas distintas con entregas', '') +
+        cifra(num(c.centros), 'centros de salud distintos con entregas', '') +
+        cifra(num(c.medicamentos), 'medicamentos o insumos distintos con cantidad', '') +
         cifra(num(c.unidades), 'unidades entregadas', c.unidades ? 'ok' : 'gris') +
       '</div>' +
+      '<p class="sub chico">Las cifras corresponden al período y a la búsqueda actuales. ' +
+      'Una entrega se cuenta una vez aunque incluya varios productos. Cada persona y centro se cuentan una sola vez. ' +
+      'Los productos distintos y las unidades solo incluyen renglones con cantidad anotada; ' +
+      'las unidades suman las cantidades entregadas, según la unidad de cada producto (tabletas, frascos, etc.).</p>' +
 
       (c.delExcel.length
-        ? '<div class="aviso warn"><b>' + num(c.delExcel.length) + ' de esas entregas vienen de los Excel</b>' +
+        ? '<div class="aviso warn"><b>' + num(c.delExcel.length) + ' renglones de entregas vienen de los Excel</b>' +
           'Dicen a quién y qué, pero no cuántas unidades: el papel no lo anotaba. Se cuentan ' +
           'como entregas y se listan abajo, pero <b style="display:inline">no</b> entran en el ' +
           'total de unidades. Sumarlas sería inventar números.</div>'
@@ -526,10 +530,13 @@
           '">+ Registrar entrega</button></div><div id="' + i('Gestion') + '"></div>'
         : '') +
 
+      '<label for="' + i('Busca') + '">Filtrar entregas del período</label>' +
+      '<p class="sub chico">La búsqueda filtra los renglones coincidentes y actualiza las cifras, todas las tablas y las descargas. ' +
+      'Si buscas un medicamento, solo se suman sus unidades.</p>' +
       '<div class="herr-der">' +
         '<input id="' + i('Busca') + '" type="search" autocomplete="off" ' +
-          'aria-label="Acotar dentro del período" ' +
-          'placeholder="Acotar: medicamento, persona, centro, lote…" value="' + esc(t.busca) + '">' +
+          'aria-label="Buscar entregas por medicamento, persona, centro, lote o despachador" ' +
+          'placeholder="Buscar medicamento, persona, centro, lote o despachador…" value="' + esc(t.busca) + '">' +
       '</div>' +
 
       (hayAlgo
@@ -588,33 +595,33 @@
     if (!c.porMed.length) return '';
     var cuerpo = c.porMed.map(function (m) {
       return '<tr>' +
-        '<td class="c-med" data-col="Medicamento"><b>' + esc(m.producto || 'Sin identificar') + '</b>' +
+        '<td class="c-med" data-col="Medicamento o insumo"><b>' + esc(m.producto || 'Sin identificar') + '</b>' +
           (m.dosificacion ? '<span class="chico">' + esc(m.dosificacion) + '</span>' : '') + '</td>' +
         '<td data-col="Presentación">' + esc(m.presentacion || '') + '</td>' +
-        '<td class="num der" data-col="Unidades"><b>' + num(m.unidades) + '</b>' +
+        '<td class="num der" data-col="Unidades entregadas"><b>' + num(m.unidades) + '</b>' +
           (m.unidad ? '<span class="chico">' + esc(m.unidad) + '</span>' : '') + '</td>' +
-        '<td class="num der" data-col="Entregas">' + num(m.nEntregas) + '</td>' +
-        '<td class="num der" data-col="Personas">' + num(m.nPersonas) + '</td>' +
+        '<td class="num der" data-col="Entregas registradas">' + num(m.nEntregas) + '</td>' +
+        '<td class="num der" data-col="Personas distintas">' + num(m.nPersonas) + '</td>' +
       '</tr>';
     }).join('');
-    return caja('Qué se entregó', 'Ordenado por lo que más salió.',
-      [{ t: 'Medicamento' }, { t: 'Presentación' }, { t: 'Unidades', der: true },
-       { t: 'Entregas', der: true }, { t: 'Personas', der: true }], cuerpo);
+    return caja('Medicamentos e insumos entregados', 'Ordenado por unidades entregadas. Personas distintas que recibieron cada producto; entregas registradas que lo incluyen. Una persona o entrega puede aparecer en varios productos.',
+      [{ t: 'Medicamento o insumo' }, { t: 'Presentación' }, { t: 'Unidades entregadas', der: true },
+       { t: 'Entregas registradas', der: true }, { t: 'Personas distintas', der: true }], cuerpo);
   }
 
   function tablaDia(c) {
     if (!c.porDia.length) return '';
     var cuerpo = c.porDia.map(function (d) {
       return '<tr>' +
-        '<td data-col="Día"><b>' + corta(d.fecha) + '</b></td>' +
-        '<td class="num der" data-col="Entregas">' + num(d.nEntregas) + '</td>' +
-        '<td class="num der" data-col="Unidades">' + (d.unidades ? num(d.unidades) : '—') + '</td>' +
-        '<td class="num der" data-col="Sin cantidad">' + (d.sin ? num(d.sin) : '') + '</td>' +
+        '<td data-col="Fecha de entrega"><b>' + corta(d.fecha) + '</b></td>' +
+        '<td class="num der" data-col="Entregas registradas">' + num(d.nEntregas) + '</td>' +
+        '<td class="num der" data-col="Unidades entregadas">' + (d.unidades ? num(d.unidades) : '—') + '</td>' +
+        '<td class="num der" data-col="Renglones sin cantidad anotada">' + (d.sin ? num(d.sin) : '') + '</td>' +
       '</tr>';
     }).join('');
-    return caja('Día por día', '',
-      [{ t: 'Día' }, { t: 'Entregas', der: true }, { t: 'Unidades', der: true },
-       { t: 'Sin cantidad', der: true }], cuerpo);
+    return caja('Entregas y unidades por fecha', 'Entregas distintas de cada fecha, unidades con cantidad anotada y renglones sin cantidad conocida.',
+      [{ t: 'Fecha de entrega' }, { t: 'Entregas registradas', der: true }, { t: 'Unidades entregadas', der: true },
+       { t: 'Renglones sin cantidad anotada', der: true }], cuerpo);
   }
 
   function tablaQuien(c) {
@@ -622,12 +629,12 @@
     var cuerpo = c.porQuien.map(function (w) {
       return '<tr>' +
         '<td data-col="Quién despachó"><b>' + esc(w.quien) + '</b></td>' +
-        '<td class="num der" data-col="Entregas">' + num(w.nEntregas) + '</td>' +
-        '<td class="num der" data-col="Unidades">' + (w.unidades ? num(w.unidades) : '—') + '</td>' +
+        '<td class="num der" data-col="Entregas registradas">' + num(w.nEntregas) + '</td>' +
+        '<td class="num der" data-col="Unidades entregadas">' + (w.unidades ? num(w.unidades) : '—') + '</td>' +
       '</tr>';
     }).join('');
-    return caja('Quién despachó', '',
-      [{ t: 'Quién despachó' }, { t: 'Entregas', der: true }, { t: 'Unidades', der: true }], cuerpo);
+    return caja('Quién despachó', 'Entregas registradas y unidades con cantidad anotada por cada despachador.',
+      [{ t: 'Quién despachó' }, { t: 'Entregas registradas', der: true }, { t: 'Unidades entregadas', der: true }], cuerpo);
   }
 
   function tablaPatologiaResumen(c) {
@@ -636,12 +643,12 @@
     var cuerpo = pt.resumen.map(function (p) {
       return '<tr>' +
         '<td data-col="Patología"><b>' + esc(p.patologia) + '</b></td>' +
-        '<td class="num der" data-col="Niños, personas">' + (p.ninosPersonas || '—') + '</td>' +
-        '<td class="num der" data-col="Niños, unidades">' + (p.ninosUnidades ? num(p.ninosUnidades) : '—') + '</td>' +
-        '<td class="num der" data-col="Adultos, personas">' + (p.adultosPersonas || '—') + '</td>' +
-        '<td class="num der" data-col="Adultos, unidades">' + (p.adultosUnidades ? num(p.adultosUnidades) : '—') + '</td>' +
-        '<td class="num der" data-col="Sin edad, unidades">' + (p.sinEdadUnidades ? num(p.sinEdadUnidades) : '—') + '</td>' +
-        '<td class="num der" data-col="Total unidades"><b>' + num(p.totalUnidades) + '</b></td>' +
+        '<td class="num der" data-col="Personas menores de 18 años">' + (p.ninosPersonas || '—') + '</td>' +
+        '<td class="num der" data-col="Unidades a menores de 18 años">' + (p.ninosUnidades ? num(p.ninosUnidades) : '—') + '</td>' +
+        '<td class="num der" data-col="Personas de 18 años o más">' + (p.adultosPersonas || '—') + '</td>' +
+        '<td class="num der" data-col="Unidades a personas de 18 años o más">' + (p.adultosUnidades ? num(p.adultosUnidades) : '—') + '</td>' +
+        '<td class="num der" data-col="Unidades a personas sin edad registrada">' + (p.sinEdadUnidades ? num(p.sinEdadUnidades) : '—') + '</td>' +
+        '<td class="num der" data-col="Total de unidades entregadas"><b>' + num(p.totalUnidades) + '</b></td>' +
       '</tr>';
     }).join('');
     var notas = [];
@@ -655,11 +662,11 @@
         (pt.sinPatologia.personas === 1 ? ' persona sin' : ' personas sin') +
         ' ninguna patología registrada no entran en esta tabla.');
     }
-    return caja('Por patología, niños y adultos',
-      notas.join(' ') || 'Solo cuenta lo que sí tiene cantidad anotada y paciente con patología registrada.',
-      [{ t: 'Patología' }, { t: 'Niños, personas', der: true }, { t: 'Niños, unidades', der: true },
-       { t: 'Adultos, personas', der: true }, { t: 'Adultos, unidades', der: true },
-       { t: 'Sin edad, unidades', der: true }, { t: 'Total unidades', der: true }], cuerpo);
+    return caja('Personas y unidades entregadas por patología y edad',
+      'Cada columna indica si cuenta personas distintas o unidades entregadas. Solo incluye entregas con cantidad y personas con patología registrada. ' + notas.join(' '),
+      [{ t: 'Patología' }, { t: 'Personas menores de 18 años', der: true }, { t: 'Unidades a menores de 18 años', der: true },
+       { t: 'Personas de 18 años o más', der: true }, { t: 'Unidades a personas de 18 años o más', der: true },
+       { t: 'Unidades a personas sin edad registrada', der: true }, { t: 'Total de unidades entregadas', der: true }], cuerpo);
   }
 
   function tablaPatologiaDetalle(c) {
@@ -668,18 +675,18 @@
     var cuerpo = pt.detalle.map(function (d) {
       return '<tr>' +
         '<td data-col="Patología"><b>' + esc(d.patologia) + '</b></td>' +
-        '<td data-col="Grupo">' + esc(d.grupo) + '</td>' +
-        '<td class="c-med" data-col="Medicamento">' + esc(d.producto || 'Sin identificar') +
+        '<td data-col="Grupo de edad">' + esc(d.grupo) + '</td>' +
+        '<td class="c-med" data-col="Medicamento o insumo">' + esc(d.producto || 'Sin identificar') +
           (d.dosificacion ? '<span class="chico">' + esc(d.dosificacion) + '</span>' : '') + '</td>' +
-        '<td class="num der" data-col="Unidades"><b>' + num(d.unidades) + '</b>' +
+        '<td class="num der" data-col="Unidades entregadas"><b>' + num(d.unidades) + '</b>' +
           (d.unidad ? '<span class="chico">' + esc(d.unidad) + '</span>' : '') + '</td>' +
-        '<td class="num der" data-col="Personas">' + num(d.personas) + '</td>' +
+        '<td class="num der" data-col="Personas distintas">' + num(d.personas) + '</td>' +
       '</tr>';
     }).join('');
-    return caja('Qué se entregó, por patología',
-      'Una fila por patología, grupo de edad y medicamento.',
-      [{ t: 'Patología' }, { t: 'Grupo' }, { t: 'Medicamento' },
-       { t: 'Unidades', der: true }, { t: 'Personas', der: true }], cuerpo);
+    return caja('Medicamentos, insumos y personas por patología',
+      'Una fila por patología, grupo de edad y producto. Personas distintas que recibieron ese producto y unidades entregadas con cantidad anotada. Una persona con varias patologías aparece en cada una; no se deben sumar estos grupos como personas únicas.',
+      [{ t: 'Patología' }, { t: 'Grupo de edad' }, { t: 'Medicamento o insumo' },
+       { t: 'Unidades entregadas', der: true }, { t: 'Personas distintas', der: true }], cuerpo);
   }
 
   Tablero.prototype.tablaDetalle = function (c) {
@@ -716,13 +723,14 @@
         ? '<button type="button" class="suave" data-gest="' + esc(x.entrega_id) + '">Corregir o anular</button>' : '';
       primera[x.entrega_id] = true;
       return '<tr>' +
-        '<td data-col="Día">' + corta(x.fecha) + '</td>' +
-        '<td data-col="A quién">' + quien + '</td>' +
-        '<td class="c-med" data-col="Qué">' + que + '</td>' +
+        '<td data-col="Fecha de entrega">' + corta(x.fecha) + '</td>' +
+        '<td data-col="Persona o centro receptor">' + quien + '</td>' +
+        '<td class="c-med" data-col="Medicamento o insumo entregado">' + que + '</td>' +
         '<td data-col="Lote">' + esc(x.lote || (x.cantidad != null ? 'sin número' : '')) + '</td>' +
-        '<td class="num der" data-col="Cantidad">' +
+        '<td class="num der" data-col="Unidades entregadas">' +
           (x.cantidad != null
             ? '<b>' + num(x.cantidad) + '</b>' +
+              (x.unidad ? '<span class="chico">' + esc(x.unidad) + '</span>' : '') +
               (x.en_cajas ? '<span class="chico">' + esc(x.en_cajas) + '</span>' : '')
             : '<span class="chico mal">sin anotar</span>') + '</td>' +
         '<td data-col="Despachó">' + esc(x.entregado_por || '') + '</td>' +
@@ -730,11 +738,11 @@
       '</tr>';
     }).join('');
 
-    return caja('Renglón por renglón',
-      num(f.length) + (f.length === 1 ? ' renglón' : ' renglones') +
+    return caja('Detalle de medicamentos e insumos por entrega',
+      num(f.length) + ' renglones de productos o descripciones históricas; una entrega puede ocupar varios renglones' +
       (paginas > 1 ? ' · página ' + (t.pagina + 1) + ' de ' + paginas : ''),
-      [{ t: 'Día' }, { t: 'A quién' }, { t: 'Qué' }, { t: 'Lote' },
-       { t: 'Cantidad', der: true }, { t: 'Despachó' }].concat(
+      [{ t: 'Fecha de entrega' }, { t: 'Persona o centro receptor' }, { t: 'Medicamento o insumo entregado' }, { t: 'Lote' },
+       { t: 'Unidades entregadas', der: true }, { t: 'Despachó' }].concat(
         puedeGestionar ? [{ t: 'Acciones' }] : []), cuerpo, t.id('Detalle')) +
       (paginas > 1
         ? '<div class="paginador">' +
@@ -936,47 +944,47 @@
     /* `n` es el numero de verdad y `v` como se lee. Al Excel va el numero,
        para poder sumarlo alli; al PDF y a la pantalla va el texto. */
     var resumen = [
-      { k: c.entregas === 1 ? 'Entrega' : 'Entregas', n: c.entregas, v: num(c.entregas) },
-      { k: 'Personas atendidas', n: c.personas, v: num(c.personas) },
-      { k: 'Centros de salud', n: c.centros, v: num(c.centros) },
-      { k: 'Medicamentos distintos', n: c.medicamentos, v: num(c.medicamentos) },
+      { k: 'Entregas registradas', n: c.entregas, v: num(c.entregas) },
+      { k: 'Personas distintas con entregas', n: c.personas, v: num(c.personas) },
+      { k: 'Centros de salud distintos con entregas', n: c.centros, v: num(c.centros) },
+      { k: 'Medicamentos o insumos distintos con cantidad', n: c.medicamentos, v: num(c.medicamentos) },
       { k: 'Unidades entregadas', n: Math.round(c.unidades), v: num(c.unidades) },
-      { k: 'Entregas del Excel, sin cantidad', n: c.delExcel.length, v: num(c.delExcel.length) },
-      { k: 'Entregas de aquí que quedaron sin renglones', n: c.aMedias.length, v: num(c.aMedias.length) }
+      { k: 'Renglones del Excel sin cantidad anotada', n: c.delExcel.length, v: num(c.delExcel.length) },
+      { k: 'Registros del sistema sin detalle de productos', n: c.aMedias.length, v: num(c.aMedias.length) }
     ];
 
-    var encMed = ['Medicamento', 'Dosificación', 'Presentación', 'Qué es',
-                  'Unidades', 'Eso es', 'Entregas', 'Personas'];
+    var encMed = ['Medicamento o insumo', 'Dosificación', 'Presentación', 'Categoría del producto',
+                  'Unidades entregadas', 'Equivalencia en empaques', 'Entregas registradas', 'Personas distintas'];
     var filMed = c.porMed.map(function (m) {
       return [m.producto || 'Sin identificar', m.dosificacion || '', m.presentacion || '',
               m.categoria || '', Math.round(m.unidades),
               enCajas(m.unidades, m.porEmpaque, m.empaque), m.nEntregas, m.nPersonas];
     });
 
-    var encDia = ['Día', 'Entregas', 'Unidades', 'Renglones sin cantidad'];
+    var encDia = ['Fecha de entrega', 'Entregas registradas', 'Unidades entregadas', 'Renglones sin cantidad anotada'];
     var filDia = c.porDia.map(function (d) {
       return [corta(d.fecha), d.nEntregas, Math.round(d.unidades), d.sin];
     });
 
-    var encQuien = ['Quién despachó', 'Entregas', 'Unidades'];
+    var encQuien = ['Quién despachó', 'Entregas registradas', 'Unidades entregadas'];
     var filQuien = c.porQuien.map(function (w) {
       return [w.quien, w.nEntregas, Math.round(w.unidades)];
     });
 
-    var encPatResumen = ['Patología', 'Niños, personas', 'Niños, unidades', 'Adultos, personas',
-                         'Adultos, unidades', 'Sin edad, unidades', 'Total unidades'];
+    var encPatResumen = ['Patología', 'Personas menores de 18 años', 'Unidades a menores de 18 años', 'Personas de 18 años o más',
+                         'Unidades a personas de 18 años o más', 'Unidades a personas sin edad registrada', 'Total de unidades entregadas'];
     var filPatResumen = c.patologia.resumen.map(function (p) {
       return [p.patologia, p.ninosPersonas, Math.round(p.ninosUnidades), p.adultosPersonas,
               Math.round(p.adultosUnidades), Math.round(p.sinEdadUnidades), Math.round(p.totalUnidades)];
     });
 
-    var encPatDet = ['Patología', 'Grupo', 'Medicamento', 'Unidades', 'Personas'];
+    var encPatDet = ['Patología', 'Grupo de edad', 'Medicamento o insumo', 'Unidades entregadas', 'Personas distintas'];
     var filPatDet = c.patologia.detalle.map(function (d) {
       return [d.patologia, d.grupo, d.producto || 'Sin identificar', Math.round(d.unidades), d.personas];
     });
 
-    var encDet = ['Día', 'A quién', 'Tipo', 'Cédula', 'Medicamento', 'Dosificación',
-                  'Lote', 'Vence', 'Cantidad', 'Eso es', 'Despachó', 'Origen'];
+    var encDet = ['Fecha de entrega', 'Persona o centro receptor', 'Tipo', 'Cédula', 'Medicamento o insumo', 'Dosificación',
+                  'Lote', 'Vence', 'Unidades entregadas', 'Equivalencia en empaques', 'Despachó', 'Origen'];
     var filDet = c.conCantidad.map(function (x) {
       return [corta(x.fecha), x.destinatario || '',
               x.tipo_destinatario === 'institucion' ? (x.centro_tipo || 'Centro') : 'Persona',
@@ -986,7 +994,7 @@
               x.entregado_por || '', x.origen === 'sistema' ? 'Sistema' : 'Excel'];
     });
 
-    var encSin = ['Día', 'A quién', 'Cédula', 'Lo que dice el papel', 'Origen'];
+    var encSin = ['Fecha de entrega', 'Persona o centro receptor', 'Cédula', 'Descripción registrada de la entrega', 'Origen'];
     var filSin = c.sinCantidad.map(function (x) {
       return [x.fecha ? corta(x.fecha) : '', x.destinatario || '',
               (x.nacionalidad || '') + (x.cedula || ''),
@@ -996,24 +1004,24 @@
     if (formato === 'excel') {
       var hojas = [{
         nombre: 'Resumen', titulo: titulo + ' · ' + sub,
-        encabezados: ['Concepto', 'Cantidad'],
+        encabezados: ['Concepto', 'Unidades entregadas'],
         filas: resumen.map(function (r) { return [r.k, r.n]; }),
         anchos: [34, 16]
       }];
-      if (filMed.length) hojas.push({ nombre: 'Qué se entregó', titulo: 'Qué se entregó · ' + sub,
+      if (filMed.length) hojas.push({ nombre: 'Productos entregados', titulo: 'Medicamentos e insumos entregados · ' + sub,
         encabezados: encMed, filas: filMed, anchos: [38, 16, 20, 14, 12, 22, 11, 11] });
-      if (filDia.length) hojas.push({ nombre: 'Día por día', titulo: 'Día por día · ' + sub,
+      if (filDia.length) hojas.push({ nombre: 'Entregas y unidades por fecha', titulo: 'Entregas y unidades por fecha · ' + sub,
         encabezados: encDia, filas: filDia, anchos: [14, 11, 12, 20] });
       if (filQuien.length) hojas.push({ nombre: 'Quién despachó', titulo: 'Quién despachó · ' + sub,
         encabezados: encQuien, filas: filQuien, anchos: [34, 11, 12] });
-      if (filPatResumen.length) hojas.push({ nombre: 'Por patología', titulo: 'Por patología, niños y adultos · ' + sub,
+      if (filPatResumen.length) hojas.push({ nombre: 'Por patología', titulo: 'Personas y unidades entregadas por patología y edad · ' + sub,
         encabezados: encPatResumen, filas: filPatResumen, anchos: [36, 14, 14, 14, 14, 15, 14] });
-      if (filPatDet.length) hojas.push({ nombre: 'Patología y medicamento', titulo: 'Qué se entregó, por patología · ' + sub,
+      if (filPatDet.length) hojas.push({ nombre: 'Patología y medicamento', titulo: 'Medicamentos, insumos y personas por patología · ' + sub,
         encabezados: encPatDet, filas: filPatDet, anchos: [36, 22, 38, 12, 12] });
-      if (filDet.length) hojas.push({ nombre: 'Detalle', titulo: 'Renglón por renglón · ' + sub,
+      if (filDet.length) hojas.push({ nombre: 'Detalle', titulo: 'Detalle de medicamentos e insumos por entrega · ' + sub,
         encabezados: encDet, filas: filDet,
         anchos: [12, 32, 12, 13, 34, 15, 16, 12, 11, 20, 24, 10] });
-      if (filSin.length) hojas.push({ nombre: 'Sin cantidad', titulo: 'Entregas sin cantidad anotada · ' + sub,
+      if (filSin.length) hojas.push({ nombre: 'Renglones sin cantidad anotada', titulo: 'Entregas sin cantidad anotada · ' + sub,
         encabezados: encSin, filas: filSin, anchos: [12, 32, 13, 60, 10] });
       window.FARMREP.excel(archivo, hojas);
       return;
@@ -1021,7 +1029,7 @@
 
     var bloques = [];
     if (filMed.length) bloques.push({
-      titulo: 'Qué se entregó', nota: 'Ordenado por lo que más salió.',
+      titulo: 'Medicamentos e insumos entregados', nota: 'Ordenado por unidades entregadas. Personas distintas que recibieron cada producto; entregas registradas que lo incluyen. Una persona o entrega puede aparecer en varios productos.',
       encabezados: encMed, filas: filMed,
       pie: ['TOTAL', '', '', '', Math.round(c.unidades), '', '', ''],
       columnas: { 0: { cellWidth: 60 }, 1: { cellWidth: 22 }, 2: { cellWidth: 28 },
@@ -1030,7 +1038,7 @@
                   7: { cellWidth: 16, halign: 'right' } }
     });
     if (filDia.length) bloques.push({
-      titulo: 'Día por día', encabezados: encDia, filas: filDia,
+      titulo: 'Entregas y unidades por fecha', encabezados: encDia, filas: filDia,
       columnas: { 0: { cellWidth: 30 }, 1: { cellWidth: 26, halign: 'right' },
                   2: { cellWidth: 26, halign: 'right' }, 3: { cellWidth: 40, halign: 'right' } }
     });
@@ -1040,7 +1048,7 @@
                   2: { cellWidth: 26, halign: 'right' } }
     });
     if (filPatResumen.length) bloques.push({
-      titulo: 'Por patología, niños y adultos',
+      titulo: 'Personas y unidades entregadas por patología y edad',
       nota: 'Si una persona tiene más de una patología, lo entregado se cuenta en cada una.',
       encabezados: encPatResumen, filas: filPatResumen,
       columnas: { 0: { cellWidth: 60 }, 1: { cellWidth: 27, halign: 'right' },
@@ -1049,7 +1057,7 @@
                   6: { cellWidth: 30, halign: 'right' } }
     });
     if (filPatDet.length) bloques.push({
-      titulo: 'Qué se entregó, por patología', encabezados: encPatDet, filas: filPatDet,
+      titulo: 'Medicamentos, insumos y personas por patología', encabezados: encPatDet, filas: filPatDet,
       columnas: { 0: { cellWidth: 55 }, 1: { cellWidth: 45 }, 2: { cellWidth: 70 },
                   3: { cellWidth: 26, halign: 'right' }, 4: { cellWidth: 26, halign: 'right' } }
     });
@@ -1057,7 +1065,7 @@
        autoTable no avisa, recorta o desborda la hoja. Hay que sumarlos a
        mano cada vez que se toque una columna. */
     if (filDet.length) bloques.push({
-      titulo: 'Renglón por renglón', encabezados: encDet, filas: filDet,
+      titulo: 'Detalle de medicamentos e insumos por entrega', encabezados: encDet, filas: filDet,
       columnas: { 0: { cellWidth: 17 }, 1: { cellWidth: 38 }, 2: { cellWidth: 14 },
                   3: { cellWidth: 17 }, 4: { cellWidth: 36 }, 5: { cellWidth: 18 },
                   6: { cellWidth: 18 }, 7: { cellWidth: 16 },
@@ -1066,7 +1074,7 @@
     });
     if (filSin.length) bloques.push({
       titulo: 'Entregas sin cantidad anotada',
-      nota: 'Vienen de los Excel: dicen a quién y qué, pero no cuántas unidades. No entran en el total.',
+      nota: 'Renglones sin cantidad anotada, del Excel o del sistema. Se incluyen en el conteo de entregas, pero no en productos distintos ni unidades entregadas.',
       encabezados: encSin, filas: filSin,
       columnas: { 0: { cellWidth: 18 }, 1: { cellWidth: 55 }, 2: { cellWidth: 20 },
                   3: { cellWidth: 122 }, 4: { cellWidth: 16 } }
