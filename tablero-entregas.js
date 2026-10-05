@@ -584,7 +584,7 @@
   function caja(titulo, nota, cabeceras, cuerpo, id) {
     return '<h3 class="sub-t"' + (id ? ' id="' + id + '"' : '') + '>' + titulo + '</h3>' +
       (nota ? '<p class="sub chico">' + nota + '</p>' : '') +
-      '<div class="tabla-caja"><table class="tabla datos"><thead><tr>' +
+      '<div class="tabla-caja"><table class="tabla datos tabla-entregas"><thead><tr>' +
         cabeceras.map(function (h) {
           return '<th' + (h.der ? ' class="der"' : '') + '>' + esc(h.t) + '</th>';
         }).join('') +
