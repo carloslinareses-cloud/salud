@@ -204,6 +204,7 @@
       '<h2 class="sub-t">Lo que se entregó</h2>' +
       '<p class="sub">Elige el período y abajo sale todo lo que salió de la farmacia, ' +
       'con los conteos de entregas, personas, productos y unidades separados.</p>' +
+      '<div id="' + i('ResumenTrimestral') + '"></div>' +
 
       '<div class="chips" id="' + i('Per') + '">' +
         PERIODOS.map(function (p) {
@@ -233,6 +234,7 @@
       });
     });
 
+    if (window.FARMRESUMEN_TRIMESTRAL) window.FARMRESUMEN_TRIMESTRAL.montar(t.sb, t.q('ResumenTrimestral'));
     t.cargar();
     t.cargarPatologias();
   };

@@ -201,6 +201,7 @@
     var alto = doc.internal.pageSize.getHeight();
     var y = window.dibujarHeaderPDF(doc, { titulo: opts.titulo, subtitulo: opts.subtitulo });
     var dibujoAlgo = false;
+    var margenSuperior = opts.repetirEncabezado ? y + 4 : 14;
 
     if (opts.resumen && opts.resumen.length) {
       y = banda(doc, y + 5, opts.resumen, ancho);
@@ -211,21 +212,34 @@
 
       /* El título de una tabla nunca se queda solo al pie de una hoja
          con su tabla en la siguiente. */
-      if (y + 22 > alto - 20) { doc.addPage(); window.dibujarFooterPDF(doc); y = 22; }
-
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      var tituloLineas = doc.splitTextToSize(String(b.titulo || ''), ancho - 28);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      var notaLineas = b.nota ? doc.splitTextToSize(String(b.nota), ancho - 28) : [];
+      var alturaInicio = 12 + tituloLineas.length * 4.8 + notaLineas.length * 4.2;
+      if (y + alturaInicio + 12 > alto - 20) {
+        doc.addPage();
+        y = opts.repetirEncabezado
+          ? window.dibujarHeaderPDF(doc, { titulo: opts.titulo, subtitulo: opts.subtitulo }) + 4
+          : 22;
+      }
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(10, 35, 81);
-      doc.text(String(b.titulo || ''), 14, y + 7);
+      doc.text(tituloLineas, 14, y + 7);
+      var inicioTabla = y + 7 + tituloLineas.length * 4.8;
       if (b.nota) {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.5);
         doc.setTextColor(120, 120, 120);
-        doc.text(String(b.nota), 14, y + 12, { maxWidth: ancho - 28 });
+        doc.text(notaLineas, 14, inicioTabla);
+        inicioTabla += notaLineas.length * 4.2 + 2;
       }
 
       doc.autoTable({
-        startY: y + (b.nota ? 15 : 10),
+        startY: inicioTabla,
         head: [b.encabezados],
         body: b.filas,
         foot: b.pie ? [b.pie] : undefined,
@@ -235,7 +249,12 @@
         footStyles: { fillColor: [238, 242, 249], textColor: [10, 35, 81], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [244, 247, 251] },
         columnStyles: b.columnas || {},
-        margin: { left: 14, right: 14 },
+        margin: { left: 14, right: 14, top: margenSuperior, bottom: 20 },
+        willDrawPage: function () {
+          if (opts.repetirEncabezado && doc.internal.getCurrentPageInfo().pageNumber > 1) {
+            window.dibujarHeaderPDF(doc, { titulo: opts.titulo, subtitulo: opts.subtitulo });
+          }
+        },
         didDrawPage: function () { window.dibujarFooterPDF(doc); }
       });
       y = doc.lastAutoTable.finalY + 6;

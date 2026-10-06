@@ -542,6 +542,13 @@ button.principal:disabled{opacity:.55; cursor:not-allowed}
 .mal{color:var(--bad-ink); font-weight:750}
 
 /* ---------- el tablero de entregas ---------- */
+.resumen-trimestral{border:1px solid var(--line); border-radius:12px; padding:16px; margin:16px 0; background:var(--card)}
+.resumen-trimestral summary{cursor:pointer; color:var(--navy-2); min-height:44px; display:list-item; padding:10px 0}
+.resumen-trimestral .rango-fechas label{flex:1 1 160px; min-width:0}
+.resumen-trimestral section{margin-top:24px}
+.resumen-trimestral td{overflow-wrap:anywhere}
+.resumen-trimestral .rt-anexos{display:flex; gap:8px; align-items:center; font-size:13px}
+.resumen-trimestral .rt-anexos input{width:20px; min-height:20px; flex:none; margin:0}
 .rango-fechas{display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px;
   margin:12px 0 4px; padding:14px; border:1px solid var(--line); border-radius:11px;
   background:var(--rail)}
@@ -1103,9 +1110,10 @@ footer{border-top:1px solid var(--line); padding:20px 0 34px; color:var(--ink-fa
 <script src="comunes.js?v=20261001e"></script>
 <script src="logos-base64.js?v=20260914g"></script>
 <script src="pdf-header.js?v=20260914g"></script>
-<script src="reportes.js?v=20261001a"></script>
+<script src="reportes.js?v=20261006-trimestre"></script>
 <script src="picker.js?v=20260914g"></script>
-<script src="tablero-entregas.js?v=20261005-etiquetas2"></script>
+<script src="resumen-trimestral.js?v=20261006a"></script>
+<script src="tablero-entregas.js?v=20261006-trimestre"></script>
 <script src="personas.js?v=20261001e"></script>
 <script src="territorio-data.js?v=20260916f"></script>
 <script src="jornadas.js?v=20261001e"></script>
