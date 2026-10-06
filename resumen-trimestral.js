@@ -168,7 +168,6 @@
     }
     function invalidar() {version++;informe=null;q('resultado').innerHTML='<p class="sub">Genera el resumen del período seleccionado.</p>';}
     q('anio').addEventListener('change',invalidar);q('trimestre').addEventListener('change',invalidar);
-    q('anexos').addEventListener('change',function () {if(informe)presentar();});
     q('generar').addEventListener('click',async function () {
       var v=++version; informe=null;
       try {
@@ -182,7 +181,7 @@
       finally {q('generar').disabled=false;}
     });
     function presentar() {
-        var p=informe.periodo, b=tablas(informe,q('anexos').checked);
+        var p=informe.periodo, b=tablas(informe,false);
         q('resultado').innerHTML='<h3>Resumen clínico-administrativo · '+p.trimestre+'º trimestre de '+p.anio+'</h3><p>'+fechaTexto(p.desde)+' a '+fechaTexto(p.hasta)+(p.hasta>=hoy ? ' · Corte parcial: registros disponibles al '+fechaTexto(hoy) : '')+'</p>'+
           '<div class="descargas"><button type="button" data-rt="pdf">Descargar resumen trimestral en PDF</button><button type="button" data-rt="excel">Descargar resumen trimestral en Excel</button></div>'+
           b.map(function (x) {return '<section><h3 class="sub-t">'+esc(x.titulo)+'</h3><div class="tabla-caja"><table class="tabla datos tabla-entregas"><thead><tr>'+x.encabezados.map(function (e) {return '<th>'+esc(e)+'</th>';}).join('')+'</tr></thead><tbody>'+x.filas.map(function (fila) {return '<tr>'+fila.map(function (c,i) {return '<td data-col="'+esc(x.encabezados[i])+'">'+esc(c)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div></section>';}).join('');
@@ -192,7 +191,7 @@
       if(!informe || !window.FARMREP)return;
       var p=informe.periodo, archivo='Resumen trimestral Salud '+p.anio+' T'+p.trimestre;
       var sub=fechaTexto(p.desde)+' a '+fechaTexto(p.hasta)+' · Generado el '+fechaTexto(hoy)+(p.hasta>=hoy?' · Corte parcial':'');
-      var bloques=tablas(informe,q('anexos').checked);
+      var bloques=tablas(informe,false);
       if(tipo==='excel')window.FARMREP.excel(archivo,bloques.map(function (b,i) {
         var grupo=b.titulo.includes('Menores')?'menores':b.titulo.includes('Adultos')?'adultos':b.titulo.includes('instituciones')?'institucionales':'sin edad';
         var nombre=i===0?'Personas atendidas':b.titulo.includes('Patologías')?'Patologías '+grupo:b.titulo.includes('Medicamentos')?'Medicamentos '+grupo:b.titulo.includes('Anexo')?'Históricos '+grupo:b.titulo.startsWith('4.')?'Entregas institucionales':b.titulo.startsWith('Datos')?'Datos incompletos':'Criterios';
