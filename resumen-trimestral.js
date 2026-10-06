@@ -154,7 +154,7 @@
     var anio=Number(hoy.slice(0,4)), trimestre=Math.floor((Number(hoy.slice(5,7))-1)/3)+1, informe=null, version=0;
     raiz.innerHTML='<details class="resumen-trimestral"><summary><b>Resumen trimestral por edades</b></summary><p class="sub">Personas atendidas, patologías registradas y medicamentos entregados: menores de 0 a 17 años y adultos de 18 años en adelante.</p>'+
       '<div class="rango-fechas"><label>Año<input data-rt="anio" type="number" min="1900" max="2100" value="'+anio+'"></label><label>Trimestre<select data-rt="trimestre">'+[1,2,3,4].map(function (n) {return '<option value="'+n+'"'+(n===trimestre?' selected':'')+'>'+n+' · '+['enero a marzo','abril a junio','julio a septiembre','octubre a diciembre'][n-1]+'</option>';}).join('')+'</select></label><button type="button" data-rt="generar">Generar resumen trimestral</button></div>'+
-      '<p class="sub chico">Incluye el trimestre completo. Edad en la primera entrega del período.</p><label class="rt-anexos"><input data-rt="anexos" type="checkbox"> Incluir anexo de históricos sin medicamentos desglosados</label><div data-rt="resultado" aria-live="polite"></div></details>';
+      '<p class="sub chico">Incluye el trimestre completo. Edad en la primera entrega del período.</p><div data-rt="resultado" aria-live="polite"></div></details>';
     var q=function (n) {return raiz.querySelector('[data-rt="'+n+'"]');};
     async function cargarTodo(tabla,campos,p) {
       var filas=[];
