@@ -194,7 +194,7 @@
       var sub=fechaTexto(p.desde)+' a '+fechaTexto(p.hasta)+' · Generado el '+fechaTexto(hoy)+(p.hasta>=hoy?' · Corte parcial':'');
       var bloques=tablas(informe,q('anexos').checked);
       if(tipo==='excel')window.FARMREP.excel(archivo,bloques.map(function (b,i) {
-        var grupo=b.titulo.includes('Menores')?'menores':b.titulo.includes('Adultos')?'adultos':'sin edad';
+        var grupo=b.titulo.includes('Menores')?'menores':b.titulo.includes('Adultos')?'adultos':b.titulo.includes('instituciones')?'institucionales':'sin edad';
         var nombre=i===0?'Personas atendidas':b.titulo.includes('Patologías')?'Patologías '+grupo:b.titulo.includes('Medicamentos')?'Medicamentos '+grupo:b.titulo.includes('Anexo')?'Históricos '+grupo:b.titulo.startsWith('4.')?'Entregas institucionales':b.titulo.startsWith('Datos')?'Datos incompletos':'Criterios';
         return {nombre:nombre,titulo:b.titulo+' · '+sub,encabezados:b.encabezados,filas:b.filas,anchos:b.anchos};
       }));
