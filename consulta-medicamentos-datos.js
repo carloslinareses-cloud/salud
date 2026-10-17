@@ -3,11 +3,31 @@
 window.GUIA_CONSULTA_MEDICAMENTOS = {
   revision: '2026-10-17',
   fuentes: [
+    { nombre: 'Bayer · Aspirina simple y su principio activo', url: 'https://www.aspirina.es/productos/aspirina-500-mg-comprimidos' },
+    { nombre: 'Calox · envase de Caloxpirina 81 mg entérica', url: 'https://calox.com/producto/caloxpirina/' },
+    { nombre: 'LETI · envase de Asaprol 81 mg entérico', url: 'https://locatelvenezuela.vtexassets.com/arquivos/ids/175124/2084733.jpg' },
+    { nombre: 'MedlinePlus · aspirina, usos y presentaciones', url: 'https://medlineplus.gov/spanish/druginfo/meds/a682878-es.html' },
+    { nombre: 'NHS · comparación de inhibidores de ácido gástrico', url: 'https://www.nhs.uk/medicines/lansoprazole/common-questions-about-lansoprazole/' },
+    { nombre: 'NHS · estatinas y cambio bajo supervisión', url: 'https://www.nhs.uk/medicines/statins/' },
     { nombre: 'FDA · requisitos de los genéricos', url: 'https://www.fda.gov/drugs/generic-drugs/generic-drugs-questions-answers' },
     { nombre: 'NHS · opciones para el dolor', url: 'https://www.nhs.uk/medicines/diclofenac/common-questions-about-diclofenac/' },
     { nombre: 'NHS · precauciones de los antiinflamatorios', url: 'https://www.nhs.uk/medicines/nsaids/' },
     { nombre: 'NHS · antihistamínicos', url: 'https://www.nhs.uk/medicines/antihistamines/' },
     { nombre: 'Neo Química · composición de Torsilax', url: 'https://www.neoquimica.com.br/nossas-marcas/bula/torsilax' }
+  ],
+  // Identidad no equivale a intercambiabilidad: se conservan dosis y recubrimiento.
+  identidades: [
+    { principio:'ACIDO ACETILSALICILICO', nombres:['ACIDO ACETILSALICILICO','ACIDO ACETIL SALICILICO','ASPIRINA','ASPIRIN','AAS','ASA','ASAPROL','CALOXPIRINA'],
+      titulo:'ASPIRINA · ÁCIDO ACETILSALICÍLICO',
+      referencias:[{nombre:'ASAPROL 81 MG',forma:'Comprimido entérico',fuente:'https://locatelvenezuela.vtexassets.com/arquivos/ids/175124/2084733.jpg'}, {nombre:'CALOXPIRINA 81 MG',forma:'Tableta entérica',fuente:'https://calox.com/producto/caloxpirina/'}],
+      nota:'Aspirina, ácido acetilsalicílico (AAS/ASA), Asaprol y Caloxpirina comparten este principio activo en las fórmulas simples documentadas. No todas las dosis ni recubrimientos son intercambiables. Si se usa para prevenir coágulos, ibuprofeno, diclofenaco y paracetamol no la sustituyen. Confirmar indicación, dosis y envase con el profesional.',
+      fuente:'https://medlineplus.gov/spanish/druginfo/meds/a682878-es.html' },
+    { principio:'PARACETAMOL', nombres:['PARACETAMOL','ACETAMINOFEN'], titulo:'PARACETAMOL · ACETAMINOFÉN', referencias:[],
+      nota:'Son nombres del mismo principio activo. Para una posible sustitución deben coincidir concentración, vía, forma y tipo de liberación; no se suman ambos como si fueran medicamentos distintos.',
+      fuente:'https://medlineplus.gov/spanish/druginfo/meds/a681004-es.html' },
+    { principio:'METAMIZOL', nombres:['METAMIZOL','DIPIRONA'], titulo:'METAMIZOL · DIPIRONA', referencias:[],
+      nota:'Son nombres del mismo principio activo. Deben confirmarse la sal, concentración, vía y formulación del envase; una ampolla no sustituye una tableta. Requiere revisión de la prescripción.',
+      fuente:'https://www.ema.europa.eu/es/documents/referral/metamizole-containing-medicinal-products-article-107i-referral-measures-minimise-serious-outcomes-known-side-effect-painkiller-metamizole_es.pdf' }
   ],
   principios: ['ACICLOVIR','ACRIVASTINA','FEXOFENADINA','ACIDO ACETILSALICILICO','ACIDO FOLICO','ACIDO IBANDRONICO',
     'ACIDO TRANEXAMICO','ALBENDAZOL','ALENDRONATO','ALOPURINOL','ALPRAZOLAM',
@@ -29,12 +49,28 @@ window.GUIA_CONSULTA_MEDICAMENTOS = {
     'PREGABALINA','QUETIAPINA','RANITIDINA','RIFAXIMINA','RISPERIDONA','RIVAROXABAN',
     'ROSUVASTATINA','SALBUTAMOL','SECNIDAZOL','SIMVASTATINA','SULFADIAZINA DE PLATA',
     'TAMSULOSINA','TRIMEBUTINA','VALPROATO DE SODIO','VALSARTAN','VANCOMICINA',
-    'VERAPAMILO','VORICONAZOL'],
+    'VERAPAMILO','VORICONAZOL','RABEPRAZOL','PRAVASTATINA','FLUVASTATINA'],
   dolor: ['PARACETAMOL','IBUPROFENO','DICLOFENAC POTASICO','DICLOFENAC SODICO','NAPROXENO'],
   alergia: ['CETIRIZINA','LORATADINA','FEXOFENADINA','ACRIVASTINA'],
+  grupos: {
+    dolor:{indicacion:'Dolor o fiebre en adultos',nota:'Según la causa del dolor. Paracetamol no tiene el mismo efecto antiinflamatorio. Revisar alergias, embarazo, úlcera, sangrado, riñón, corazón, hígado y otros tratamientos. No combinar antiinflamatorios entre sí.',fuente:'https://www.nhs.uk/medicines/diclofenac/common-questions-about-diclofenac/'},
+    alergia:{indicacion:'Síntomas alérgicos en adultos',nota:'Solo si el profesional confirma la misma indicación; difieren en somnolencia y precauciones. No es tratamiento de anafilaxia.',fuente:'https://www.nhs.uk/medicines/antihistamines/'},
+    acidez:{indicacion:'Reducción de ácido gástrico en adultos',nota:'Para indicaciones como reflujo, según valoración médica. Son inhibidores de la bomba de protones; no equivalen miligramo por miligramo. Revisar interacciones, duración y formulación; no cambiar esquemas de úlcera o Helicobacter por cuenta propia.',fuente:'https://www.nhs.uk/medicines/lansoprazole/common-questions-about-lansoprazole/'},
+    colesterol:{indicacion:'Reducción de colesterol y riesgo cardiovascular en adultos',nota:'Son estatinas. El médico debe elegir la potencia, dosis y seguimiento según el objetivo y las interacciones. No son equivalentes miligramo por miligramo; revisar embarazo, hígado y problemas musculares.',fuente:'https://www.nhs.uk/medicines/statins/'}
+  },
   // Referencias documentadas independientes del catálogo y de sus cantidades.
   // No representan productos comprados, dosis equivalentes ni disponibilidad comercial.
   referencias: [
+    { clave:'omeprazol',nombre:'OMEPRAZOL',aliases:[],principios:['OMEPRAZOL'],grupo:'acidez' },
+    { clave:'esomeprazol',nombre:'ESOMEPRAZOL',aliases:[],principios:['ESOMEPRAZOL'],grupo:'acidez' },
+    { clave:'lansoprazol',nombre:'LANSOPRAZOL',aliases:[],principios:['LANSOPRAZOL'],grupo:'acidez' },
+    { clave:'pantoprazol',nombre:'PANTOPRAZOL',aliases:[],principios:['PANTOPRAZOL'],grupo:'acidez' },
+    { clave:'rabeprazol',nombre:'RABEPRAZOL',aliases:[],principios:['RABEPRAZOL'],grupo:'acidez' },
+    { clave:'atorvastatina',nombre:'ATORVASTATINA',aliases:[],principios:['ATORVASTATINA'],grupo:'colesterol' },
+    { clave:'rosuvastatina',nombre:'ROSUVASTATINA',aliases:[],principios:['ROSUVASTATINA'],grupo:'colesterol' },
+    { clave:'simvastatina',nombre:'SIMVASTATINA',aliases:[],principios:['SIMVASTATINA'],grupo:'colesterol' },
+    { clave:'pravastatina',nombre:'PRAVASTATINA',aliases:[],principios:['PRAVASTATINA'],grupo:'colesterol' },
+    { clave:'fluvastatina',nombre:'FLUVASTATINA',aliases:[],principios:['FLUVASTATINA'],grupo:'colesterol' },
     { clave:'paracetamol', nombre:'PARACETAMOL', aliases:['ACETAMINOFEN'], principios:['PARACETAMOL'], grupo:'dolor' },
     { clave:'ibuprofeno', nombre:'IBUPROFENO', aliases:[], principios:['IBUPROFENO'], grupo:'dolor' },
     { clave:'naproxeno', nombre:'NAPROXENO', aliases:[], principios:['NAPROXENO'], grupo:'dolor' },

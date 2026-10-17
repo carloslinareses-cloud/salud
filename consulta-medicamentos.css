@@ -14,6 +14,8 @@
 .cm-opciones .cm-disponibilidad{display:inline-block;font-weight:650;margin-top:5px}
 .cm-disponible{color:var(--ok-ink)!important}
 .cm-sin-existencia{color:var(--ink-soft)}
+.cm-criterio{font-size:13px;line-height:1.6;max-width:80ch;color:var(--ink-soft)}
+.cm-criterio a{text-decoration:underline;text-underline-offset:3px}
 .cm-sin-opciones{margin:0;font-weight:650}
 .cm-fuentes{margin:20px 0;font-size:13px;color:var(--ink-soft)}
 .cm-fuentes summary{min-height:44px;cursor:pointer;padding:12px 0}

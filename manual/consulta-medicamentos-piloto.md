@@ -1,5 +1,19 @@
 # Consulta de medicamentos · piloto
 
+## Revisión analítica del 17 de octubre
+
+La búsqueda conserva un campo único en Inventario y Administración. Ahora distingue **otros nombres del mismo principio**, **coincidencias de principio/concentración/forma** y **opciones de otro principio para valoración profesional**. No declara bioequivalencia ni compatibilidad individual de pacientes.
+
+El caso comunicado por Carlos era aspirina: buscar `aspirina`, `AAS`, `ASA`, `ácido acetilsalicílico`, `Asaprol` o `Caloxpirina` relaciona los nombres de las fórmulas simples documentadas. Se conservan nombres, concentraciones y presentaciones originales del inventario. Buscar 81 mg no mezcla registros de 100 mg. Los envases de Caloxpirina y Asaprol confirman 81 mg y recubrimiento entérico; no se presupone que otras tabletas tengan el mismo recubrimiento. Aspirina Plus y otras combinaciones no se tratan como aspirina simple. No se propone reemplazar aspirina antiagregante por analgésicos. También se relacionan paracetamol/acetaminofén y metamizol/dipirona sin equiparar vías, sales o formulaciones.
+
+La guía incluye criterios documentados para dolor/fiebre, alergia, inhibidores de ácido gástrico y estatinas. Las opciones de distinto principio llevan indicación, límites y fuente visibles. No se calculan dosis equivalentes. No se generalizan sustituciones entre antibióticos, anticoagulantes, antiepilépticos u otros tratamientos fuera de los criterios documentados. Los términos desconocidos después de un principio activo bloquean la comparación en vez de ignorarse.
+
+La disponibilidad distingue **Disponible**, **Sin existencia utilizable**, **No registrado en inventario** y **Existencia por confirmar**. El agotamiento no elimina referencias. Un nombre no evaluado o una presentación incompleta se explican como tales; no se afirma que no exista un tratamiento. Las referencias no crean productos ni movimientos en la base. Fuentes y precauciones se incluyen en el módulo. La guía sigue siendo acotada y no exhaustiva.
+
+Además, Corregir existencia permite buscar por nombre del medicamento o número de lote, conserva los filtros y la paginación y no modifica existencias al buscar. Administración tiene acceso a la misma pantalla mediante Corregir existencia, conservando una única hoja y sus cambios pendientes.
+
+Las secciones siguientes describen las etapas anteriores del piloto; esta revisión actualiza los estados y la interpretación de sus resultados.
+
 Se abre en **Mercancía (Inventario) → Consulta de medicamentos** y en **Administración → Consulta de medicamentos**. La pantalla tiene un solo campo: escribir el nombre del medicamento. Las opciones disponibles aparecen directamente debajo, o «No hay». Ambas entradas utilizan el mismo módulo y las mismas tablas de Salud. No genera PDF, modifica inventario, prescribe ni registra entregas.
 
 Corrección del 17/10/2026 solicitada por Carlos: retiro de esta consulta las tablas del inventario, cifras, filtros, selector de tipo, casilla de opciones, paginación y fichas de lotes. El inventario existente continúa en Catálogo. Las comprobaciones de composición y existencias permanecen internas; las fuentes y precauciones se pueden ampliar en «Información de la consulta».
