@@ -120,7 +120,7 @@
     if(montajes.has(ancla)) montajes.get(ancla)();
     var perfilUsuario=window.FARMACIA_PERFIL||{};
     if(!['admin','inventario'].includes(perfilUsuario.rol)){ancla.innerHTML='<div class="aviso bad">Solo Administración e Inventario pueden consultar este módulo.</div>';return;}
-    var id=(opciones&&opciones.prefijo)||'consultaMed', lista=[], busqueda='', filtro='todos', tipo='medicamentos', pagina=0, elegido=null, ocupado=false, vivo=true, version=0;
+    var id=(opciones&&opciones.prefijo)||'consultaMed', lista=[], busqueda='', filtro='todos', tipo='medicamentos', pagina=0, elegido=null, ocupado=false, datosListos=false, vivo=true, version=0;
     ancla.innerHTML='<section class="consulta-med" aria-label="Consulta de medicamentos">'+
       '<div class="cm-cabecera"><div><h2>Consulta de medicamentos</h2><p>Inventario y opciones disponibles para valoración profesional · Piloto</p></div><button type="button" class="btn" data-cm="actualizar">Actualizar inventario</button></div>'+
       '<p class="cm-criterio">Una opción para el mismo síntoma no es una sustitución automática. El profesional confirma la indicación, el envase y el tratamiento. No se calculan dosis ni se registran entregas desde esta consulta.</p>'+
@@ -136,7 +136,7 @@
     function estadoDe(p){if(p.insumo)return 'Insumo';if(p.activo===false)return 'Inactivo';if(!p.perfil.completo||p.inconsistente)return 'Por revisar';return opcionesDe(p).length?'Ver opciones':'No hay';}
     function resumenStock(p){return '<b>'+numero(p.vigente)+'</b> '+esc(p.unidad||'unidades')+' vigentes'+(p.vencido?'<small>'+numero(p.vencido)+' vencidas</small>':'')+(p.sinFecha?'<small>'+numero(p.sinFecha)+' sin fecha</small>':'')+(p.retenido?'<small>'+numero(p.retenido)+' retenidas / dadas de baja</small>':'')+(p.inconsistente?'<small>Saldo negativo: revisar movimientos</small>':'');}
     function renderizar(){
-      if(!activo())return;
+      if(!activo()||!datosListos)return;
       var q=normalizar(busqueda).replace(/DICLOFENACO\b/g,'DICLOFENAC').replace(/ACETAMINOFEN/g,'PARACETAMOL');
       var filtrada=lista.filter(function(p){
         var texto=normalizar([p.nombre,p.presentacion,p.dosificacion,p.perfil.principio].join(' ')).replace(/DICLOFENACO\b/g,'DICLOFENAC').replace(/ACETAMINOFEN/g,'PARACETAMOL');
@@ -149,6 +149,7 @@
       if(elegido)detalle(elegido,false);
     }
     function detalle(idProducto,enfocar){
+      if(!datosListos)return;
       var p=lista.find(function(p){return p.id===idProducto;});if(!p){elegido=null;zona('detalle').innerHTML='';return;}
       elegido=p.id;var opciones=opcionesDe(p);
       zona('detalle').innerHTML='<section class="cm-detalle" tabindex="-1"><div class="cm-cabecera"><h3>'+esc(p.nombre)+'</h3><button class="btn secundario" type="button" data-cm="cerrar">Cerrar ficha</button></div><p>'+esc([p.dosificacion,p.presentacion].filter(Boolean).join(' · '))+'</p><p>'+resumenStock(p)+'</p>'+
@@ -157,13 +158,14 @@
       if(enfocar){var f=zona('detalle').firstElementChild;f.focus();f.scrollIntoView({block:'start',behavior:'smooth'});}
     }
     async function cargar(){
-      if(ocupado||!activo())return;ocupado=true;var turno=++version;
+      if(ocupado||!activo())return;ocupado=true;datosListos=false;var turno=++version;
       zona('actualizar').disabled=true;zona('estado').textContent='Consultando el catálogo completo y todos sus lotes…';
       zona('lista').innerHTML='';zona('detalle').innerHTML='';zona('paginas').innerHTML='';
       try{
         var r=await Promise.all([leerTodo(sb,'productos','id,nombre,dosificacion,presentacion,categoria,unidad,activo','id'),leerTodo(sb,'v_existencia_lote','lote_id,producto_id,lote,vence,estado,existencia','lote_id')]);
         if(!activo()||turno!==version)return;
         lista=inventariar(r[0],r[1],hoy()).sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es');});
+        datosListos=true;
         var insumos=lista.filter(function(p){return p.insumo;}).length;
         zona('estado').textContent=numero(lista.length)+' registros de catálogo ('+numero(lista.length-insumos)+' medicamentos/fórmulas y '+numero(insumos)+' insumos) · '+numero(r[1].length)+' lotes · Actualizado '+new Date().toLocaleString('es-VE',{timeZone:'America/Caracas'})+' · Se actualiza cada 30 segundos mientras esta consulta está visible.';
         renderizar();
