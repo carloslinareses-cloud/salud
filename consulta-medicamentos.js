@@ -1,5 +1,5 @@
 /* Consulta compartida por Inventario y Administración. Solo lectura.
-   Las propuestas se calculan contra lotes vigentes, nunca contra un catálogo fijo. */
+   La guía de opciones y las existencias son independientes: un agotado no desaparece. */
 (function () {
   'use strict';
   var guia = window.GUIA_CONSULTA_MEDICAMENTOS;
@@ -89,9 +89,9 @@
     });
     return productos.map(function(p){ return porProducto[p.id]; });
   }
-  function alternativas(p, lista, permitirClinicas) {
+  function alternativas(p, lista, permitirClinicas, incluirSinExistencia) {
     if (!p.perfil.completo || p.insumo || p.activo === false || p.inconsistente) return [];
-    return lista.filter(function(q){return q.id !== p.id && q.activo !== false && q.vigente > 0 && !q.inconsistente && q.perfil.completo && !q.insumo;}).map(function(q){
+    return lista.filter(function(q){return q.id !== p.id && q.activo !== false && (incluirSinExistencia || q.vigente > 0) && !q.inconsistente && q.perfil.completo && !q.insumo;}).map(function(q){
       var a=p.perfil,b=q.perfil;
       if (a.principio === b.principio && a.forma === b.forma && a.fuerza === b.fuerza) return {producto:q,tipo:'misma',texto:'Mismo principio, concentración y forma. Confirmar el envase y la prescripción.'};
       if (!permitirClinicas || a.principio === b.principio || !['TABLETA','CAPSULA'].includes(a.forma) || !['TABLETA','CAPSULA'].includes(b.forma)) return null;
@@ -99,6 +99,49 @@
       if (guia.alergia.includes(a.principio) && guia.alergia.includes(b.principio)) return {producto:q,tipo:'clinica',texto:guia.notaAlergia};
       return null;
     }).filter(Boolean).sort(function(a,b){return (a.tipo==='misma'?0:1)-(b.tipo==='misma'?0:1)||a.producto.nombre.localeCompare(b.producto.nombre,'es');});
+  }
+  function referenciaDe(p) {
+    return guia.referencias.find(function(r){return r.principios.includes(p.perfil.principio);});
+  }
+  function referenciaVacia(r) {
+    return {producto:{id:'referencia:'+r.clave,nombre:r.nombre,presentacion:'Uso oral en adultos',vigente:0,referencia:true},tipo:'clinica',texto:r.grupo==='dolor'?guia.notaDolor:guia.notaAlergia};
+  }
+  function porDisponibilidad(a,b) {
+    return Number(b.producto.vigente>0)-Number(a.producto.vigente>0)||a.producto.nombre.localeCompare(b.producto.nombre,'es');
+  }
+  function ordenarOpciones(opciones) {
+    var vistos=Object.create(null);
+    return opciones.sort(porDisponibilidad).filter(function(a){
+      var p=a.producto,f=p.perfil;
+      var clave=f&&f.completo?[f.principio,f.forma,f.fuerza].join('|'):normalizar(p.nombre)+'|'+normalizar(p.presentacion);
+      if(vistos[clave])return false;vistos[clave]=true;return true;
+    });
+  }
+  function opcionesReferencia(origen,lista) {
+    var resultado=[];
+    guia.referencias.filter(function(r){return r.grupo===origen.grupo&&r.clave!==origen.clave;}).forEach(function(r){
+      var productos=lista.filter(function(p){return p.activo!==false&&!p.insumo&&p.perfil.completo&&!p.inconsistente&&['TABLETA','CAPSULA'].includes(p.perfil.forma)&&r.principios.includes(p.perfil.principio);});
+      if(productos.length)productos.forEach(function(p){resultado.push({producto:p,tipo:'clinica',texto:r.grupo==='dolor'?guia.notaDolor:guia.notaAlergia});});
+      else resultado.push(referenciaVacia(r));
+    });
+    return ordenarOpciones(resultado);
+  }
+  function opcionesConsulta(p,lista) {
+    var resultado=alternativas(p,lista,true,true),origen=referenciaDe(p);
+    if(origen&&p.perfil.completo&&!p.inconsistente&&['TABLETA','CAPSULA'].includes(p.perfil.forma)){
+      opcionesReferencia(origen,lista).forEach(function(opcion){
+        if(!resultado.some(function(a){return a.producto.id===opcion.producto.id;}))resultado.push(opcion);
+      });
+    }
+    return ordenarOpciones(resultado);
+  }
+  function buscarReferencias(texto) {
+    var q=normalizar(texto);
+    // La guía general es oral para adultos. No reinterpretar una búsqueda de otra vía.
+    if(q.length<2||/\+|AMPOLL|INYECT|JARABE|SUSPENSION|CREMA|GOTAS|\d\s*ML\b|\b(?:IV|IM|INFUSION|INFUCION)\b/.test(q))return [];
+    q=q.replace(/\d+(?:[.,]\d+)?\s*(?:MCG|MG|G)\b/g,'').replace(/\b(?:TABLETAS?|CAPSULAS?|COMPRIMIDOS?)\b/g,'').replace(/\s+/g,' ').trim();
+    if(q.length<2)return [];
+    return guia.referencias.filter(function(r){return [r.nombre].concat(r.aliases).some(function(n){return normalizar(n).includes(q);});});
   }
   async function leerTodo(sb, tabla, columnas, orden) {
     var filas=[], offset=0, tamano=400, esperado=null;
@@ -127,7 +170,7 @@
       '<input id="'+id+'-busca" type="search" placeholder="Escribe aquí, por ejemplo: diclofenac" autocomplete="off">'+
       '<div data-cm="lista" role="status" aria-live="polite"><p>Preparando la consulta…</p></div>'+
       '<p class="cm-ayuda">Las opciones deben ser confirmadas por el médico o farmacéutico.</p>'+
-      '<details class="cm-fuentes"><summary>Información de la consulta</summary><p>Solo se muestran opciones de referencia con existencia vigente. No son indicaciones de uso, combinaciones ni equivalencias de dosis. «No hay» significa que este piloto no encontró opciones disponibles; si faltan datos del medicamento, se indica antes de proponer un cambio.</p><p>'+esc(guia.notaDolor)+'</p><p>'+esc(guia.notaAlergia)+'</p><p>Torsilax contiene varios principios, incluido diclofenaco; no es un reemplazo simple. Las marcas o fórmulas sin confirmar no se adivinan.</p><ul>'+guia.fuentes.map(function(f){return '<li><a href="'+esc(f.url)+'" target="_blank" rel="noopener noreferrer">'+esc(f.nombre)+'</a></li>';}).join('')+'</ul></details></section>';
+      '<details class="cm-fuentes"><summary>Información de la consulta</summary><p>Se muestran opciones documentadas con y sin existencia en Salud. «Disponible» exige un lote vigente; «Sin existencia» también incluye medicamentos que no figuran en el inventario o que no tienen una presentación verificada disponible. No indica si se venden en otra farmacia. «No hay» significa que esta guía no tiene opciones verificadas para esa consulta; no es una lista exhaustiva de tratamientos. Las opciones no son combinaciones ni equivalencias de dosis y requieren valoración profesional.</p><p>'+esc(guia.notaDolor)+'</p><p>'+esc(guia.notaAlergia)+'</p><p>Torsilax contiene varios principios, incluido diclofenaco; no es un reemplazo simple. Las marcas o fórmulas sin confirmar no se adivinan.</p><ul>'+guia.fuentes.map(function(f){return '<li><a href="'+esc(f.url)+'" target="_blank" rel="noopener noreferrer">'+esc(f.nombre)+'</a></li>';}).join('')+'</ul></details></section>';
     var entrada=ancla.querySelector('#'+id+'-busca'), salida=ancla.querySelector('[data-cm="lista"]');
     function activo(){return vivo&&ancla.isConnected&&ancla.contains(entrada);}
     function clave(t){return normalizar(t).replace(/DICLOFENACO\b/g,'DICLOFENAC').replace(/ACETAMINOFEN/g,'PARACETAMOL');}
@@ -138,15 +181,19 @@
       var encontrados=lista.filter(function(p){
         return !p.insumo&&p.activo!==false&&q.split(' ').every(function(t){return clave([p.nombre,p.dosificacion,p.presentacion,p.perfil.principio].join(' ')).includes(t);});
       }).sort(function(a,b){return Number(b.perfil.completo&&!b.inconsistente)-Number(a.perfil.completo&&!a.inconsistente);});
-      if(!encontrados.length){salida.innerHTML='<p class="cm-vacio">No hay un medicamento registrado con ese nombre.</p>';return;}
+      var referencias=buscarReferencias(consulta).filter(function(r){return !encontrados.some(function(p){return r.principios.includes(p.perfil.principio)&&p.perfil.completo&&['TABLETA','CAPSULA'].includes(p.perfil.forma);});});
+      if(!encontrados.length&&!referencias.length){salida.innerHTML='<p class="cm-vacio">No hay opciones verificadas en esta guía para ese nombre.</p>';return;}
+      function mostrarOpciones(opciones){
+        return opciones.length?'<ul class="cm-opciones">'+opciones.map(function(a){return '<li><strong>'+esc(a.producto.nombre)+'</strong><span>'+esc(a.producto.presentacion||'')+(a.tipo==='clinica'?' · Para valoración profesional':' · Mismo principio, concentración y forma')+'</span><span class="cm-disponibilidad '+(a.producto.vigente>0?'cm-disponible':'cm-sin-existencia')+'">'+(a.producto.vigente>0?'Disponible':'Sin existencia')+'</span></li>';}).join('')+'</ul>':'<p class="cm-sin-opciones">No hay.</p>';
+      }
       // Una búsqueda general puede encontrar varias vías. Cada presentación
       // mantiene sus propias opciones: nunca se mezclan jarabe, tableta o inyectable.
       salida.innerHTML=encontrados.map(function(p){
-        var opciones=alternativas(p,lista,true);
+        var opciones=opcionesConsulta(p,lista);
         var encabezado='<h3>'+esc(p.nombre)+'</h3><p class="cm-presentacion">'+esc([p.dosificacion,p.presentacion].filter(Boolean).join(' · '))+'</p>';
         if(p.inconsistente||!p.perfil.completo)return '<section class="cm-resultado">'+encabezado+'<p>No se pueden confirmar opciones: falta verificar '+(p.inconsistente?'la existencia.':'la composición, concentración o presentación.')+'</p></section>';
-        return '<section class="cm-resultado">'+encabezado+(opciones.length?'<ul class="cm-opciones">'+opciones.map(function(a){return '<li><strong>'+esc(a.producto.nombre)+'</strong><span>'+esc(a.producto.presentacion||'')+(a.tipo==='clinica'?' · Para valoración profesional':' · Mismo principio, concentración y forma')+'</span></li>';}).join('')+'</ul>':'<p class="cm-sin-opciones">No hay.</p>')+'</section>';
-      }).join('');
+        return '<section class="cm-resultado">'+encabezado+mostrarOpciones(opciones)+'</section>';
+      }).join('')+referencias.map(function(r){return '<section class="cm-resultado"><h3>'+esc(r.nombre)+'</h3><p class="cm-presentacion">Referencia para '+(r.grupo==='dolor'?'dolor o fiebre':'síntomas alérgicos')+' en adultos · Vía oral</p>'+mostrarOpciones(opcionesReferencia(r,lista))+'</section>';}).join('');
     }
     async function cargar(){
       if(ocupado||!activo())return;
@@ -165,6 +212,6 @@
     function limpiar(){vivo=false;clearInterval(timer);}
     montajes.set(ancla,limpiar);cargar();
   }
-  window.CONSULTA_MEDICAMENTOS={normalizar:normalizar,perfil:perfil,inventariar:inventariar,alternativas:alternativas,leerTodo:leerTodo,esInsumo:esInsumo};
+  window.CONSULTA_MEDICAMENTOS={normalizar:normalizar,perfil:perfil,inventariar:inventariar,alternativas:alternativas,opcionesConsulta:opcionesConsulta,opcionesReferencia:opcionesReferencia,buscarReferencias:buscarReferencias,leerTodo:leerTodo,esInsumo:esInsumo};
   window.PANTALLA_CONSULTA_MEDICAMENTOS=montar;
 })();

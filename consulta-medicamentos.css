@@ -11,6 +11,9 @@
 .cm-opciones{list-style:none;padding:0;margin:0}
 .cm-opciones li{padding:10px 0;line-height:1.5}
 .cm-opciones span{display:block;color:var(--ink-soft);font-size:13px}
+.cm-opciones .cm-disponibilidad{display:inline-block;font-weight:650;margin-top:5px}
+.cm-disponible{color:var(--ok-ink)!important}
+.cm-sin-existencia{color:var(--ink-soft)}
 .cm-sin-opciones{margin:0;font-weight:650}
 .cm-fuentes{margin:20px 0;font-size:13px;color:var(--ink-soft)}
 .cm-fuentes summary{min-height:44px;cursor:pointer;padding:12px 0}

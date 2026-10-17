@@ -9,7 +9,7 @@ window.GUIA_CONSULTA_MEDICAMENTOS = {
     { nombre: 'NHS · antihistamínicos', url: 'https://www.nhs.uk/medicines/antihistamines/' },
     { nombre: 'Neo Química · composición de Torsilax', url: 'https://www.neoquimica.com.br/nossas-marcas/bula/torsilax' }
   ],
-  principios: ['ACICLOVIR','ACIDO ACETILSALICILICO','ACIDO FOLICO','ACIDO IBANDRONICO',
+  principios: ['ACICLOVIR','ACRIVASTINA','FEXOFENADINA','ACIDO ACETILSALICILICO','ACIDO FOLICO','ACIDO IBANDRONICO',
     'ACIDO TRANEXAMICO','ALBENDAZOL','ALENDRONATO','ALOPURINOL','ALPRAZOLAM',
     'AMBROXOL','AMIODARONA','AMITRIPTILINA','AMLODIPINA','AMOXICILINA','AMPICILINA',
     'ATENOLOL','ATORVASTATINA','AZITROMICINA','BETAMETASONA','BISOPROLOL','BROMHEXINA',
@@ -31,7 +31,19 @@ window.GUIA_CONSULTA_MEDICAMENTOS = {
     'TAMSULOSINA','TRIMEBUTINA','VALPROATO DE SODIO','VALSARTAN','VANCOMICINA',
     'VERAPAMILO','VORICONAZOL'],
   dolor: ['PARACETAMOL','IBUPROFENO','DICLOFENAC POTASICO','DICLOFENAC SODICO','NAPROXENO'],
-  alergia: ['CETIRIZINA','LORATADINA'],
+  alergia: ['CETIRIZINA','LORATADINA','FEXOFENADINA','ACRIVASTINA'],
+  // Referencias documentadas independientes del catálogo y de sus cantidades.
+  // No representan productos comprados, dosis equivalentes ni disponibilidad comercial.
+  referencias: [
+    { clave:'paracetamol', nombre:'PARACETAMOL', aliases:['ACETAMINOFEN'], principios:['PARACETAMOL'], grupo:'dolor' },
+    { clave:'ibuprofeno', nombre:'IBUPROFENO', aliases:[], principios:['IBUPROFENO'], grupo:'dolor' },
+    { clave:'naproxeno', nombre:'NAPROXENO', aliases:[], principios:['NAPROXENO'], grupo:'dolor' },
+    { clave:'diclofenac', nombre:'DICLOFENACO', aliases:['DICLOFENAC','DICLOFENAC POTASICO','DICLOFENAC SODICO'], principios:['DICLOFENAC POTASICO','DICLOFENAC SODICO'], grupo:'dolor' },
+    { clave:'cetirizina', nombre:'CETIRIZINA', aliases:[], principios:['CETIRIZINA'], grupo:'alergia' },
+    { clave:'loratadina', nombre:'LORATADINA', aliases:[], principios:['LORATADINA'], grupo:'alergia' },
+    { clave:'fexofenadina', nombre:'FEXOFENADINA', aliases:[], principios:['FEXOFENADINA'], grupo:'alergia' },
+    { clave:'acrivastina', nombre:'ACRIVASTINA', aliases:[], principios:['ACRIVASTINA'], grupo:'alergia' }
+  ],
   notaDolor: 'Solo dolor o fiebre en adultos, según el caso. El profesional debe revisar embarazo, alergias, úlcera, sangrado, enfermedad renal, cardíaca o hepática y otros tratamientos. No combinar diclofenaco, ibuprofeno y naproxeno entre sí. Paracetamol no sustituye el efecto antiinflamatorio y requiere revisar enfermedad hepática y productos combinados.',
   notaAlergia: 'Solo síntomas alérgicos en adultos, según valoración profesional. Revisar otros tratamientos, somnolencia, embarazo y enfermedad renal o hepática. No es una opción para tratar anafilaxia.'
 };

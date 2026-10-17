@@ -4,6 +4,8 @@ Se abre en **Mercancía (Inventario) → Consulta de medicamentos** y en **Admin
 
 Corrección del 17/10/2026 solicitada por Carlos: retiro de esta consulta las tablas del inventario, cifras, filtros, selector de tipo, casilla de opciones, paginación y fichas de lotes. El inventario existente continúa en Catálogo. Las comprobaciones de composición y existencias permanecen internas; las fuentes y precauciones se pueden ampliar en «Información de la consulta».
 
+Ampliación del mismo día: las opciones documentadas se muestran **con y sin existencia**. Agotarse no elimina el medicamento de la lista de referencia. Las opciones de otros registros del catálogo se calculan conservando concentración y vía; una guía independiente permite consultar también medicamentos de referencia que nunca han figurado en el inventario. Cada resultado lleva **Disponible** o **Sin existencia**. Disponible requiere un lote positivo, vigente y con información suficiente; Sin existencia incluye también ausencia en el catálogo o falta de una presentación verificada utilizable. No afirma que el producto exista comercialmente en otra farmacia o en Venezuela. No se añaden productos ficticios a la base: las referencias solo existen en memoria y en el archivo de criterios.
+
 El catálogo completo y todos sus lotes se leen por páginas verificando el total exacto. Al entrar y cada 30 segundos mientras la consulta está visible, se vuelven a leer `productos` y `v_existencia_lote`. Si la lectura falla o cambia la cantidad durante la paginación, se retiran las propuestas y aparece Reintentar.
 
 El corte de revisión del 17/10/2026 contiene 419 registros y 546 lotes. La clasificación visual identifica 74 insumos y 345 medicamentos o fórmulas que requieren identificación; no cambia la categoría original, que actualmente llama medicamento también a muchos insumos. Las cantidades son por registro y por su unidad; no se suman presentaciones o dosis diferentes ni se confunden registros con principios activos únicos.
@@ -12,21 +14,21 @@ El corte de revisión del 17/10/2026 contiene 419 registros y 546 lotes. La clas
 
 - **Vigente:** saldo positivo de un lote disponible, con fecha de vencimiento conocida igual o posterior al día de Venezuela.
 - **Vencida:** saldo de lotes disponibles cuya fecha ya pasó.
-- **Sin fecha:** se informa aparte y se excluye de las propuestas hasta verificar el vencimiento.
-- **Retenida / dada de baja:** se informa aparte y se excluye de las propuestas.
+- **Sin fecha:** no se cuenta como disponible hasta verificar el vencimiento.
+- **Retenida / dada de baja:** no se cuenta como disponible.
 - Los saldos negativos bloquean las propuestas para el producto afectado. Un registro sin lotes conserva existencia cero, sin desaparecer del catálogo.
 
 La existencia vigente es una comprobación de saldo y fecha; no confirma por sí sola calidad, conservación, identidad física ni aptitud para un paciente.
 
 ## Lectura de los resultados
 
-- **Lista de opciones:** aparecen directamente los nombres y presentaciones de otros registros contemplados en los criterios de referencia y con existencia vigente, bajo la presentación consultada.
-- **No hay:** el piloto no encuentra otra opción de referencia disponible. No significa que no exista un tratamiento médico fuera del alcance del piloto.
+- **Lista de opciones:** aparecen directamente los nombres y presentaciones de opciones documentadas, bajo la presentación consultada, con Disponible o Sin existencia. Los disponibles se ordenan primero; los duplicados de principio, fuerza y forma no se repiten y conservan la etiqueta del registro utilizable.
+- **No hay:** la guía no tiene otra opción verificada para esa consulta; no significa simplemente que el almacén esté vacío ni que no exista un tratamiento médico fuera del alcance de la guía.
 - **No se pueden confirmar opciones:** fórmula, concentración o vía incompleta o contradictoria; no se inventan datos de las etiquetas.
 
 Solo se comparan principios expresos. Paracetamol y acetaminofén se reconocen como el mismo principio. La fuerza, forma y vía deben concordar para mostrar una referencia del mismo medicamento. Una concentración en gramos puede normalizarse a miligramos; nunca se convierten números de tabletas, dosis a administrar o pautas de tratamiento. Los jarabes y suspensiones necesitan concentración explícita en mg/ml. Las cremas necesitan porcentaje expreso. No se infieren vías para inyectables o gotas. Las formulaciones modificadas y combinaciones se excluyen.
 
-La opción adicional de referencia clínica se limita a algunos analgésicos orales para dolor o fiebre en adultos y a cetirizina/loratadina para síntomas alérgicos en adultos. Es una lista para valoración profesional, no una autorización de sustitución. No se equipara efecto analgésico con antiinflamatorio ni se indica combinar AINE. Se advierten los factores que debe revisar el profesional. No se proponen moléculas distintas para antibióticos, anticoagulantes, antiepilépticos o tratamientos crónicos.
+La opción adicional de referencia clínica se limita a algunos analgésicos orales para dolor o fiebre en adultos y a antihistamínicos orales documentados para síntomas alérgicos en adultos. La guía independiente incluye paracetamol, ibuprofeno, naproxeno, diclofenaco, cetirizina, loratadina, fexofenadina y acrivastina. Permite buscar estos nombres aunque no estén en el catálogo; no introduce concentraciones o pautas inventadas. Es una lista para valoración profesional, no una autorización de sustitución ni una lista exhaustiva de todos los tratamientos posibles. No se equipara efecto analgésico con antiinflamatorio ni se indica combinar AINE. Se advierten los factores que debe revisar el profesional. No se proponen moléculas distintas para antibióticos, anticoagulantes, antiepilépticos o tratamientos crónicos.
 
 Torsilax contiene diclofenaco, paracetamol, carisoprodol y cafeína; no se incluye como reemplazo simple del diclofenaco. El nombre escrito «Torcilax» requiere verificar el producto real.
 
