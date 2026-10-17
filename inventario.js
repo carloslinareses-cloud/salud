@@ -103,6 +103,7 @@
         '<div class="conmuta">' +
           '<button type="button" data-p="cargar">Registrar lo que llega</button>' +
           '<button type="button" data-p="catalogo">Catálogo</button>' +
+          '<button type="button" data-p="consulta">Consulta de medicamentos</button>' +
           '<button type="button" data-p="alertas">Alertas</button>' +
           '<button type="button" data-p="personas">Personas</button>' +
           '<button type="button" data-p="jornadas">Jornadas</button>' +
@@ -127,6 +128,7 @@
     if (pestana === 'cargar') verCargar();
     else if (pestana === 'alertas') verAlertas();
     else if (pestana === 'catalogo') verCatalogo();
+    else if (pestana === 'consulta') verConsultaMedicamentos();
     else if (pestana === 'entregas') verEntregas();
     else if (pestana === 'personas') verPersonas();
     else if (pestana === 'jornadas') verJornadas();
@@ -134,6 +136,15 @@
     else if (pestana === 'centros') verCentros();
     else if (pestana === 'insumos') verInsumos();
     else verConteo();
+  }
+
+  function verConsultaMedicamentos() {
+    var z = document.getElementById('zonaInv');
+    if (typeof window.PANTALLA_CONSULTA_MEDICAMENTOS !== 'function') {
+      z.innerHTML = '<div class="aviso bad">No se pudo cargar la consulta de medicamentos. Actualiza la página.</div>';
+      return;
+    }
+    window.PANTALLA_CONSULTA_MEDICAMENTOS(sb, z, { prefijo: 'invConsultaMed' });
   }
 
   /* El tablero de lo que salió. Es el mismo módulo que usa el panel del

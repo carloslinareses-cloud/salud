@@ -31,6 +31,7 @@
         '<div class="conmuta">' +
           '<button type="button" data-p="tablero">Tablero</button>' +
           '<button type="button" data-p="entregas">Entregas</button>' +
+          '<button type="button" data-p="consulta">Consulta de medicamentos</button>' +
           '<button type="button" data-p="personas">Personas</button>' +
           '<button type="button" data-p="bitacora">Bitácora</button>' +
           '<button type="button" data-p="usuarios">Usuarios</button>' +
@@ -44,8 +45,17 @@
       b.addEventListener('click', function () { pestana = b.dataset.p; pintar(); });
       b.classList.toggle('on', b.dataset.p === pestana);
     });
-    ({ tablero: verTablero, entregas: verEntregas, personas: verPersonas, bitacora: verBitacora,
+    ({ tablero: verTablero, entregas: verEntregas, consulta: verConsultaMedicamentos, personas: verPersonas, bitacora: verBitacora,
        historial: verHistorial, usuarios: verUsuarios, revisar: verRevisar })[pestana]();
+  }
+
+  function verConsultaMedicamentos() {
+    var z = document.getElementById('zonaAdm');
+    if (typeof window.PANTALLA_CONSULTA_MEDICAMENTOS !== 'function') {
+      z.innerHTML = '<div class="aviso bad">No se pudo cargar la consulta de medicamentos. Actualiza la página.</div>';
+      return;
+    }
+    window.PANTALLA_CONSULTA_MEDICAMENTOS(sb, z, { prefijo: 'admConsultaMed' });
   }
 
   function verPersonas() {
