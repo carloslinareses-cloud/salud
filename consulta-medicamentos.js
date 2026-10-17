@@ -117,70 +117,53 @@
   }
   var montajes = new WeakMap();
   function montar(sb, ancla, opciones) {
-    if(montajes.has(ancla)) montajes.get(ancla)();
-    var perfilUsuario=window.FARMACIA_PERFIL||{};
-    if(!['admin','inventario'].includes(perfilUsuario.rol)){ancla.innerHTML='<div class="aviso bad">Solo Administración e Inventario pueden consultar este módulo.</div>';return;}
-    var id=(opciones&&opciones.prefijo)||'consultaMed', lista=[], busqueda='', filtro='todos', tipo='medicamentos', pagina=0, elegido=null, ocupado=false, datosListos=false, vivo=true, version=0;
-    ancla.innerHTML='<section class="consulta-med" aria-label="Consulta de medicamentos">'+
-      '<div class="cm-cabecera"><div><h2>Consulta de medicamentos</h2><p>Inventario y opciones disponibles para valoración profesional · Piloto</p></div><button type="button" class="btn" data-cm="actualizar">Actualizar inventario</button></div>'+
-      '<p class="cm-criterio">Una opción para el mismo síntoma no es una sustitución automática. El profesional confirma la indicación, el envase y el tratamiento. No se calculan dosis ni se registran entregas desde esta consulta.</p>'+
-      '<div class="cm-filtros"><label for="'+id+'-busca">Buscar medicamento o principio activo<input id="'+id+'-busca" type="search" placeholder="Ej.: diclofenac, ibuprofeno, losartán" autocomplete="off"></label>'+
-      '<label for="'+id+'-stock">Existencia<select id="'+id+'-stock"><option value="todos">Todos</option><option value="con">Con existencia vigente</option><option value="sin">Sin existencia vigente</option><option value="revisar">Datos por revisar</option></select></label>'+
-      '<label for="'+id+'-tipo">Ver<select id="'+id+'-tipo"><option value="medicamentos">Medicamentos y fórmulas por verificar</option><option value="insumos">Insumos</option><option value="todos">Catálogo completo</option></select></label></div>'+
-      '<label class="cm-opcion"><input type="checkbox" data-cm="clinicas" checked> Incluir opciones para dolor/fiebre y alergia en adultos, sujetas a valoración profesional</label>'+
-      '<p data-cm="estado" role="status" aria-live="polite">Cargando inventario…</p><div data-cm="detalle"></div><div data-cm="lista"></div><div class="cm-paginacion" data-cm="paginas"></div>'+
-      '<details class="cm-fuentes"><summary>Cómo leer «No hay» y fuentes de la consulta</summary><p>«No hay» significa que este piloto no encontró otra opción de referencia con existencia vigente. «Por revisar» significa que faltan datos o hay contradicciones; no demuestra que no exista un tratamiento. No se proponen moléculas distintas para antibióticos, tratamientos crónicos, anticoagulantes ni antiepilépticos. Los lotes sin fecha se muestran, pero no se recomiendan hasta verificar el vencimiento.</p><p>Torsilax contiene diclofenaco, paracetamol, carisoprodol y cafeína: no es un reemplazo simple del diclofenaco. Una marca escrita como «Torcilax» requiere confirmar la fórmula del envase.</p><ul>'+guia.fuentes.map(function(f){return '<li><a href="'+esc(f.url)+'" target="_blank" rel="noopener noreferrer">'+esc(f.nombre)+'</a></li>';}).join('')+'</ul><p>Criterios revisados el 17/10/2026. Referencias informativas; no certifican intercambiabilidad de productos locales ni constituyen un protocolo de sustitución aprobado por Salud.</p></details></section>';
-    function zona(n){return ancla.querySelector('[data-cm="'+n+'"]');}
-    function activo(){return vivo&&ancla.isConnected&&!!zona('lista');}
-    function opcionesDe(p){return alternativas(p,lista,zona('clinicas').checked);}
-    function estadoDe(p){if(p.insumo)return 'Insumo';if(p.activo===false)return 'Inactivo';if(!p.perfil.completo||p.inconsistente)return 'Por revisar';return opcionesDe(p).length?'Ver opciones':'No hay';}
-    function resumenStock(p){return '<b>'+numero(p.vigente)+'</b> '+esc(p.unidad||'unidades')+' vigentes'+(p.vencido?'<small>'+numero(p.vencido)+' vencidas</small>':'')+(p.sinFecha?'<small>'+numero(p.sinFecha)+' sin fecha</small>':'')+(p.retenido?'<small>'+numero(p.retenido)+' retenidas / dadas de baja</small>':'')+(p.inconsistente?'<small>Saldo negativo: revisar movimientos</small>':'');}
-    function renderizar(){
-      if(!activo()||!datosListos)return;
-      var q=normalizar(busqueda).replace(/DICLOFENACO\b/g,'DICLOFENAC').replace(/ACETAMINOFEN/g,'PARACETAMOL');
-      var filtrada=lista.filter(function(p){
-        var texto=normalizar([p.nombre,p.presentacion,p.dosificacion,p.perfil.principio].join(' ')).replace(/DICLOFENACO\b/g,'DICLOFENAC').replace(/ACETAMINOFEN/g,'PARACETAMOL');
-        return (!q||q.split(' ').every(function(t){return texto.includes(t);}))&&(tipo==='todos'||(tipo==='insumos'?p.insumo:!p.insumo))&&(filtro==='todos'||(filtro==='con'?p.vigente>0:filtro==='sin'?p.vigente<=0:!p.perfil.completo||p.inconsistente));
-      });
-      pagina=Math.min(pagina,Math.max(0,Math.ceil(filtrada.length/30)-1));
-      var visibles=filtrada.slice(pagina*30,pagina*30+30);
-      zona('lista').innerHTML=filtrada.length?'<div class="cm-tabla"><table><thead><tr><th>Medicamento / presentación</th><th>Existencia</th><th>Otras opciones vigentes</th></tr></thead><tbody>'+visibles.map(function(p){return '<tr><td><strong>'+esc(p.nombre)+'</strong><small>'+esc([p.dosificacion,p.presentacion].filter(Boolean).join(' · ')||'Presentación por verificar')+'</small></td><td>'+resumenStock(p)+'</td><td><button type="button" class="btn secundario" data-producto="'+esc(p.id)+'">'+esc(estadoDe(p))+'</button></td></tr>';}).join('')+'</tbody></table></div>':'<p class="aviso">No se encontraron registros con estos filtros.</p>';
-      zona('paginas').innerHTML='<span>'+numero(filtrada.length)+' registros · '+numero(lista.length)+' en el catálogo completo</span><button type="button" class="btn secundario" data-paso="-1" '+(pagina===0?'disabled':'')+'>Anterior</button><span>Página '+(pagina+1)+' de '+Math.max(1,Math.ceil(filtrada.length/30))+'</span><button type="button" class="btn secundario" data-paso="1" '+((pagina+1)*30>=filtrada.length?'disabled':'')+'>Siguiente</button>';
-      if(elegido)detalle(elegido,false);
+    if (montajes.has(ancla)) montajes.get(ancla)();
+    if (!['admin','inventario'].includes((window.FARMACIA_PERFIL || {}).rol)) {
+      ancla.innerHTML='<div class="aviso bad">Solo Administración e Inventario pueden consultar este módulo.</div>'; return;
     }
-    function detalle(idProducto,enfocar){
-      if(!datosListos)return;
-      var p=lista.find(function(p){return p.id===idProducto;});if(!p){elegido=null;zona('detalle').innerHTML='';return;}
-      elegido=p.id;var opciones=opcionesDe(p);
-      zona('detalle').innerHTML='<section class="cm-detalle" tabindex="-1"><div class="cm-cabecera"><h3>'+esc(p.nombre)+'</h3><button class="btn secundario" type="button" data-cm="cerrar">Cerrar ficha</button></div><p>'+esc([p.dosificacion,p.presentacion].filter(Boolean).join(' · '))+'</p><p>'+resumenStock(p)+'</p>'+
-        (p.insumo?'<p>No aplica: es un insumo.</p>':p.inconsistente?'<p><b>Por revisar.</b> Hay saldos negativos. No se ofrecen opciones hasta revisar los movimientos.</p>':!p.perfil.completo?'<p><b>Por revisar.</b> '+esc(p.perfil.motivo)+'</p>':p.activo===false?'<p>Registro inactivo. No se proponen alternativas.</p>':opciones.length?'<h4>Opciones para valorar por el profesional</h4><ul class="cm-alternativas">'+opciones.map(function(a){return '<li><strong>'+esc(a.producto.nombre)+'</strong><span>'+esc(a.producto.presentacion)+' · '+numero(a.producto.vigente)+' '+esc(a.producto.unidad||'unidades')+' vigentes</span><span class="cm-clase">'+(a.tipo==='misma'?'Mismo principio y presentación':'Otro medicamento: requiere valoración clínica')+'</span><p>'+esc(a.texto)+'</p></li>';}).join('')+'</ul>':'<p><b>No hay.</b> No se encontraron otras opciones de referencia con existencia vigente en este inventario.</p>')+
-        '<details><summary>Lotes y existencias de este registro</summary><ul>'+p.lotes.map(function(l){return '<li>'+esc(l.lote||'Sin código')+' · '+numero(l.existencia)+' '+esc(p.unidad||'unidades')+' · '+(l.vence?'Vence '+esc(String(l.vence).slice(0,10).split('-').reverse().join('/')):'Sin fecha de vencimiento')+' · '+esc(l.estado)+'</li>';}).join('')+'</ul><p>Total contable de este registro: '+numero(p.total)+' '+esc(p.unidad||'unidades')+'. Las cantidades retenidas, vencidas o sin fecha se distinguen de las vigentes.</p></details></section>';
-      if(enfocar){var f=zona('detalle').firstElementChild;f.focus();f.scrollIntoView({block:'start',behavior:'smooth'});}
+    var id=(opciones&&opciones.prefijo)||'consultaMed', lista=[], consulta='', listo=false, ocupado=false, vivo=true;
+    ancla.innerHTML='<section class="consulta-med cm-simple" aria-label="Consulta de medicamentos">'+
+      '<h2>Consulta de medicamentos</h2><label for="'+id+'-busca">Nombre del medicamento</label>'+
+      '<input id="'+id+'-busca" type="search" placeholder="Escribe aquí, por ejemplo: diclofenac" autocomplete="off">'+
+      '<div data-cm="lista" role="status" aria-live="polite"><p>Preparando la consulta…</p></div>'+
+      '<p class="cm-ayuda">Las opciones deben ser confirmadas por el médico o farmacéutico.</p>'+
+      '<details class="cm-fuentes"><summary>Información de la consulta</summary><p>Solo se muestran opciones de referencia con existencia vigente. No son indicaciones de uso, combinaciones ni equivalencias de dosis. «No hay» significa que este piloto no encontró opciones disponibles; si faltan datos del medicamento, se indica antes de proponer un cambio.</p><p>'+esc(guia.notaDolor)+'</p><p>'+esc(guia.notaAlergia)+'</p><p>Torsilax contiene varios principios, incluido diclofenaco; no es un reemplazo simple. Las marcas o fórmulas sin confirmar no se adivinan.</p><ul>'+guia.fuentes.map(function(f){return '<li><a href="'+esc(f.url)+'" target="_blank" rel="noopener noreferrer">'+esc(f.nombre)+'</a></li>';}).join('')+'</ul></details></section>';
+    var entrada=ancla.querySelector('#'+id+'-busca'), salida=ancla.querySelector('[data-cm="lista"]');
+    function activo(){return vivo&&ancla.isConnected&&ancla.contains(entrada);}
+    function clave(t){return normalizar(t).replace(/DICLOFENACO\b/g,'DICLOFENAC').replace(/ACETAMINOFEN/g,'PARACETAMOL');}
+    function pintar(){
+      if(!activo()||!listo)return;
+      var q=clave(consulta);
+      if(q.length<2){salida.innerHTML='<p class="cm-vacio">Escribe el nombre para ver las opciones.</p>';return;}
+      var encontrados=lista.filter(function(p){
+        return !p.insumo&&p.activo!==false&&q.split(' ').every(function(t){return clave([p.nombre,p.dosificacion,p.presentacion,p.perfil.principio].join(' ')).includes(t);});
+      }).sort(function(a,b){return Number(b.perfil.completo&&!b.inconsistente)-Number(a.perfil.completo&&!a.inconsistente);});
+      if(!encontrados.length){salida.innerHTML='<p class="cm-vacio">No hay un medicamento registrado con ese nombre.</p>';return;}
+      // Una búsqueda general puede encontrar varias vías. Cada presentación
+      // mantiene sus propias opciones: nunca se mezclan jarabe, tableta o inyectable.
+      salida.innerHTML=encontrados.map(function(p){
+        var opciones=alternativas(p,lista,true);
+        var encabezado='<h3>'+esc(p.nombre)+'</h3><p class="cm-presentacion">'+esc([p.dosificacion,p.presentacion].filter(Boolean).join(' · '))+'</p>';
+        if(p.inconsistente||!p.perfil.completo)return '<section class="cm-resultado">'+encabezado+'<p>No se pueden confirmar opciones: falta verificar '+(p.inconsistente?'la existencia.':'la composición, concentración o presentación.')+'</p></section>';
+        return '<section class="cm-resultado">'+encabezado+(opciones.length?'<ul class="cm-opciones">'+opciones.map(function(a){return '<li><strong>'+esc(a.producto.nombre)+'</strong><span>'+esc(a.producto.presentacion||'')+(a.tipo==='clinica'?' · Para valoración profesional':' · Mismo principio, concentración y forma')+'</span></li>';}).join('')+'</ul>':'<p class="cm-sin-opciones">No hay.</p>')+'</section>';
+      }).join('');
     }
     async function cargar(){
-      if(ocupado||!activo())return;ocupado=true;datosListos=false;var turno=++version;
-      zona('actualizar').disabled=true;zona('estado').textContent='Consultando el catálogo completo y todos sus lotes…';
-      zona('lista').innerHTML='';zona('detalle').innerHTML='';zona('paginas').innerHTML='';
+      if(ocupado||!activo())return;
+      ocupado=true;listo=false;salida.innerHTML='<p>Consultando disponibilidad…</p>';
       try{
-        var r=await Promise.all([leerTodo(sb,'productos','id,nombre,dosificacion,presentacion,categoria,unidad,activo','id'),leerTodo(sb,'v_existencia_lote','lote_id,producto_id,lote,vence,estado,existencia','lote_id')]);
-        if(!activo()||turno!==version)return;
-        lista=inventariar(r[0],r[1],hoy()).sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es');});
-        datosListos=true;
-        var insumos=lista.filter(function(p){return p.insumo;}).length;
-        zona('estado').textContent=numero(lista.length)+' registros de catálogo ('+numero(lista.length-insumos)+' medicamentos/fórmulas y '+numero(insumos)+' insumos) · '+numero(r[1].length)+' lotes · Actualizado '+new Date().toLocaleString('es-VE',{timeZone:'America/Caracas'})+' · Se actualiza cada 30 segundos mientras esta consulta está visible.';
-        renderizar();
-      }catch(e){if(activo()&&turno===version){lista=[];zona('estado').textContent='No se pudo actualizar el inventario.';zona('lista').innerHTML='<div class="aviso bad">'+esc(e.message||e)+'. Pulsa Actualizar inventario para reintentar. No se muestran cifras ni alternativas de una carga incompleta.</div>';}}
-      finally{ocupado=false;if(activo())zona('actualizar').disabled=false;}
+        var datos=await Promise.all([leerTodo(sb,'productos','id,nombre,dosificacion,presentacion,categoria,unidad,activo','id'),leerTodo(sb,'v_existencia_lote','lote_id,producto_id,lote,vence,estado,existencia','lote_id')]);
+        if(!activo())return;
+        lista=inventariar(datos[0],datos[1],hoy()).sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es');});
+        listo=true;pintar();
+      }catch(e){if(activo()){lista=[];salida.innerHTML='<p>No se pudo consultar la disponibilidad.</p><button type="button" data-cm="reintentar">Reintentar</button>';}}
+      finally{ocupado=false;}
     }
-    ancla.querySelector('#'+id+'-busca').addEventListener('input',function(e){busqueda=e.target.value;pagina=0;renderizar();});
-    ancla.querySelector('#'+id+'-stock').addEventListener('change',function(e){filtro=e.target.value;pagina=0;renderizar();});
-    ancla.querySelector('#'+id+'-tipo').addEventListener('change',function(e){tipo=e.target.value;pagina=0;renderizar();});
-    zona('clinicas').addEventListener('change',renderizar);
-    ancla.addEventListener('click',function(e){if(!activo())return;var b=e.target.closest('button');if(!b||!ancla.contains(b))return;if(b.dataset.cm==='actualizar')cargar();else if(b.dataset.cm==='cerrar'){elegido=null;zona('detalle').innerHTML='';}else if(b.dataset.producto)detalle(b.dataset.producto,true);else if(b.dataset.paso){pagina+=Number(b.dataset.paso);renderizar();}});
+    entrada.addEventListener('input',function(){consulta=entrada.value;pintar();});
+    ancla.addEventListener('click',function(e){if(activo()&&e.target.closest('[data-cm="reintentar"]'))cargar();});
     var timer=setInterval(function(){if(!activo()){limpiar();return;}if(!document.hidden&&ancla.getClientRects().length)cargar();},30000);
-    function limpiar(){vivo=false;version++;clearInterval(timer);}
-    montajes.set(ancla,limpiar);
-    cargar();
+    function limpiar(){vivo=false;clearInterval(timer);}
+    montajes.set(ancla,limpiar);cargar();
   }
   window.CONSULTA_MEDICAMENTOS={normalizar:normalizar,perfil:perfil,inventariar:inventariar,alternativas:alternativas,leerTodo:leerTodo,esInsumo:esInsumo};
   window.PANTALLA_CONSULTA_MEDICAMENTOS=montar;

@@ -1,8 +1,10 @@
 # Consulta de medicamentos · piloto
 
-Se abre en **Mercancía (Inventario) → Consulta de medicamentos** y en **Administración → Consulta de medicamentos**. Ambas entradas utilizan el mismo módulo y las mismas tablas de Salud. No genera PDF, modifica inventario, prescribe ni registra entregas.
+Se abre en **Mercancía (Inventario) → Consulta de medicamentos** y en **Administración → Consulta de medicamentos**. La pantalla tiene un solo campo: escribir el nombre del medicamento. Las opciones disponibles aparecen directamente debajo, o «No hay». Ambas entradas utilizan el mismo módulo y las mismas tablas de Salud. No genera PDF, modifica inventario, prescribe ni registra entregas.
 
-El catálogo completo y todos sus lotes se leen por páginas verificando el total exacto. Al entrar, al pulsar Actualizar y cada 30 segundos mientras la consulta está visible, se vuelven a leer `productos` y `v_existencia_lote`. Si la lectura falla o cambia la cantidad durante la paginación, se retiran las cifras y las propuestas; se permite reintentar.
+Corrección del 17/10/2026 solicitada por Carlos: retiro de esta consulta las tablas del inventario, cifras, filtros, selector de tipo, casilla de opciones, paginación y fichas de lotes. El inventario existente continúa en Catálogo. Las comprobaciones de composición y existencias permanecen internas; las fuentes y precauciones se pueden ampliar en «Información de la consulta».
+
+El catálogo completo y todos sus lotes se leen por páginas verificando el total exacto. Al entrar y cada 30 segundos mientras la consulta está visible, se vuelven a leer `productos` y `v_existencia_lote`. Si la lectura falla o cambia la cantidad durante la paginación, se retiran las propuestas y aparece Reintentar.
 
 El corte de revisión del 17/10/2026 contiene 419 registros y 546 lotes. La clasificación visual identifica 74 insumos y 345 medicamentos o fórmulas que requieren identificación; no cambia la categoría original, que actualmente llama medicamento también a muchos insumos. Las cantidades son por registro y por su unidad; no se suman presentaciones o dosis diferentes ni se confunden registros con principios activos únicos.
 
@@ -18,9 +20,9 @@ La existencia vigente es una comprobación de saldo y fecha; no confirma por sí
 
 ## Lectura de los resultados
 
-- **Ver opciones:** hay otros registros contemplados en los criterios de referencia y con existencia vigente. Abrir muestra nombres, presentaciones, cantidades y limitaciones.
+- **Lista de opciones:** aparecen directamente los nombres y presentaciones de otros registros contemplados en los criterios de referencia y con existencia vigente, bajo la presentación consultada.
 - **No hay:** el piloto no encuentra otra opción de referencia disponible. No significa que no exista un tratamiento médico fuera del alcance del piloto.
-- **Por revisar:** fórmula, concentración o vía incompleta o contradictoria; no se inventan datos de las etiquetas.
+- **No se pueden confirmar opciones:** fórmula, concentración o vía incompleta o contradictoria; no se inventan datos de las etiquetas.
 
 Solo se comparan principios expresos. Paracetamol y acetaminofén se reconocen como el mismo principio. La fuerza, forma y vía deben concordar para mostrar una referencia del mismo medicamento. Una concentración en gramos puede normalizarse a miligramos; nunca se convierten números de tabletas, dosis a administrar o pautas de tratamiento. Los jarabes y suspensiones necesitan concentración explícita en mg/ml. Las cremas necesitan porcentaje expreso. No se infieren vías para inyectables o gotas. Las formulaciones modificadas y combinaciones se excluyen.
 

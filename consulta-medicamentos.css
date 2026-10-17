@@ -1,35 +1,21 @@
-.consulta-med{color:var(--ink,#172b3d);min-width:0}
-.cm-cabecera{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:12px}
-.cm-cabecera h2,.cm-cabecera h3{margin:0 0 6px}
-.cm-cabecera p{margin:0;color:var(--ink-soft,#435568)}
-.cm-criterio{max-width:75ch;line-height:1.6;margin:16px 0 24px}
-.cm-filtros{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;margin-bottom:16px}
-.cm-filtros label{display:flex;flex-direction:column;gap:8px;font-weight:600;min-width:0}
-.cm-filtros input,.cm-filtros select{width:100%;min-width:0;min-height:44px;font-size:16px}
-.cm-opcion{display:flex;gap:10px;align-items:flex-start;line-height:1.5;margin:16px 0;text-transform:none;letter-spacing:0;font-weight:500;font-size:14px;color:var(--ink)}
-.cm-opcion input{width:20px;height:20px;flex:none;margin-top:2px}
-.consulta-med small{display:block;font-size:13px;line-height:1.5;color:var(--ink-soft,#435568);margin-top:5px}
-.cm-tabla{overflow-x:auto;max-width:100%}
-.cm-tabla table{width:100%;border-collapse:collapse;text-align:left}
-.cm-tabla th,.cm-tabla td{padding:14px 12px;vertical-align:top;border-bottom:1px solid var(--line,#d4dde5);overflow-wrap:anywhere}
-.cm-tabla td:first-child{width:45%}
-.cm-tabla td:nth-child(2){font-variant-numeric:tabular-nums}
-.cm-paginacion{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:20px 0}
-.cm-paginacion>span:first-child{margin-right:auto}
-.cm-detalle{padding:20px 0;border-top:1px solid var(--line,#d4dde5);border-bottom:1px solid var(--line,#d4dde5);margin:24px 0;scroll-margin-top:24px;outline-offset:6px}
-.cm-detalle h4{margin-top:24px}
-.cm-alternativas{padding:0;list-style:none}
-.cm-alternativas li{padding:16px 0;border-bottom:1px solid var(--line,#d4dde5)}
-.cm-alternativas li>span{display:block;margin-top:6px}
-.cm-clase{font-weight:600}
-.cm-alternativas p,.cm-fuentes p{max-width:75ch;line-height:1.6}
-.cm-fuentes{margin:28px 0 12px;padding-top:16px;border-top:1px solid var(--line,#d4dde5)}
-.consulta-med summary{cursor:pointer;padding:10px 0;min-height:44px;font-weight:600}
-.consulta-med button{min-height:44px;font:inherit;font-size:14px;font-weight:650;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--navy);color:#fff;cursor:pointer}
-.consulta-med button.secundario{background:var(--card);color:var(--ink)}
-.consulta-med button:hover{border-color:var(--ink-soft)}
-.consulta-med button:disabled{opacity:.55;cursor:not-allowed}
-.consulta-med a{text-decoration:underline;text-underline-offset:3px}
-.consulta-med :focus-visible{outline:2px solid var(--azul,#12569a);outline-offset:3px}
-@media(max-width:700px){.cm-filtros{grid-template-columns:1fr}.cm-tabla th,.cm-tabla td{padding:12px 7px;font-size:14px}.cm-tabla td:first-child{width:40%}.cm-tabla .btn{font-size:13px;padding:8px}.cm-cabecera h2{font-size:23px}.cm-cabecera .btn{width:100%}}
+.consulta-med{color:var(--ink);min-width:0}
+.cm-simple{max-width:760px}
+.cm-simple h2{margin:0 0 22px}
+.cm-simple input{min-height:48px;font-size:16px;width:100%}
+.cm-simple [data-cm="lista"]{margin-top:24px}
+.cm-vacio,.cm-ayuda,.cm-presentacion{color:var(--ink-soft);line-height:1.5}
+.cm-ayuda{font-size:13px;margin-top:28px}
+.cm-resultado{padding:18px 0;border-bottom:1px solid var(--line)}
+.cm-resultado h3{font-size:16px;margin:0 0 5px}
+.cm-presentacion{margin:0 0 12px;font-size:13px}
+.cm-opciones{list-style:none;padding:0;margin:0}
+.cm-opciones li{padding:10px 0;line-height:1.5}
+.cm-opciones span{display:block;color:var(--ink-soft);font-size:13px}
+.cm-sin-opciones{margin:0;font-weight:650}
+.cm-fuentes{margin:20px 0;font-size:13px;color:var(--ink-soft)}
+.cm-fuentes summary{min-height:44px;cursor:pointer;padding:12px 0}
+.cm-fuentes p{line-height:1.6;max-width:75ch}
+.cm-fuentes a{text-decoration:underline;text-underline-offset:3px}
+.cm-simple button{min-height:44px;padding:10px 18px;background:var(--navy);color:white;border:1px solid var(--line);border-radius:10px;cursor:pointer;font:inherit}
+.cm-simple :focus-visible{outline:2px solid var(--ink-soft);outline-offset:3px}
 @media(max-width:859px){.tarjeta:has(.consulta-med)>.conmuta{position:static}}
