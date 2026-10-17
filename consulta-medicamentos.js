@@ -164,9 +164,10 @@
   function familiaConsulta(texto,lista) {
     if(/\+|AMPOLL|INYECT|JARABE|SUSPENSION|CREMA|GOTAS|\d\s*ML\b|\bML\b|\b(?:IV|IM)\b/.test(normalizar(texto)))return null;
     var f=identidad(texto);if(!f)return null;
-    var dosis=fuerzas(texto);
-    var registros=lista.filter(function(p){return p.activo!==false&&!p.insumo&&identidad(p.nombre)===f&&(!dosis.length||dosis.every(function(d){return fuerzas([p.nombre,p.dosificacion].join(' ')).includes(d);}));});
-    var referencias=f.referencias.filter(function(r){return (!dosis.length||dosis.every(function(d){return fuerzas(r.nombre).includes(d);}))&&!registros.some(function(p){return normalizar(p.nombre)===normalizar(r.nombre);});}).map(function(r){return {nombre:r.nombre,presentacion:r.forma,referencia:true,fuente:r.fuente};});
+    var dosis=fuerzas(texto),numeros=normalizar(texto).match(/\d+(?:[.,]\d+)?/g)||[];
+    function coincide(texto){return dosis.length?dosis.every(function(d){return fuerzas(texto).includes(d);}):numeros.every(function(n){return (normalizar(texto).match(/\d+(?:[.,]\d+)?/g)||[]).includes(n);});}
+    var registros=lista.filter(function(p){return p.activo!==false&&!p.insumo&&identidad(p.nombre)===f&&coincide([p.nombre,p.dosificacion].join(' '));});
+    var referencias=f.referencias.filter(function(r){return coincide(r.nombre)&&!registros.some(function(p){return normalizar(p.nombre)===normalizar(r.nombre);});}).map(function(r){return {nombre:r.nombre,presentacion:r.forma,referencia:true,fuente:r.fuente};});
     return {familia:f,registros:registros.concat(referencias).sort(function(a,b){return Number(b.vigente>0)-Number(a.vigente>0)||a.nombre.localeCompare(b.nombre,'es');})};
   }
   async function leerTodo(sb, tabla, columnas, orden) {
