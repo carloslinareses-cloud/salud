@@ -32,6 +32,7 @@
           '<button type="button" data-p="tablero">Tablero</button>' +
           '<button type="button" data-p="entregas">Entregas</button>' +
           '<button type="button" data-p="consulta">Consulta de medicamentos</button>' +
+          '<button type="button" data-p="conteo">Corregir existencia</button>' +
           '<button type="button" data-p="personas">Personas</button>' +
           '<button type="button" data-p="bitacora">Bitácora</button>' +
           '<button type="button" data-p="usuarios">Usuarios</button>' +
@@ -42,7 +43,15 @@
         '<div id="avisoAdm"></div>' +
       '</div>';
     ancla.querySelectorAll('.conmuta button').forEach(function (b) {
-      b.addEventListener('click', function () { pestana = b.dataset.p; pintar(); });
+      b.addEventListener('click', function () {
+        if (b.dataset.p === 'conteo') {
+          if (typeof window.FARMIR === 'function' && window.FARMIR('inventario') &&
+              typeof window.INVENTARIO_ABRIR_CONTEO === 'function') window.INVENTARIO_ABRIR_CONTEO();
+          else aviso('bad', 'No se pudo abrir Corregir existencia. Actualiza la página.');
+          return;
+        }
+        pestana = b.dataset.p; pintar();
+      });
       b.classList.toggle('on', b.dataset.p === pestana);
     });
     ({ tablero: verTablero, entregas: verEntregas, consulta: verConsultaMedicamentos, personas: verPersonas, bitacora: verBitacora,

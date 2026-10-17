@@ -1535,8 +1535,8 @@
       '<div class="chips" id="hojaFiltros">' + FILTROS_HOJA.map(function (f) {
         return '<button type="button" data-f="' + f.id + '">' + f.txt + '</button>';
       }).join('') + '</div>' +
-      '<label for="hojaBusca">Buscar</label>' +
-      '<input id="hojaBusca" type="search" autocomplete="off" placeholder="Nombre del medicamento…">' +
+      '<label for="hojaBusca">Buscar por medicamento o lote</label>' +
+      '<input id="hojaBusca" type="search" autocomplete="off" placeholder="Nombre del medicamento o número de lote…">' +
       '<div id="hojaLista"></div>' +
       '<div id="hojaGuardar"></div>';
 
@@ -1572,7 +1572,8 @@
 
     if (hoja.filtro === 'con')  q = q.gt('existencia', 0);
     if (hoja.filtro === 'cero') q = q.lte('existencia', 0);
-    if (hoja.busca.length >= 2) q = q.ilike('producto', '*' + hoja.busca.replace(/[%,()]/g, '') + '*');
+    var termino = hoja.busca.replace(/[\\%_*,()."]/g, '').trim();
+    if (termino) q = q.or('producto.ilike."*' + termino + '*",lote.ilike."*' + termino + '*"');
 
     var desde = hoja.pagina * POR_PAGINA;
     q.order('producto').order('vence', { nullsFirst: false })
@@ -1877,6 +1878,11 @@
     pestana = 'catalogo';
     verCatalogo();
     setTimeout(function () { verProducto(p); }, 0);
+  };
+
+  window.INVENTARIO_ABRIR_CONTEO = function () {
+    if (!sb || !ancla || !['admin', 'inventario'].includes((window.FARMACIA_PERFIL || {}).rol)) return;
+    pestana = 'conteo'; pintar();
   };
 
   window.PANTALLA_INVENTARIO = function (cliente, contenedor) {
