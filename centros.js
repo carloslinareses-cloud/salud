@@ -208,14 +208,11 @@
         '</div>' +
         '<button type="button" class="secundario" id="' + i('Nuevo') + '">+ Registrar centro</button>' +
       '</div>' +
-      /* A la farmacia no solo entran centros. También entra gente con un
-         récipe en la mano, o con la lista de insumos de una operación.
-         Los dos casos se registran y se entregan de una vez, en el
-         mostrador: estos botones llevan directo hasta allá. */
+      /* Desde Centros se conserva el acceso para una operación.
+         El registro por récipe se abre desde Inventario o Entregar. */
       (typeof window.FARMIR === 'function'
         ? '<div class="vias">' +
           '<span class="vias-lbl">Y si viene una persona con un papel:</span>' +
-          '<button type="button" class="suave" id="' + i('Recipe') + '">+ Registrar por récipe</button>' +
           '<button type="button" class="suave" id="' + i('Operacion') + '">+ Registrar para una operación</button>' +
           '</div>'
         /* Sin FARMIR no hay a dónde ir: este usuario no tiene el área de
@@ -223,14 +220,14 @@
         : '') +
       '<div id="' + i('Res') + '"><div class="cargando">Cargando…</div></div>';
 
-    /* Los dos llevan al mostrador con el formulario abierto. Si por lo
+    /* Lleva al mostrador con el formulario abierto. Si por lo
        que sea no se puede llegar (a este usuario no le toca esa área),
        se dice; no se deja el botón mudo. */
-    ['Recipe', 'Operacion'].forEach(function (cual) {
+    ['Operacion'].forEach(function (cual) {
       var b = t.q(cual);
       if (!b) return;
       b.addEventListener('click', function () {
-        var via = cual === 'Recipe' ? 'recipe' : 'operacion';
+        var via = 'operacion';
         var fue = window.FARMIR && window.FARMIR('despacho') &&
                   window.FARMDESPACHO && window.FARMDESPACHO.via(via);
         if (!fue) {
