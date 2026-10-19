@@ -17,7 +17,8 @@ export function opcionesDocumentadas(texto,productos,lotes,fecha) {
   if(ref){
     const g=guia.grupos[ref.grupo],ambito={indicacion:g.indicacion+' · Vía oral · Adultos',fuente:g.fuente,restricciones:[g.nota]};
     for(const o of consulta.opcionesReferencia(ref,lista))agregar(o.producto,'clinica',[ambito]);
-    for(const p of lista)if(ref.principios.includes(p.perfil.principio)&&['TABLETA','CAPSULA'].includes(p.perfil.forma))agregar(p,'mismo_principio',[{...ambito,restricciones:['Mismo principio; confirmar dosis, forma y prescripción. No implica equivalencia de dosis.',...ambito.restricciones]}]);
+    const principioSolicitado=consulta.perfil({nombre:texto,presentacion:'TABLETA'}).principio;
+    for(const p of lista)if(ref.principios.includes(p.perfil.principio)&&(!principioSolicitado||p.perfil.principio===principioSolicitado)&&['TABLETA','CAPSULA'].includes(p.perfil.forma))agregar(p,'mismo_principio',[{...ambito,restricciones:['Mismo principio; confirmar dosis, forma y prescripción. No implica equivalencia de dosis.',...ambito.restricciones]}]);
   }
   if(med){
     for(const o of oms.alternativas(med))for(const p of oms.productos(o.medicamento,lista)){
