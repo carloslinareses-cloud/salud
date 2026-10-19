@@ -1,5 +1,25 @@
 # Consulta de medicamentos · piloto
 
+## Revisión internacional del 19 de octubre de 2026 · 19/10/2026
+
+Mantengo el campo único en Inventario y Administración y amplío la consulta con una instantánea de **668 identidades de referencia internacional**. No son 668 sustitutos: algunos medicamentos no tienen una alternativa explícita en las fuentes incorporadas. La adaptación conserva **147 fichas de indicación y 294 relaciones base-alternativa**, con enlaces a la ficha detallada de la OMS y sus condiciones. El catálogo funciona aunque un medicamento nunca se haya comprado o se haya agotado en Salud.
+
+La fuente es [WHO electronic Essential Medicines List (eEML)](https://list.essentialmeds.org/), consultada el 19/10/2026. La OMS señala que los [PDF EML/EMLc 2025 prevalecen frente a discrepancias electrónicas](https://list.essentialmeds.org/caveats). Esta es una referencia documental adaptada, no una validación clínica del programa ni una certificación de compatibilidad para cada paciente. No cubre todos los medicamentos o marcas del mundo y no acredita registro sanitario ni disponibilidad comercial en Venezuela.
+
+Solo incorporo relaciones explícitas confirmadas por el enlace de su ficha detallada. Excluyo cuatro relaciones del índice que no se pudieron confirmar allí. Las alternativas se mantienen dentro de la misma ficha e indicación: no se encadenan entre enfermedades o por compartir una categoría farmacológica. Cuando la propia OMS autoriza una clase ATC, se muestra una selección contrastada de miembros de esa clase, conservando ambas fuentes. No empleo las DDD de ATC como dosis ni incluyo, por ejemplo, nimodipino como alternativa de hipertensión a partir de su clasificación.
+
+Cada alternativa internacional muestra su indicación, edad, vía descrita y precauciones relevantes; las condiciones originales completas quedan consultables junto al enlace. Se mantienen límites como alternativas exclusivas de EMLc, restricciones del uso oral, ausencia de extrapolación pediátrica, condiciones oncológicas y uso solo en programas especializados. Los otros nombres verificados de aspirina permanecen separados: un analgésico no se presenta como reemplazo de su función antiagregante. Las fórmulas, vías o liberaciones no evaluadas y los datos contradictorios no se reinterpretan.
+
+La disponibilidad local se calcula aparte, con productos identificados y lotes vigentes. No se promete existencia de una referencia internacional ni se considera intercambiable una presentación local por compartir principio. Las fechas de vencimiento imposibles quedan por confirmar. Si falla la lectura del inventario, las fuentes clínicas siguen disponibles y se muestra **Disponibilidad sin verificar**, con posibilidad de reintento; nunca se presenta ese fallo como ausencia mundial de tratamiento.
+
+Archivos nuevos: `consulta-medicamentos-oms-datos.js` contiene la instantánea y atribución; `consulta-medicamentos-oms.js` resuelve identidades y ámbitos documentados. El generador `scripts/generar-referencia-oms.mjs` requiere las extracciones oficiales revisadas en `tmp/oms-eeml-extraido.json`, `tmp/oms-recomendaciones-extraidas.json`, `tmp/oms-clases-atc.json` y el HTML original para su hash. Por defecto produce un archivo de revisión en `tmp`; `--publicar-datos` escribe el archivo local servido, nunca despliega automáticamente. Una actualización exige volver a contrastar fuentes y ejecutar las pruebas. No se generan alternativas con IA en tiempo de consulta.
+
+Validación: 58 comprobaciones anteriores y 21 internacionales, además de Chrome autenticado en ambos paneles con lecturas reales de productos y lotes. Pruebo medicamentos externos, alternativas de losartán/enalapril/furosemida/aciclovir, ausencia de inferencias para metformina y amoxicilina, límites de aspirina, fallo controlado de inventario y recuperación, y vistas de 1280, 375 y 320 píxeles. Corrijo el ajuste de los controles de cabecera a 320 píxeles. Las pruebas no modifican inventario, pacientes, entregas ni tratamientos. El módulo no genera PDF; el trabajo queda para el informe institucional.
+
+Atribución exigida: WHO electronic Essential Medicines List (eEML), World Health Organization, 2020 (beta version 1.0). Licence: CC BY 3.0 IGO. Adaptación y traducción locales, no creadas ni avaladas por la OMS. La OMS no responde por el contenido o exactitud de esta traducción; prevalece el original inglés. Véase la [licencia de eEML](https://list.essentialmeds.org/licencing).
+
+Las secciones siguientes conservan el historial del piloto y deben interpretarse con el alcance actualizado anterior.
+
 ## Revisión analítica del 17 de octubre
 
 La búsqueda conserva un campo único en Inventario y Administración. Ahora distingue **otros nombres del mismo principio**, **coincidencias de principio/concentración/forma** y **opciones de otro principio para valoración profesional**. No declara bioequivalencia ni compatibilidad individual de pacientes.

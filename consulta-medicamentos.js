@@ -17,6 +17,10 @@
   }
   function numero(n) { return Number(n || 0).toLocaleString('es-VE', { maximumFractionDigits: 2 }); }
   function hoy() { return window.FARM && window.FARM.hoyCaracas ? window.FARM.hoyCaracas() : new Intl.DateTimeFormat('en-CA', {timeZone:'America/Caracas', year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
+  function fechaValida(valor) {
+    var fecha=String(valor||'').slice(0,10),tiempo=Date.parse(fecha+'T00:00:00Z');
+    return /^\d{4}-\d{2}-\d{2}$/.test(fecha)&&Number.isFinite(tiempo)&&new Date(tiempo).toISOString().slice(0,10)===fecha;
+  }
   function esInsumo(p) {
     return /^(ADESIV|ADHESIV|AEROZOL MASK|ALGODON|BANDE ADHES|BIODEGRADABLE|BOLSAS? RECOL|CEPILLO|COMPRESA|CONJUNTO MONO|ENVASE DE ORINA|EQUIPO PERICRANEAL|ESPONJ|GASAS?\b|GEL DE ULTR|GUANTES?\b|JABON\b|JELCO\b|JERINGA|KIT DE PACIENTE|LLAVE 3 VIAS|MACROGOTERO|MASCARILLA|MICROGOTERO|OBSTURADOR|OBTURADOR|RECOLECTOR DE ORINA|SONDA|SUTURA|TUBO TAPA|VENDA|WHATA|YESO)/.test(normalizar(p.nombre));
   }
@@ -101,7 +105,7 @@
       p.total += cantidad; p.lotes.push(l);
       if (cantidad < 0) { p.inconsistente = true; return; }
       if (l.estado !== 'disponible') p.retenido += cantidad;
-      else if (!l.vence || !/^\d{4}-\d{2}-\d{2}$/.test(String(l.vence).slice(0,10))) p.sinFecha += cantidad;
+      else if (!fechaValida(l.vence)) p.sinFecha += cantidad;
       else if (String(l.vence).slice(0,10) < fecha) p.vencido += cantidad;
       else p.vigente += cantidad;
     });
@@ -191,28 +195,58 @@
     if (!['admin','inventario'].includes((window.FARMACIA_PERFIL || {}).rol)) {
       ancla.innerHTML='<div class="aviso bad">Solo Administración e Inventario pueden consultar este módulo.</div>'; return;
     }
-    var id=(opciones&&opciones.prefijo)||'consultaMed', lista=[], consulta='', listo=false, ocupado=false, vivo=true;
+    var id=(opciones&&opciones.prefijo)||'consultaMed', lista=[], consulta='', listo=true, ocupado=false, vivo=true, disponibilidadEstado='cargando';
     ancla.innerHTML='<section class="consulta-med cm-simple" aria-label="Consulta de medicamentos">'+
       '<h2>Consulta de medicamentos</h2><label for="'+id+'-busca">Nombre del medicamento</label>'+
       '<input id="'+id+'-busca" type="search" placeholder="Escribe aquí, por ejemplo: diclofenac" autocomplete="off">'+
-      '<div data-cm="lista" role="status" aria-live="polite"><p>Preparando la consulta…</p></div>'+
-      '<p class="cm-ayuda">Las opciones deben ser confirmadas por el médico o farmacéutico.</p>'+
-      '<details class="cm-fuentes"><summary>Información de la consulta</summary><p>Se muestran opciones documentadas con y sin existencia en Salud. «Disponible» exige un lote vigente; «Sin existencia utilizable» significa que el catálogo no tiene saldo vigente verificado; «No registrado en inventario» identifica referencias externas; «Existencia por confirmar» indica datos insuficientes. No indica si se venden en otra farmacia. «No hay» significa que esta guía no tiene opciones verificadas para esa consulta; no es una lista exhaustiva de tratamientos. Las opciones no son combinaciones ni equivalencias de dosis y requieren valoración profesional.</p><p>'+esc(guia.notaDolor)+'</p><p>'+esc(guia.notaAlergia)+'</p><p>Torsilax contiene varios principios, incluido diclofenaco; no es un reemplazo simple. Las marcas o fórmulas sin confirmar no se adivinan.</p><ul>'+guia.fuentes.map(function(f){return '<li><a href="'+esc(f.url)+'" target="_blank" rel="noopener noreferrer">'+esc(f.nombre)+'</a></li>';}).join('')+'</ul></details></section>';
+      '<div data-cm="disponibilidad" role="status"></div><div data-cm="lista" role="status" aria-live="polite"><p>Preparando la consulta…</p></div>'+
+      '<p class="cm-ayuda">Opciones para valoración del médico o farmacéutico. No son sustituciones automáticas ni equivalencias de dosis.</p>'+
+      '<details class="cm-fuentes"><summary>Información de la consulta</summary><p>Se muestran opciones documentadas con y sin existencia en Salud. «Disponible» exige un lote vigente; «Sin existencia utilizable» significa que el catálogo no tiene saldo vigente verificado; «No registrado en inventario» identifica referencias externas; «Existencia por confirmar» indica datos insuficientes. No indica si se venden en otra farmacia. «No hay» significa que esta guía no tiene opciones verificadas para esa consulta; no es una lista exhaustiva de tratamientos. Las opciones no son combinaciones ni equivalencias de dosis y requieren valoración profesional.</p><p>La referencia internacional OMS es independiente del inventario y conserva la indicación, edad y restricciones de cada relación publicada. No certifica compatibilidad individual, autorización de un producto en Venezuela ni disponibilidad mundial. Las marcas desconocidas no se adivinan.</p><p>'+esc(guia.notaDolor)+'</p><p>'+esc(guia.notaAlergia)+'</p><p>Torsilax contiene varios principios, incluido diclofenaco; no es un reemplazo simple. Las marcas o fórmulas sin confirmar no se adivinan.</p><ul>'+guia.fuentes.map(function(f){return '<li><a href="'+esc(f.url)+'" target="_blank" rel="noopener noreferrer">'+esc(f.nombre)+'</a></li>';}).join('')+'</ul>'+(window.CONSULTA_OMS_MEDICAMENTOS?'<p>'+esc(window.CONSULTA_OMS_MEDICAMENTOS.datos.atribucion)+' <a href="https://list.essentialmeds.org/licencing" target="_blank" rel="noopener noreferrer">Licencia y atribución</a></p><p>'+esc(window.CONSULTA_OMS_MEDICAMENTOS.datos.adaptacion)+'</p><p>Fuentes internacionales consultadas: 19 de octubre de 2026 · 19/10/2026. La cobertura es acotada; no incluye todos los tratamientos del mundo. La versión electrónica puede diferir de los <a href="https://iris.who.int/handle/10665/382243" target="_blank" rel="noopener noreferrer">PDF oficiales OMS 2025</a>, que prevalecen.</p>':'')+'</details></section>';
     var entrada=ancla.querySelector('#'+id+'-busca'), salida=ancla.querySelector('[data-cm="lista"]');
     function activo(){return vivo&&ancla.isConnected&&ancla.contains(entrada);}
     function clave(t){return normalizar(t).replace(/DICLOFENACO\b/g,'DICLOFENAC').replace(/ACETAMINOFEN/g,'PARACETAMOL');}
+    function etiqueta(p){return '<span class="cm-disponibilidad '+(disponibilidadEstado==='verificado'&&p.vigente>0?'cm-disponible':'cm-sin-existencia')+'">'+esc(disponibilidadEstado==='verificado'?disponibilidad(p):'Disponibilidad sin verificar')+'</span>';}
+    function referenciaOMS(consulta, reemplazoCompleto) {
+      var oms=window.CONSULTA_OMS_MEDICAMENTOS;if(!oms)return '';
+      var busqueda=oms.buscar(consulta),med=busqueda.exacta;
+      if(!med){return reemplazoCompleto&&busqueda.sugerencias.length?'<p>Selecciona el nombre exacto de la referencia internacional:</p><ul class="cm-opciones">'+busqueda.sugerencias.map(function(m){return '<li><button type="button" data-cm-nombre="'+esc(m.nombre)+'">'+esc(m.nombre)+'</button></li>';}).join('')+'</ul>':'';}
+      var opcionesOMS=oms.alternativas(med);
+      // No repetir alternativas ya mostradas con fuente NHS en la guía existente.
+      var guiaOrigen=guia.referencias.find(function(r){return [r.nombre].concat(r.aliases).some(function(n){return oms.resolver(n)?.id===med.id;});});
+      if(!reemplazoCompleto&&guiaOrigen){var cubiertos=new Set(guia.referencias.filter(function(r){return r.grupo===guiaOrigen.grupo;}).map(function(r){return oms.resolver(r.nombre)?.id;}).filter(Boolean));opcionesOMS=opcionesOMS.filter(function(o){return !cubiertos.has(o.medicamento.id);});}
+      if(!reemplazoCompleto&&!opcionesOMS.length)return '';
+      var cabecera='<section class="cm-resultado cm-internacional"><h3>'+esc(med.nombre)+' · Referencia internacional</h3><p class="cm-criterio">Opciones documentadas para las indicaciones señaladas. El médico debe confirmar el cambio, vía y condiciones del paciente; no son equivalentes miligramo por miligramo.</p>';
+      if(!opcionesOMS.length)return cabecera+'<p class="cm-sin-opciones">No hay alternativas explícitas verificadas en esta referencia para este medicamento.</p><a href="'+esc(med.fuente)+'" target="_blank" rel="noopener noreferrer">Consultar la fuente original</a></section>';
+      return cabecera+'<ul class="cm-opciones">'+opcionesOMS.map(function(o){
+        var m=o.medicamento,locales=oms.productos(m,lista),usos=Array.from(new Set(o.ambitos.map(oms.indicacion)));
+        var inventario=locales.length?'<p>Presentaciones del principio registradas en Salud; confirmar si corresponden a este uso:</p>'+locales.map(function(p){return '<span>'+esc([p.nombre,p.dosificacion,p.presentacion].filter(Boolean).join(' · '))+'</span>'+etiqueta(p);}).join(''):'<span class="cm-disponibilidad cm-sin-existencia">'+(disponibilidadEstado==='verificado'?'Sin coincidencia verificada en inventario':'Disponibilidad sin verificar')+'</span>';
+        var condiciones=Array.from(new Set(o.ambitos.map(function(g){return oms.edad(g)+'. '+oms.limites(g).join(' ');}))), condicionesHtml;
+        if(condiciones.length===1)condicionesHtml='<p class="cm-criterio">'+esc(condiciones[0])+'</p>';
+        else condicionesHtml=o.ambitos.map(function(g){return '<p class="cm-criterio">'+esc(oms.indicacion(g))+' · '+esc(oms.edad(g))+'. '+esc(oms.limites(g).join(' '))+'</p>';}).join('');
+        var fuentes=o.ambitos.map(function(g){return '<p><b>'+esc(oms.indicacion(g))+'</b> · Ficha de '+esc(oms.datos.medicamentos.find(function(x){return x.id===g.base;}).nombre)+'. No extrapolar a otra enfermedad o presentación.</p><a href="'+esc(g.fuente)+'" target="_blank" rel="noopener noreferrer">Fuente OMS: indicación y evidencia</a>'+(g.fuenteClase?' · <a href="'+esc(g.fuenteClase)+'" target="_blank" rel="noopener noreferrer">Pertenencia a la clase ATC</a>':'')+'<details><summary>Datos originales de la fuente (inglés)</summary><p lang="en">'+esc([g.indicacion,g.edad,g.restriccionEdad,g.sexo,g.formulaciones,g.notas,g.limitaciones,g.limitacionesInfantiles,g.resumen].filter(Boolean).join(' · '))+'</p></details>';}).join('');
+        return '<li><strong>'+esc(m.nombre)+'</strong><span>Para valorar en: '+esc(usos.join('; '))+'.</span>'+inventario+condicionesHtml+'<details class="cm-ambito"><summary>Fuentes y condiciones clínicas ('+o.ambitos.length+')</summary>'+fuentes+'</details></li>';
+      }).join('')+'</ul></section>';
+    }
     function pintar(){
       if(!activo()||!listo)return;
       var q=clave(consulta);
       if(q.length<2){salida.innerHTML='<p class="cm-vacio">Escribe el nombre para ver las opciones.</p>';return;}
       var familia=familiaConsulta(consulta,lista);
       function fichaCriterio(r){var g=guia.grupos[r.grupo];return '<p class="cm-criterio"><b>'+esc(g.indicacion)+'.</b> '+esc(g.nota)+' <a href="'+esc(g.fuente)+'" target="_blank" rel="noopener noreferrer">Fuente</a></p>';}
-      function etiqueta(p){return '<span class="cm-disponibilidad '+(p.vigente>0?'cm-disponible':'cm-sin-existencia')+'">'+esc(disponibilidad(p))+'</span>';}
       var encontrados=lista.filter(function(p){
         return !p.insumo&&p.activo!==false&&q.split(' ').every(function(t){return clave([p.nombre,p.dosificacion,p.presentacion,p.perfil.principio].join(' ')).includes(t);});
       }).sort(function(a,b){return Number(b.perfil.completo&&!b.inconsistente)-Number(a.perfil.completo&&!a.inconsistente);});
       var referencias=buscarReferencias(consulta).filter(function(r){return !encontrados.some(function(p){return r.principios.includes(p.perfil.principio)&&p.perfil.completo&&['TABLETA','CAPSULA'].includes(p.perfil.forma);});});
-      if(!encontrados.length&&!referencias.length&&!familia){salida.innerHTML='<p class="cm-vacio">Nombre o fórmula no evaluados en esta guía; confirmar el principio activo del envase.</p>';return;}
+      // La respuesta internacional va primero: no enterrarla bajo fichas de
+      // inventario que solo dicen que el piloto anterior no tenía alternativas.
+      var omsActual=window.CONSULTA_OMS_MEDICAMENTOS;
+      var medOMS=omsActual?.buscar(consulta).exacta;
+      var guiaCubre=medOMS&&guia.referencias.some(function(r){return [r.nombre].concat(r.aliases).some(function(n){return omsActual.resolver(n)?.id===medOMS.id;});});
+      if(!familia&&!guiaCubre&&medOMS){
+        var respuestaOMS=referenciaOMS(consulta,true);
+        if(respuestaOMS){salida.innerHTML=respuestaOMS;return;}
+      }
+      if(!encontrados.length&&!referencias.length&&!familia){salida.innerHTML=referenciaOMS(consulta,true)||'<p class="cm-vacio">Nombre o fórmula no evaluados en esta guía; confirmar el principio activo del envase.</p>';return;}
       function mostrarOpciones(opciones){
         return opciones.length?['misma','clinica'].map(function(tipo){var filas=opciones.filter(function(a){return a.tipo===tipo;});return filas.length?'<p><b>'+(tipo==='misma'?'Coinciden principio, concentración y forma':'Otras opciones para valorar según la indicación')+'</b></p><ul class="cm-opciones">'+filas.map(function(a){return '<li><strong>'+esc(a.producto.nombre)+'</strong><span>'+esc(a.producto.presentacion||'')+(tipo==='clinica'?' · Otro principio; no es sustitución directa':' · Confirmar envase y prescripción')+'</span>'+etiqueta(a.producto)+'</li>';}).join('')+'</ul>':'';}).join(''):'<p class="cm-sin-opciones">No hay una alternativa verificada en esta guía para esta presentación.</p>';
       }
@@ -220,7 +254,7 @@
         var f=familia.familia,ref=guia.referencias.find(function(r){return r.principios.includes(f.principio);});
         salida.innerHTML='<section class="cm-resultado"><h3>'+esc(f.titulo)+'</h3><p class="cm-criterio">'+esc(f.nota)+' <a href="'+esc(f.fuente)+'" target="_blank" rel="noopener noreferrer">Fuente</a></p><p><b>Otros nombres y presentaciones del mismo principio</b></p>'+
           (familia.registros.length?'<ul class="cm-opciones">'+familia.registros.map(function(p){var dosis=fuerzas([p.nombre,p.dosificacion].join(' '));return '<li><strong>'+esc(p.nombre)+'</strong><span>'+esc(p.presentacion||'Presentación por confirmar')+' · '+(dosis.length===1?esc(dosis[0]):'Concentración por confirmar')+' · Mismo principio; confirmar dosis y recubrimiento</span>'+etiqueta(p)+'</li>';}).join('')+'</ul>':'<p>No hay una presentación registrada que coincida con esa concentración.</p>')+
-          (ref?fichaCriterio(ref)+mostrarOpciones(opcionesReferencia(ref,lista)):'<p class="cm-criterio">No hay una sustitución directa por otro principio verificada para esta consulta. Las distintas concentraciones y recubrimientos requieren revisión profesional.</p>')+'</section>';
+          (ref?fichaCriterio(ref)+mostrarOpciones(opcionesReferencia(ref,lista)):'<p class="cm-criterio">No hay una sustitución directa por otro principio verificada para esta consulta. Las distintas concentraciones y recubrimientos requieren revisión profesional.</p>')+'</section>'+referenciaOMS(consulta,false);
         return;
       }
       // Una búsqueda general puede encontrar varias vías. Cada presentación
@@ -231,21 +265,21 @@
         if(p.inconsistente||!p.perfil.completo)return '<section class="cm-resultado">'+encabezado+'<p>No se pueden confirmar opciones: '+esc(p.inconsistente?'la existencia tiene inconsistencias.':p.perfil.motivo)+'</p></section>';
         var r=referenciaDe(p);
         return '<section class="cm-resultado">'+encabezado+(r&&['TABLETA','CAPSULA'].includes(p.perfil.forma)?fichaCriterio(r):'')+mostrarOpciones(opciones)+'</section>';
-      }).join('')+referencias.map(function(r){return '<section class="cm-resultado"><h3>'+esc(r.nombre)+'</h3><p class="cm-presentacion">Referencia general · Vía oral · Adultos</p>'+fichaCriterio(r)+mostrarOpciones(opcionesReferencia(r,lista))+'</section>';}).join('');
+      }).join('')+referencias.map(function(r){return '<section class="cm-resultado"><h3>'+esc(r.nombre)+'</h3><p class="cm-presentacion">Referencia general · Vía oral · Adultos</p>'+fichaCriterio(r)+mostrarOpciones(opcionesReferencia(r,lista))+'</section>';}).join('')+referenciaOMS(consulta,false);
     }
     async function cargar(){
       if(ocupado||!activo())return;
-      ocupado=true;listo=false;salida.innerHTML='<p>Consultando disponibilidad…</p>';
+      ocupado=true;disponibilidadEstado='cargando';ancla.querySelector('[data-cm="disponibilidad"]').textContent='Consultando disponibilidad local; las referencias clínicas siguen disponibles.';pintar();
       try{
         var datos=await Promise.all([leerTodo(sb,'productos','id,nombre,dosificacion,presentacion,categoria,unidad,activo','id'),leerTodo(sb,'v_existencia_lote','lote_id,producto_id,lote,vence,estado,existencia','lote_id')]);
         if(!activo())return;
         lista=inventariar(datos[0],datos[1],hoy()).sort(function(a,b){return a.nombre.localeCompare(b.nombre,'es');});
-        listo=true;pintar();
-      }catch(e){if(activo()){lista=[];salida.innerHTML='<p>No se pudo consultar la disponibilidad.</p><button type="button" data-cm="reintentar">Reintentar</button>';}}
+        disponibilidadEstado='verificado';ancla.querySelector('[data-cm="disponibilidad"]').textContent='';listo=true;pintar();
+      }catch(e){if(activo()){lista=[];disponibilidadEstado='error';listo=true;ancla.querySelector('[data-cm="disponibilidad"]').innerHTML='<p>No se pudo consultar la disponibilidad. Puedes consultar las referencias; no se confirma existencia local.</p><button type="button" data-cm="reintentar">Reintentar disponibilidad</button>';pintar();}}
       finally{ocupado=false;}
     }
     entrada.addEventListener('input',function(){consulta=entrada.value;pintar();});
-    ancla.addEventListener('click',function(e){if(activo()&&e.target.closest('[data-cm="reintentar"]'))cargar();});
+    ancla.addEventListener('click',function(e){if(!activo())return;if(e.target.closest('[data-cm="reintentar"]'))cargar();var sugerencia=e.target.closest('[data-cm-nombre]');if(sugerencia){consulta=sugerencia.dataset.cmNombre;entrada.value=consulta;pintar();}});
     var timer=setInterval(function(){if(!activo()){limpiar();return;}if(!document.hidden&&ancla.getClientRects().length)cargar();},30000);
     function limpiar(){vivo=false;clearInterval(timer);}
     montajes.set(ancla,limpiar);cargar();

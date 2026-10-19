@@ -23,4 +23,10 @@
 .cm-fuentes a{text-decoration:underline;text-underline-offset:3px}
 .cm-simple button{min-height:44px;padding:10px 18px;background:var(--navy);color:white;border:1px solid var(--line);border-radius:10px;cursor:pointer;font:inherit}
 .cm-simple :focus-visible{outline:2px solid var(--ink-soft);outline-offset:3px}
+.cm-internacional,.cm-ambito{overflow-wrap:anywhere;min-width:0}
+.cm-ambito{font-size:13px;color:var(--ink-soft)}
+.cm-ambito summary{cursor:pointer;min-height:44px;padding:12px 0;line-height:1.5}
+.cm-ambito p{line-height:1.6;max-width:80ch}
+.cm-ambito a{text-decoration:underline;text-underline-offset:3px}
+.cm-simple [data-cm="disponibilidad"]{font-size:13px;color:var(--ink-soft);line-height:1.6}
 @media(max-width:859px){.tarjeta:has(.consulta-med)>.conmuta{position:static}}
