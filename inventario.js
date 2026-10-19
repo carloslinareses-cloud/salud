@@ -101,6 +101,7 @@
     ancla.innerHTML =
       '<div class="tarjeta panel-con-menu">' +
         '<div class="conmuta">' +
+          '<button type="button" data-registrar-recipe>Registrar por récipe</button>' +
           '<button type="button" data-p="cargar">Registrar lo que llega</button>' +
           '<button type="button" data-p="catalogo">Catálogo</button>' +
           '<button type="button" data-p="consulta">Consulta de medicamentos</button>' +
@@ -118,12 +119,17 @@
           '<div id="avisoInv"></div>' +
         '</div>' +
       '</div>';
-    ancla.querySelectorAll('.conmuta button').forEach(function (b) {
+    ancla.querySelectorAll('.conmuta [data-p]').forEach(function (b) {
       b.classList.toggle('on', b.dataset.p === pestana);
       b.addEventListener('click', function () {
         if (pestana === b.dataset.p) return;
         pestana = b.dataset.p; pintar();
       });
+    });
+    ancla.querySelector('[data-registrar-recipe]').addEventListener('click', function () {
+      var abierto = typeof window.FARMIR === 'function' && window.FARMIR('despacho') &&
+        window.FARMDESPACHO && window.FARMDESPACHO.via('recipe');
+      if (!abierto) aviso('bad', 'No se pudo abrir el registro por récipe. Actualiza la página e intenta de nuevo.');
     });
     if (pestana === 'cargar') verCargar();
     else if (pestana === 'alertas') verAlertas();
