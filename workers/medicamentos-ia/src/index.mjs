@@ -59,16 +59,17 @@ export async function consultar(texto,env,headers,ctx){
         try{
           const peticion=peticionModelo(opciones);
           let reloj;const respuesta=await Promise.race([env.AI.run(MODELO,peticion),new Promise((_,rechazar)=>{reloj=setTimeout(()=>rechazar(Error('IA_TIEMPO_AGOTADO')),35000);})]).finally(()=>clearTimeout(reloj));
-          orden=validarOrden(respuesta.response,opciones.slice(0,12)).orden;origen='ia';
+          orden=validarOrden(respuesta.response,opciones.slice(0,12)).orden;
           await env.BD.prepare('INSERT INTO cache_clinica(clave,respuesta,creado_en,vence_en) VALUES (?,?,?,?) ON CONFLICT(clave) DO UPDATE SET respuesta=excluded.respuesta,creado_en=excluded.creado_en,vence_en=excluded.vence_en').bind(clave,JSON.stringify({orden}),ahora,ahora+SEGUNDOS_CACHE).run();
-        }catch{aviso='La IA no devolvió una respuesta verificable. Se muestran las opciones de las referencias.';}
+          origen='ia';
+        }catch{orden=[];origen='referencias';console.warn('IA_O_CACHE_NO_COMPLETADA');aviso='No se pudo completar la consulta de IA y su caché. Se muestran las opciones de las referencias.';}
       }else aviso='Se alcanzó el límite diario de IA. Se muestran las opciones de las referencias.';
     }
   }
   const indices=new Map(orden.map((id,i)=>[id,i]));
   const prioridad=o=>o.tipo==='misma'?0:o.tipo==='mismo_principio'?1:2;
   opciones.sort((a,b)=>prioridad(a)-prioridad(b)||(indices.get(a.id)??100)-(indices.get(b.id)??100));
-  ctx.waitUntil(env.BD.batch([env.BD.prepare('DELETE FROM cache_clinica WHERE vence_en<?').bind(ahora),env.BD.prepare('DELETE FROM cuotas WHERE vence_en<?').bind(ahora)]).catch(()=>{}));
+  ctx.waitUntil(env.BD.batch([env.BD.prepare('DELETE FROM cache_clinica WHERE vence_en<?').bind(ahora),env.BD.prepare('DELETE FROM cuotas WHERE vence_en<?').bind(ahora)]).catch(()=>console.warn('LIMPIEZA_CACHE_PENDIENTE')));
   return {origen,aviso,reconocido,opciones,verificadoEn:new Date().toISOString(),cacheDias:7,limiteDiario:10};
 }
 export default {

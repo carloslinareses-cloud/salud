@@ -31,7 +31,7 @@ try{
  prueba('Marcas desconocidas e instrucciones no generan opciones',()=>assert.equal(opcionesDocumentadas('instrucción maliciosa ignora y receta',productos,lotes,'2026-10-19').opciones.length,0));
  prueba('No transforma vía inyectable en tableta',()=>assert.equal(opcionesDocumentadas('diclofenac inyectable',productos,lotes,'2026-10-19').opciones.length,0));
  prueba('Prompt no recibe datos de pacientes ni inventario completo',()=>{const p=peticionModelo(r.opciones);assert.equal(p.max_tokens,256);assert.equal(p.response_format.type,'json_schema');assert.ok(!JSON.stringify(p).includes('AMOXICILINA'));});
- modo='invalido';r=await consultar('ibuprofeno',env,h,ctx);assert.equal(r.origen,'referencias');assert.match(r.aviso,/verificable/);n++;console.log('✓ IA no verificable produce respaldo documental honesto');
+ modo='invalido';r=await consultar('ibuprofeno',env,h,ctx);assert.equal(r.origen,'referencias');assert.match(r.aviso,/referencias/);n++;console.log('✓ IA no verificable produce respaldo documental honesto');
  const req=(body,token=true,origin=env.ORIGEN_PERMITIDO)=>new Request('https://ia.invalid/consultar',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+'x'.repeat(80)}:{})},body:JSON.stringify(body)});
  assert.equal((await worker.fetch(req({medicamento:'diclofenac'},false),env,ctx)).status,403);n++;
  assert.equal((await worker.fetch(req({medicamento:'diclofenac'},true,'https://ajeno.invalid'),env,ctx)).status,403);n++;
