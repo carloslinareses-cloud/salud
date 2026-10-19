@@ -1,0 +1,37 @@
+{
+  "$schema": "../../../admin-alcaldia/node_modules/wrangler/config-schema.json",
+  "name": "salud-medicamentos-ia",
+  "main": "src/index.mjs",
+  "account_id": "d7d03fcc9b4a03d2d7480f248b43c275",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "ai": {
+    "binding": "AI"
+  },
+  "d1_databases": [
+    {
+      "binding": "BD",
+      "database_name": "salud-medicamentos-ia-cache",
+      "database_id": "549620a1-e97b-4340-8931-25ae988bfe21",
+      "migrations_dir": "migraciones"
+    }
+  ],
+  "vars": {
+    "SUPABASE_URL": "https://tfbzghjjfcaqmkzsxrrs.supabase.co",
+    "ORIGEN_PERMITIDO": "https://salud.alcaldiadecharallave.com",
+    "MAX_INFERENCIAS_DIARIAS": "10"
+  },
+  "limits": {
+    "cpu_ms": 1000
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  },
+  "build": {
+    "command": "node scripts/preparar-referencias.mjs"
+  }
+}

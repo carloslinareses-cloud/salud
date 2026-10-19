@@ -199,10 +199,34 @@
     ancla.innerHTML='<section class="consulta-med cm-simple" aria-label="Consulta de medicamentos">'+
       '<h2>Consulta de medicamentos</h2><label for="'+id+'-busca">Nombre del medicamento</label>'+
       '<input id="'+id+'-busca" type="search" placeholder="Escribe aquí, por ejemplo: diclofenac" autocomplete="off">'+
+      '<button type="button" data-cm="buscar-ia">Buscar disponibles con IA</button>'+
+      '<div data-cm="ia" role="status" aria-live="polite"></div>'+
       '<div data-cm="disponibilidad" role="status"></div><div data-cm="lista" role="status" aria-live="polite"><p>Preparando la consulta…</p></div>'+
       '<p class="cm-ayuda">Opciones para valoración del médico o farmacéutico. No son sustituciones automáticas ni equivalencias de dosis.</p>'+
       '<details class="cm-fuentes"><summary>Información de la consulta</summary><p>Se muestran opciones documentadas con y sin existencia en Salud. «Disponible» exige un lote vigente; «Sin existencia utilizable» significa que el catálogo no tiene saldo vigente verificado; «No registrado en inventario» identifica referencias externas; «Existencia por confirmar» indica datos insuficientes. No indica si se venden en otra farmacia. «No hay» significa que esta guía no tiene opciones verificadas para esa consulta; no es una lista exhaustiva de tratamientos. Las opciones no son combinaciones ni equivalencias de dosis y requieren valoración profesional.</p><p>La referencia internacional OMS es independiente del inventario y conserva la indicación, edad y restricciones de cada relación publicada. No certifica compatibilidad individual, autorización de un producto en Venezuela ni disponibilidad mundial. Las marcas desconocidas no se adivinan.</p><p>'+esc(guia.notaDolor)+'</p><p>'+esc(guia.notaAlergia)+'</p><p>Torsilax contiene varios principios, incluido diclofenaco; no es un reemplazo simple. Las marcas o fórmulas sin confirmar no se adivinan.</p><ul>'+guia.fuentes.map(function(f){return '<li><a href="'+esc(f.url)+'" target="_blank" rel="noopener noreferrer">'+esc(f.nombre)+'</a></li>';}).join('')+'</ul>'+(window.CONSULTA_OMS_MEDICAMENTOS?'<p>'+esc(window.CONSULTA_OMS_MEDICAMENTOS.datos.atribucion)+' <a href="https://list.essentialmeds.org/licencing" target="_blank" rel="noopener noreferrer">Licencia y atribución</a></p><p>'+esc(window.CONSULTA_OMS_MEDICAMENTOS.datos.adaptacion)+'</p><p>Fuentes internacionales consultadas: 19 de octubre de 2026 · 19/10/2026. La cobertura es acotada; no incluye todos los tratamientos del mundo. La versión electrónica puede diferir de los <a href="https://iris.who.int/handle/10665/382243" target="_blank" rel="noopener noreferrer">PDF oficiales OMS 2025</a>, que prevalecen.</p>':'')+'</details></section>';
     var entrada=ancla.querySelector('#'+id+'-busca'), salida=ancla.querySelector('[data-cm="lista"]');
+    var salidaIA=ancla.querySelector('[data-cm="ia"]'),botonIA=ancla.querySelector('[data-cm="buscar-ia"]'),controlIA=null,numeroIA=0;
+    function invalidarIA(){numeroIA++;if(controlIA)controlIA.abort();controlIA=null;botonIA.disabled=false;salidaIA.innerHTML='';}
+    async function buscarIA(){
+      var texto=entrada.value.trim();if(texto.length<2){entrada.focus();salidaIA.textContent='Escribe el nombre del medicamento.';return;}
+      invalidarIA();var turno=numeroIA;var controlador=new AbortController();controlIA=controlador;var temporizador=setTimeout(function(){controlador.abort();},45000);
+      botonIA.disabled=true;salidaIA.textContent='Consultando opciones documentadas y existencias de Salud…';
+      try{
+        var sesion=await sb.auth.getSession(),token=sesion.data?.session?.access_token;
+        if(!token)throw Error('Vuelve a iniciar sesión para consultar.');
+        if(turno!==numeroIA||!activo())return;
+        var r=await fetch('https://salud-medicamentos-ia.correo-alcaldia.workers.dev/consultar',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({medicamento:texto}),signal:controlador.signal});
+        var d=await r.json();if(!r.ok)throw Error(d.error==='ESPERA_UN_MINUTO'?'Espera un minuto antes de volver a consultar.':d.error==='NO_AUTORIZADO'?'Se requiere una sesión activa de Administración o Inventario.':'No se pudo verificar la disponibilidad. Reintenta la consulta.');
+        if(!activo()||turno!==numeroIA)return;
+        var titulo=d.origen==='cache'?'Respuesta reutilizada · Existencias verificadas de nuevo':d.origen==='ia'?'Opciones ordenadas con IA de Cloudflare':'Opciones de las referencias verificadas';
+        var fecha=new Date(d.verificadoEn).toLocaleString('es-VE',{timeZone:'America/Caracas',dateStyle:'short',timeStyle:'short'});
+        salidaIA.innerHTML='<section class="cm-resultado cm-ia"><h3>'+esc(titulo)+'</h3><p class="cm-criterio">Existencias consultadas: '+esc(fecha)+'. Opciones para valoración profesional según la indicación indicada.</p>'+(d.aviso?'<p>'+esc(d.aviso)+'</p>':'')+
+          (d.opciones.length?'<ul class="cm-opciones">'+d.opciones.map(function(o){var p=o.producto;return '<li><strong>'+esc(p.nombre)+'</strong><span>'+esc([/\d/.test(p.dosificacion||'')&&!normalizar(p.nombre).includes(normalizar(p.dosificacion))?p.dosificacion:'',p.presentacion].filter(Boolean).join(' · '))+'</span><span class="cm-disponibilidad cm-disponible">Disponible: '+esc(numero(p.vigente))+' '+esc(p.unidad||'unidades')+'</span><p>'+(o.tipo==='misma'?'Coinciden principio, concentración y forma; confirmar envase y prescripción.':o.tipo==='mismo_principio'?'Mismo principio activo; confirmar dosis y presentación.':'Otro principio activo; requiere valoración profesional.')+'</p>'+o.ambitos.map(function(a){return '<div class="cm-ambito"><b>'+esc(a.indicacion)+'</b><details><summary>Precauciones y fuente</summary><p>'+esc(a.restricciones.join(' '))+'</p><a href="'+esc(a.fuente)+'" target="_blank" rel="noopener noreferrer">Consultar fuente</a></details></div>';}).join('')+'</li>';}).join('')+'</ul>':'<p>'+(d.reconocido?'No hay una opción documentada con existencia utilizable verificada para esta consulta.':'Nombre o presentación sin confirmar. Usa el nombre exacto o confirma el principio activo del envase.')+' Puedes revisar las referencias generales de abajo.</p>')+'</section>';
+      }catch(e){if(activo()&&turno===numeroIA)salidaIA.textContent=e.name==='AbortError'?'La consulta tardó demasiado. Puedes reintentar.':e.message;}
+      finally{clearTimeout(temporizador);if(turno===numeroIA){botonIA.disabled=false;controlIA=null;}}
+    }
+    botonIA.addEventListener('click',buscarIA);
+    entrada.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();buscarIA();}});
     function activo(){return vivo&&ancla.isConnected&&ancla.contains(entrada);}
     function clave(t){return normalizar(t).replace(/DICLOFENACO\b/g,'DICLOFENAC').replace(/ACETAMINOFEN/g,'PARACETAMOL');}
     function etiqueta(p){return '<span class="cm-disponibilidad '+(disponibilidadEstado==='verificado'&&p.vigente>0?'cm-disponible':'cm-sin-existencia')+'">'+esc(disponibilidadEstado==='verificado'?disponibilidad(p):'Disponibilidad sin verificar')+'</span>';}
@@ -278,10 +302,10 @@
       }catch(e){if(activo()){lista=[];disponibilidadEstado='error';listo=true;ancla.querySelector('[data-cm="disponibilidad"]').innerHTML='<p>No se pudo consultar la disponibilidad. Puedes consultar las referencias; no se confirma existencia local.</p><button type="button" data-cm="reintentar">Reintentar disponibilidad</button>';pintar();}}
       finally{ocupado=false;}
     }
-    entrada.addEventListener('input',function(){consulta=entrada.value;pintar();});
-    ancla.addEventListener('click',function(e){if(!activo())return;if(e.target.closest('[data-cm="reintentar"]'))cargar();var sugerencia=e.target.closest('[data-cm-nombre]');if(sugerencia){consulta=sugerencia.dataset.cmNombre;entrada.value=consulta;pintar();}});
+    entrada.addEventListener('input',function(){invalidarIA();consulta=entrada.value;pintar();});
+    ancla.addEventListener('click',function(e){if(!activo())return;if(e.target.closest('[data-cm="reintentar"]'))cargar();var sugerencia=e.target.closest('[data-cm-nombre]');if(sugerencia){invalidarIA();consulta=sugerencia.dataset.cmNombre;entrada.value=consulta;pintar();}});
     var timer=setInterval(function(){if(!activo()){limpiar();return;}if(!document.hidden&&ancla.getClientRects().length)cargar();},30000);
-    function limpiar(){vivo=false;clearInterval(timer);}
+    function limpiar(){vivo=false;clearInterval(timer);invalidarIA();}
     montajes.set(ancla,limpiar);cargar();
   }
   window.CONSULTA_MEDICAMENTOS={normalizar:normalizar,identidad:identidad,disponibilidad:disponibilidad,familiaConsulta:familiaConsulta,perfil:perfil,inventariar:inventariar,alternativas:alternativas,opcionesConsulta:opcionesConsulta,opcionesReferencia:opcionesReferencia,buscarReferencias:buscarReferencias,leerTodo:leerTodo,esInsumo:esInsumo};

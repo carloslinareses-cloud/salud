@@ -30,3 +30,7 @@
 .cm-ambito a{text-decoration:underline;text-underline-offset:3px}
 .cm-simple [data-cm="disponibilidad"]{font-size:13px;color:var(--ink-soft);line-height:1.6}
 @media(max-width:859px){.tarjeta:has(.consulta-med)>.conmuta{position:static}}
+.consulta-med [data-cm="buscar-ia"]{min-height:44px;margin:10px 0;max-width:100%;white-space:normal}
+.cm-ia{overflow-wrap:anywhere}
+
+.cm-ia summary{min-height:44px;display:flex;align-items:center;cursor:pointer;text-decoration:underline}

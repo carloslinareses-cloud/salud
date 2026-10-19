@@ -1,0 +1,5 @@
+.wrangler/
+generado/
+worker-configuration.d.ts
+node_modules/
+.dev.vars
