@@ -662,6 +662,7 @@
           '<th class="num">Cantidad Entregada</th></tr></thead><tbody>' +
           items.map(function (it, k) {
             return '<tr><td>' + (k + 1) + '</td><td>' + esc(it.descripcion) +
+              (raiz.LOTES_MEDICAMENTOS ? raiz.LOTES_MEDICAMENTOS.boton(it.producto_id,it.descripcion) : '') +
               (it.revisar ? ' <span class="sit ojo" title="' + esc(it.revisar_motivo || '') + '">Revisar</span>' +
                             '<span class="chico" style="display:block;font-size:11.5px;color:var(--warn-ink)">' + esc(it.revisar_motivo || '') + '</span>' : '') +
               '</td><td class="num">' + (it.cantidad == null ? '—' : num(it.cantidad)) + '</td></tr>';
@@ -860,7 +861,7 @@
               ' <button type="button" class="enlace" data-soltar="' + k + '">quitar el enlace</button>'
             : '<button type="button" class="enlace" data-enlazar="' + k + '">Buscar en el inventario</button>' +
               ' <span class="sub chico">si no se enlaza, se anota igual pero no descuenta</span>') +
-        '</span>' +
+        (raiz.LOTES_MEDICAMENTOS ? raiz.LOTES_MEDICAMENTOS.boton(it.producto_id,it.descripcion) : '') + '</span>' +
         (falta ? '<span class="insumo-revisar mal">Solo quedan ' + num(it.disponible) +
           ' en el sistema. Se puede guardar igual: sale lo que hay y el resto queda anotado para revisar.</span>' : '') +
         (it.revisar ? '<span class="insumo-revisar">Revisar: ' + esc(it.revisar_motivo || '') +

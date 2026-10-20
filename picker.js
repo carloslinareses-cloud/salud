@@ -138,14 +138,14 @@
               : total + (total === 1 ? ' medicamento' : ' medicamentos')) + '</p>' +
             '<div class="fichas">' + f.map(function (x, i) {
               var hay = Math.round(Number(x.disponible) || 0);
-              return '<button type="button" class="ficha" data-i="' + i + '">' +
+              return '<div class="lm-opcion"><button type="button" class="ficha" data-i="' + i + '">' +
                 '<div class="ficha-nom"><b>' + esc(x.producto) + '</b>' +
                   '<span class="ficha-pres">' +
                   esc([x.dosificacion, x.presentacion].filter(Boolean).join(' · ') || 'sin presentación') +
                   '</span></div>' +
                 '<div class="ficha-datos"><span class="ficha-cant' + (hay ? '' : ' cero') + '">' +
                   hay + '<em>' + (hay === 1 ? 'disponible' : 'disponibles') + '</em></span></div>' +
-              '</button>';
+              '</button>' + (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '') + '</div>';
             }).join('') + aMano + '</div>');
         }
 

@@ -779,6 +779,7 @@
                                : (y.situacion === 'solo_vencido' ? 'solo vencido'
                                                                  : 'sin existencia'))
                     : 'no está en el catálogo') + '</em></span>' +
+              (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(y.producto_id,nom) : '') +
               '<button type="button" class="trat-edita" data-editamed="' + esc(y.tratamiento_id) + '" ' +
                 'data-texto="' + esc(nom) + '" ' +
                 'aria-label="Corregir ' + esc(nom) + '" title="Corregir">&#9998;&#65038;</button>' +
@@ -1230,7 +1231,7 @@
       }
       z.innerHTML = '<div class="trat-lista">' + arr.map(function (x, n) {
         return '<span class="trat-par"><span class="trat-texto del-catalogo">' +
-          esc(texto(x)) + '</span>' +
+          esc(texto(x)) + '</span>' + (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '') +
           '<button type="button" class="trat-quita" data-n="' + n + '" ' +
           'aria-label="Quitar ' + esc(texto(x)) + '">&#10005;</button></span>';
       }).join('') + '</div>';

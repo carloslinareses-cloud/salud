@@ -166,6 +166,7 @@
        saberlo para ofrecer solo lo que la base va a aceptar. El candado
        de verdad sigue estando en la base. */
     window.FARMACIA_PERFIL = { rol: perfil.rol, nombre: perfil.nombre || usuario.email };
+    if (window.LOTES_MEDICAMENTOS) window.LOTES_MEDICAMENTOS.iniciar(sb);
     $('chipUsuario').textContent = (perfil.nombre || usuario.email) + ' · ' + perfil.rol;
     $('chipUsuario').hidden = false;
     $('btnSalir').hidden = false;

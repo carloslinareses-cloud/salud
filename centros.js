@@ -515,6 +515,7 @@
                     esc([x.dosificacion, x.presentacion].filter(Boolean).join(' · ')) + '</span>'
                   : '') +
                 (x.producto_id ? '' : '<span class="chico mal">escrito a mano, sin enlazar al catálogo</span>') +
+                (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '') +
               '</td>' +
               '<td class="num der" data-col="Cuánto necesita">' +
                 '<input class="celda" type="number" min="1" step="1" inputmode="numeric" ' +
@@ -667,8 +668,11 @@
       total += c;
       var k = x.producto || 'Sin identificar';
       var m = porMed[k] || (porMed[k] = { producto: k, dosificacion: x.dosificacion,
-                                          unidades: 0, veces: 0, ultima: null });
+                                          unidades: 0, veces: 0, ultima: null, lotesEntregados: {} });
       m.unidades += c; m.veces++;
+      var claveLote = JSON.stringify([x.lote || null,x.vence || null]);
+      var loteEntregado = m.lotesEntregados[claveLote] || (m.lotesEntregados[claveLote] = {lote:x.lote,vence:x.vence,cantidad:0});
+      loteEntregado.cantidad += c;
       if (!m.ultima || x.fecha > m.ultima) m.ultima = x.fecha;
     });
     var lista = Object.keys(porMed).map(function (k) { return porMed[k]; })
@@ -711,7 +715,8 @@
       lista.map(function (m) {
         return '<tr>' +
           '<td class="c-med" data-col="Insumo"><b>' + esc(m.producto) + '</b>' +
-            (m.dosificacion ? '<span class="chico">' + esc(m.dosificacion) + '</span>' : '') + '</td>' +
+            (m.dosificacion ? '<span class="chico">' + esc(m.dosificacion) + '</span>' : '') +
+            '<details class="lm-historicos"><summary>Lotes entregados</summary><ul>'+Object.keys(m.lotesEntregados).map(function (clave) {var l=m.lotesEntregados[clave];return '<li>Lote '+esc(l.lote || 'no registrado')+' · Vence: '+esc(l.vence?corta(l.vence):'no registrado')+' · '+num(l.cantidad)+' unidades entregadas</li>';}).join('')+'</ul></details></td>' +
           '<td class="num der" data-col="Unidades"><b>' + num(m.unidades) + '</b></td>' +
           '<td class="num der" data-col="Veces">' + m.veces + '</td>' +
           '<td data-col="Última vez">' + corta(m.ultima) + '</td>' +
@@ -1149,6 +1154,7 @@
     z.innerHTML = '<div class="trat-lista">' + t.pendientes.map(function (x, n) {
       return '<span class="trat-par"><span class="trat-texto del-catalogo">' +
         esc(x.producto) + (x.producto_id ? '' : ' <em class="a-mano">a mano</em>') + '</span>' +
+        (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '') +
         '<button type="button" class="trat-quita" data-n="' + n + '" ' +
         'aria-label="Quitar ' + esc(x.producto) + '">&#10005;</button></span>';
     }).join('') + '</div>' +

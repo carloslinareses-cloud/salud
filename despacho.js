@@ -620,6 +620,7 @@
         (x.producto_id ? ' del-catalogo' : '') + '">' + esc(x.producto) +
         (x.dosificacion ? ' <em>' + esc(x.dosificacion) + '</em>' : '') +
         (x.producto_id ? '' : ' <em class="a-mano">a mano</em>') + '</span>' +
+        (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '') +
         '<button type="button" class="trat-quita" data-saca="' + i + '" ' +
         'aria-label="Quitar ' + esc(x.producto) + '">&#10005;</button></span>';
     }).join('') + '</div>' +
@@ -1391,7 +1392,7 @@
                segundo caso hay algo que sacar del estante hoy. */
             var soloVenc = x.cobertura === 'solo_vencido';
             var venc = Math.round(Number(x.vencido) || 0);
-            return '<button type="button" class="trat-med' + (hay > 0 ? '' : ' sin') + '" ' +
+            return '<span class="lm-opcion"><button type="button" class="trat-med' + (hay > 0 ? '' : ' sin') + '" ' +
               'data-req="' + i + '"' + (hay > 0 ? '' : ' disabled') + '>' +
               '<span class="tm-nom">' + esc(x.producto) +
                 (x.dosificacion ? ' <em>' + esc(x.dosificacion) + '</em>' : '') + '</span>' +
@@ -1401,7 +1402,7 @@
                          : (soloVenc ? 'solo vencido' + (venc ? ' · ' + venc : '')
                                      : 'sin existencia')) +
                 (pide != null && hay > 0 && hay < pide ? ' — no alcanza' : '') +
-              '</span></button>';
+              '</span></button>' + (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '') + '</span>';
           }).join('') + '</div>'
         : '') +
       /* Los que no estan en el catalogo no se pueden tocar, asi que no se
@@ -1712,7 +1713,8 @@
                   : 'no está en el catálogo') + '</span>' +
               '</button>' +
               (x.tratamiento_id
-                ? '<button type="button" class="trat-edita" data-edita="' + esc(x.tratamiento_id) + '" ' +
+                ? (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,nom) : '') +
+                  '<button type="button" class="trat-edita" data-edita="' + esc(x.tratamiento_id) + '" ' +
                   'data-texto="' + esc(nom) + '" ' +
                   'aria-label="Corregir ' + esc(nom) + '" title="Corregir">&#9998;&#65038;</button>' +
                   '<button type="button" class="trat-quita" data-quita="' + esc(x.tratamiento_id) + '" ' +

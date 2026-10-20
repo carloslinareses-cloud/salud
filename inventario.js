@@ -397,7 +397,7 @@
           z3.innerHTML = '<p class="sub chico"><span class="ojo">Ya está en el catálogo:</span> ' +
             f.map(function (x, i) {
               return '<button type="button" class="enlace" data-usa="' + i + '">' +
-                     esc(x.producto) + '</button>';
+                     esc(x.producto) + '</button>' + (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '');
             }).join(' · ') + ' — tócalo para usarlo tal cual.</p>';
           z3.querySelectorAll('[data-usa]').forEach(function (b) {
             b.addEventListener('click', function () {
@@ -406,7 +406,7 @@
               if (x.presentacion) document.getElementById('rPres').value = x.presentacion;
               document.getElementById('rParecidos').innerHTML =
                 '<p class="sub chico"><span class="ok-txt">Registrarás una entrada para «' + esc(x.producto) +
-                '» con un lote nuevo.</span></p>';
+                '» con un lote nuevo.</span></p>' + (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '');
               document.getElementById('rLote').focus();
             });
           });
@@ -660,7 +660,7 @@
             (x.en_cajas ? '<span class="chico">' + esc(x.en_cajas) + '</span>' : '') +
             (Number(x.vencido) > 0 ? '<span class="chico mal">' + num(x.vencido) + ' vencidas</span>' : '') +
           '</td>' +
-          '<td class="der num" data-col="Lotes">' + x.lotes + '</td>' +
+          '<td class="der num" data-col="Lotes">' + x.lotes + (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '') + '</td>' +
           '<td data-col="Vence primero">' + (x.vence_primero ? fecha(x.vence_primero) : '—') + '</td>' +
           '<td data-col="Situación">' + sit(x.situacion) + '</td>' +
         '</tr>';
@@ -892,6 +892,7 @@
               '<span><b>' + grupos.length + '</b> ' + (grupos.length === 1 ? 'lote' : 'lotes') + '</span>' +
             '</div>' +
             '<div class="prod-acciones">' +
+              (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(p.producto_id,p.producto) : '') +
               '<button type="button" class="suave" id="catEditar">Editar medicamento</button>' +
               (puedeBorrarCatalogo()
                 ? '<button type="button" class="suave malo" id="catBorrar">Borrar del catálogo</button>' : '') +
@@ -1462,7 +1463,7 @@
           av2.innerHTML = '<span class="ojo">Ya están en el catálogo:</span> ' +
             f.map(function (x, i) {
               return '<button type="button" class="enlace" data-ya="' + i + '">' +
-                     esc(x.producto) + '</button>';
+                     esc(x.producto) + '</button>' + (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(x.producto_id,x.producto) : '');
             }).join(' · ');
           av2.querySelectorAll('[data-ya]').forEach(function (b) {
             b.addEventListener('click', function () { verProducto(f[+b.dataset.ya]); });

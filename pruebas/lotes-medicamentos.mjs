@@ -1,0 +1,22 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';
+const contexto={window:{FARMACIA_PERFIL:{rol:'inventario'}},document:{addEventListener(){}},Intl,Date,Set};
+vm.createContext(contexto);vm.runInContext(fs.readFileSync(new URL('../lotes-medicamentos.js',import.meta.url),'utf8'),contexto);
+const L=contexto.window.LOTES_MEDICAMENTOS,producto='11111111-1111-1111-1111-111111111111',hoy='2026-10-20';
+let n=0;function prueba(nombre,f){f();n++;console.log('✓ '+nombre);}
+prueba('Separa disponible, vencido, baja y agotado',()=>{assert.equal(L.estado({existencia:3,vence:hoy,estado:'disponible'},hoy),'Disponible');assert.equal(L.estado({existencia:3,vence:'2020-01-01',estado:'disponible'},hoy),'Vencido');assert.equal(L.estado({existencia:0,vence:'2027-01-01',estado:'disponible'},hoy),'Sin existencia');assert.equal(L.estado({existencia:3,vence:'2027-01-01',estado:'dado_de_baja'},hoy),'Dado de baja');});
+prueba('No confirma cantidades, fechas o estados desconocidos',()=>{assert.match(L.estado({existencia:null,vence:hoy,estado:'disponible'},hoy),/confirmar/);assert.match(L.estado({existencia:3,vence:'2026-02-30',estado:'disponible'},hoy),/confirmar/);assert.match(L.estado({existencia:3,vence:hoy},hoy),/confirmar/);assert.match(L.estado({existencia:-2,vence:hoy,estado:'disponible'},hoy),/negativo/);});
+prueba('El acceso requiere producto identificado y perfil autorizado',()=>{assert.match(L.boton(producto,'MEDICAMENTO <script>'),/data-ver-lotes/);assert.ok(!L.boton(producto,'<script>').includes('<script>'));assert.equal(L.boton('producto-inventado','X'),'');contexto.window.FARMACIA_PERFIL.rol='despacho';assert.equal(L.boton(producto,'X'),'');contexto.window.FARMACIA_PERFIL.rol='inventario';});
+function id(i){return '22222222-2222-2222-2222-'+String(i).padStart(12,'0');}
+const filas=Array.from({length:805},(_,i)=>({lote_id:id(i),producto_id:producto,lote:'L'+i,vence:'2027-01-01',existencia:i,estado:'disponible'}));
+function cliente(lista,modificar){let llamadas=0;return {from(tabla){assert.equal(tabla,'v_existencia_lote');const q={select(campos,o){assert.equal(o.count,'exact');return q;},eq(campo,valor){assert.equal(campo,'producto_id');assert.equal(valor,producto);return q;},order(){return q;},async range(a,b){const r={data:lista.slice(a,b+1),count:lista.length,error:null};if(modificar)modificar(r,++llamadas);return r;}};return q;}};}
+const completa=await L.leerLotes(cliente(filas),producto);assert.equal(completa.length,805);assert.equal(new Set(completa.map(l=>l.lote_id)).size,805);n++;console.log('✓ Recorre todas las páginas sin perder lotes');
+assert.equal((await L.leerLotes(cliente([]),producto)).length,0);n++;console.log('✓ Un catálogo sin lotes no es un error de lectura');
+await assert.rejects(()=>L.leerLotes(cliente(filas,(r,i)=>{if(i===2)r.count++;}),producto));n++;console.log('✓ No acepta un recuento que cambia durante la consulta');
+await assert.rejects(()=>L.leerLotes(cliente(filas,r=>{r.error={message:'Acceso denegado'};}),producto));n++;console.log('✓ Un fallo de permisos no se presenta como cero lotes');
+await assert.rejects(()=>L.leerLotes(cliente(filas,(r,i)=>{if(i===2)r.data[0]=filas[0];}),producto));n++;console.log('✓ Detecta lotes repetidos entre páginas');
+await assert.rejects(()=>L.leerLotes(cliente([{...filas[0],producto_id:id(99)}]),producto));n++;console.log('✓ No mezcla lotes de otro producto');
+const codigoCentros=fs.readFileSync(new URL('../centros.js',import.meta.url),'utf8').replace('window.PANTALLA_CENTROS =','window.__historialLotes = Centros.prototype.bloqueRecibido; window.PANTALLA_CENTROS =');
+vm.runInContext(codigoCentros,contexto);
+const centro={id:x=>x,recibido:[{entrega_id:'e1',producto:'MEDICAMENTO',cantidad:2,lote:'HIST-A',vence:'2027-01-01',fecha:'2026-10-01'},{entrega_id:'e2',producto:'MEDICAMENTO',cantidad:3,lote:'HIST-A',vence:'2027-01-01',fecha:'2026-10-02'},{entrega_id:'e3',producto:'MEDICAMENTO',cantidad:4,lote:'HIST-B',vence:'2028-01-01',fecha:'2026-10-03'}]};
+const historial=contexto.window.__historialLotes.call(centro);assert.ok(historial.includes('Lotes entregados'));assert.ok(historial.includes('HIST-A'));assert.ok(historial.includes('HIST-B'));assert.ok(historial.includes('5 unidades entregadas'));assert.equal(centro.resumenRecibido.total,9);n++;console.log('✓ El historial distingue lotes entregados y conserva la cantidad total');
+console.log(n+' comprobaciones de lotes correctas.');
