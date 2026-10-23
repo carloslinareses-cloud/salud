@@ -97,7 +97,17 @@
   }
 
   /* ================================================================ */
+  function opcionPermitida(id) {
+    var perfil = window.FARMACIA_PERFIL || {};
+    return perfil.rol === 'admin' || perfil.opciones_inventario == null ||
+      (Array.isArray(perfil.opciones_inventario) && perfil.opciones_inventario.indexOf(id) !== -1);
+  }
+
   function pintar() {
+    if (!opcionPermitida(pestana)) {
+      pestana = ['cargar','catalogo','consulta','personas','jornadas','centros','insumos','entregas','alertas','conteo','dashboard']
+        .filter(opcionPermitida)[0] || '';
+    }
     ancla.innerHTML =
       '<div class="tarjeta panel-con-menu">' +
         '<div class="conmuta">' +
@@ -119,6 +129,9 @@
           '<div id="avisoInv"></div>' +
         '</div>' +
       '</div>';
+    ancla.querySelectorAll('.conmuta [data-p], .conmuta [data-registrar-recipe]').forEach(function (b) {
+      if (!opcionPermitida(b.dataset.p || 'recipe')) b.remove();
+    });
     ancla.querySelectorAll('.conmuta [data-p]').forEach(function (b) {
       b.classList.toggle('on', b.dataset.p === pestana);
       b.addEventListener('click', function () {
@@ -126,7 +139,8 @@
         pestana = b.dataset.p; pintar();
       });
     });
-    ancla.querySelector('[data-registrar-recipe]').addEventListener('click', function () {
+    var botonRecipe = ancla.querySelector('[data-registrar-recipe]');
+    if (botonRecipe) botonRecipe.addEventListener('click', function () {
       var abierto = typeof window.FARMIR === 'function' && window.FARMIR('despacho') &&
         window.FARMDESPACHO && window.FARMDESPACHO.via('recipe');
       if (!abierto) aviso('bad', 'No se pudo abrir el registro por récipe. Actualiza la página e intenta de nuevo.');

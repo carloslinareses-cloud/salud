@@ -155,7 +155,7 @@
       var u = r && r.data ? r.data.user : null;
       if (r && r.error) throw r.error;
       if (!u) { limpiarVistaSesion(); return; }
-      return sb.from('perfiles').select('nombre, rol, activo, debe_cambiar_clave').eq('id', u.id).single()
+      return sb.from('perfiles').select('nombre, rol, activo, debe_cambiar_clave, opciones_inventario').eq('id', u.id).single()
         .then(function (p) {
           if (revision !== revisionSesion) return;
           if (p && p.error) throw p.error;
@@ -246,7 +246,8 @@
        Inventario pueden mantener el catálogo, y la pantalla necesita
        saberlo para ofrecer solo lo que la base va a aceptar. El candado
        de verdad sigue estando en la base. */
-    window.FARMACIA_PERFIL = { rol: perfil.rol, nombre: perfil.nombre || usuario.email };
+    window.FARMACIA_PERFIL = { rol: perfil.rol, nombre: perfil.nombre || usuario.email,
+      opciones_inventario: perfil.opciones_inventario };
     if (window.LOTES_MEDICAMENTOS) window.LOTES_MEDICAMENTOS.iniciar(sb);
     $('chipUsuario').textContent = (perfil.nombre || usuario.email) + ' · ' + perfil.rol;
     $('chipUsuario').hidden = false;
