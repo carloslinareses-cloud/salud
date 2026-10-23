@@ -10,12 +10,83 @@
      Acceso
   --------------------------------------------------------------- */
   var sb = null;
+  var revisionSesion = 0;
+  var identidadSesion = null;
+  var identidadMostrada = null;
+  var almacenamientoSesion = null;
+
+  function prepararAlmacenamientoSesion() {
+    var memoria = {};
+    var almacen;
+    try {
+      almacen = window.sessionStorage;
+      almacen.setItem('farmacia_comprobar_almacen', '1');
+      almacen.removeItem('farmacia_comprobar_almacen');
+    } catch (e) {
+      // Si el navegador bloquea el almacenamiento, la sesión dura solo esta página.
+      almacen = { getItem: function (k) { return memoria[k] || null; },
+        setItem: function (k, v) { memoria[k] = v; }, removeItem: function (k) { delete memoria[k]; } };
+    }
+    // No reutilizo la antigua credencial compartida entre personas y pestañas.
+    try {
+      var antigua = 'sb-' + new URL(window.CONFIG.SUPABASE_URL).hostname.split('.')[0] + '-auth-token';
+      window.localStorage.removeItem(antigua);
+      window.localStorage.removeItem(antigua + '-user');
+    } catch (e) { /* El almacenamiento privado no impide entrar. */ }
+    // Un canal nuevo por documento evita que BroadcastChannel mezcle cuentas
+    // incluso al duplicar pestañas. La credencial se conserva solo en esta pestaña.
+    var canal = 'farmacia-panel-' + window.crypto.randomUUID();
+    var llave = 'farmacia_sesion_pestana_v1';
+    function local(k) { return llave + k.slice(canal.length); }
+    return { storageKey: canal, storage: {
+      getItem: function (k) { return almacen.getItem(local(k)); },
+      setItem: function (k, v) { almacen.setItem(local(k), v); },
+      removeItem: function (k) { almacen.removeItem(local(k)); }
+    }, limpiar: function () { almacen.removeItem(llave); almacen.removeItem(llave + '-user'); almacen.removeItem(llave + '-code-verifier'); } };
+  }
+
+  function limpiarVistaSesion() {
+    revisionSesion++;
+    identidadMostrada = null;
+    window.FARMACIA_PERFIL = null;
+    window.FARMIR = function () { return false; };
+    asistenciaMontada = false;
+    usuarioSistema = null;
+    if (window.LOTES_MEDICAMENTOS) window.LOTES_MEDICAMENTOS.cerrar();
+    ['vistaPanel', 'vistaAsistencia', 'vistaClave', 'selectorSistema', 'chipUsuario', 'btnSalir'].forEach(function (id) { if ($(id)) $(id).hidden = true; });
+    ['contenidoPanel', 'contenidoAsistencia'].forEach(function (id) { if ($(id)) $(id).replaceChildren(); });
+    $('chipUsuario').textContent = '';
+    $('vistaAcceso').hidden = false;
+    $('clave').value = '';
+  }
+
+  function observarSesion(evento, sesion) {
+    var id = sesion && sesion.user ? sesion.user.id : null;
+    if (evento === 'SIGNED_OUT' || (identidadMostrada && id !== identidadMostrada)) {
+      identidadSesion = id;
+      limpiarVistaSesion();
+      // Recargar descarta también formularios y respuestas pendientes del usuario anterior.
+      setTimeout(function () { location.reload(); }, 0);
+      return;
+    }
+    if (id && id !== identidadSesion) {
+      identidadSesion = id;
+      revisionSesion++;
+      // No invocar métodos de Auth dentro del callback del SDK.
+      setTimeout(function () { cargarSesion().catch(function (e) { mostrarError(traducirError(e)); }); }, 0);
+    }
+  }
 
   function iniciarSupabase() {
     if (!window.CONFIG || !window.CONFIG.listo()) return false;
     if (!window.supabase) return false;
+    almacenamientoSesion = prepararAlmacenamientoSesion();
     sb = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY,
-      { db: { schema: window.CONFIG.ESQUEMA || 'farmacia' } });
+      { db: { schema: window.CONFIG.ESQUEMA || 'farmacia' }, auth: {
+        storage: almacenamientoSesion.storage, storageKey: almacenamientoSesion.storageKey,
+        persistSession: true, detectSessionInUrl: false
+      } });
+    sb.auth.onAuthStateChange(observarSesion);
     return true;
   }
 
@@ -58,11 +129,13 @@
 
   function salir() {
     if (!sb) return;
+    limpiarVistaSesion();
     try {
       sessionStorage.removeItem(RECUERDA_AREA);
       sessionStorage.removeItem(RECUERDA_SISTEMA);
     } catch (e) { /* modo privado */ }
-    sb.auth.signOut().then(function () { location.reload(); });
+    sb.auth.signOut({ scope: 'local' }).catch(function () { /* Se retira igualmente la credencial de esta pestaña. */ })
+      .then(function () { almacenamientoSesion.limpiar(); location.reload(); });
   }
 
   /* ---------------------------------------------------------------
@@ -76,16 +149,24 @@
 
   function cargarSesion() {
     if (!sb) return Promise.resolve();
+    var revision = ++revisionSesion;
     return sb.auth.getUser().then(function (r) {
+      if (revision !== revisionSesion) return;
       var u = r && r.data ? r.data.user : null;
-      if (!u) return;
+      if (r && r.error) throw r.error;
+      if (!u) { limpiarVistaSesion(); return; }
       return sb.from('perfiles').select('nombre, rol, activo, debe_cambiar_clave').eq('id', u.id).single()
         .then(function (p) {
+          if (revision !== revisionSesion) return;
+          if (p && p.error) throw p.error;
           var perfil = p && p.data ? p.data : null;
-          if (!perfil || perfil.activo === false) {
+          if (!perfil || perfil.activo !== true || !PERFILES[perfil.rol]) {
+            limpiarVistaSesion();
             mostrarError('Tu usuario está desactivado. Habla con el administrador.');
-            return sb.auth.signOut();
+            return sb.auth.signOut({ scope: 'local' });
           }
+          identidadSesion = u.id;
+          identidadMostrada = u.id;
           if (perfil.debe_cambiar_clave) { pedirCambioClave(u, perfil); return; }
           abrirPanel(u, perfil);
         });
@@ -209,6 +290,7 @@
   var usuarioSistema = null;
 
   function irSistema(cual) {
+    if (!window.FARMACIA_PERFIL || window.FARMACIA_PERFIL.rol !== 'admin') return false;
     var caja = $('selectorSistema');
     if (!caja) return false;
     var esAsis = cual === 'asistencia';
@@ -453,7 +535,7 @@
       if (iniciarSupabase()) {
         boton.disabled = false;
         boton.textContent = textoBoton;
-        cargarSesion();
+        cargarSesion().catch(function (e) { limpiarVistaSesion(); mostrarError(traducirError(e)); });
       } else {
         boton.textContent = textoBoton;
         mostrarError('No se pudo preparar la conexión. Recarga la página.');

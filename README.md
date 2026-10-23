@@ -8,6 +8,12 @@ Control de inventario de la farmacia municipal.
 
 ## Perfiles de usuario
 
+La sesión del panel está separada por pestaña. Recargar conserva la cuenta de esa pestaña; entrar con otra cuenta o cerrar su sesión no cambia la identidad de las otras. Al cambiar de identidad se retiran las pantallas, los formularios y los datos del usuario anterior. Las credenciales antiguas que se compartían mediante almacenamiento local no se recuperan: después de actualizar esta versión se debe iniciar sesión nuevamente. El cierre solicita únicamente la sesión actual, no las demás conexiones de la persona.
+
+Revisión del 23/10/2026: la única cuenta activa con perfil Inventario corresponde a Dilia Moncada. Los administradores mantienen su supervisión existente. No se cambiaron cuentas, contraseñas ni asignaciones de roles para corregir el cruce de sesiones.
+
+Verificación local del ciclo de sesión: `node pruebas/sesiones-unitarias.mjs`. Además de los casos de carga y salida, comprueba aislamiento, recarga y duplicación de pestañas, almacenamiento bloqueado y respuestas de perfiles que llegan después de cambiar la identidad.
+
 | Perfil | Qué puede hacer |
 |---|---|
 | Administrador | Crea y desactiva usuarios, ve todo, mantiene el inventario, registra o corrige asistencia manual y revisa la auditoría |
