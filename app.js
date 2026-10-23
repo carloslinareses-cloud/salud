@@ -35,7 +35,14 @@
     } catch (e) { /* El almacenamiento privado no impide entrar. */ }
     // Un canal nuevo por documento evita que BroadcastChannel mezcle cuentas
     // incluso al duplicar pestañas. La credencial se conserva solo en esta pestaña.
-    var canal = 'farmacia-panel-' + window.crypto.randomUUID();
+    var identificador;
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') identificador = window.crypto.randomUUID();
+    else {
+      // Navegadores que tienen Web Crypto pero todavía no incluyen randomUUID.
+      var bytes = window.crypto.getRandomValues(new Uint8Array(16));
+      identificador = Array.from(bytes).map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+    }
+    var canal = 'farmacia-panel-' + identificador;
     var llave = 'farmacia_sesion_pestana_v1';
     function local(k) { return llave + k.slice(canal.length); }
     return { storageKey: canal, storage: {
@@ -73,7 +80,7 @@
       identidadSesion = id;
       revisionSesion++;
       // No invocar métodos de Auth dentro del callback del SDK.
-      setTimeout(function () { cargarSesion().catch(function (e) { mostrarError(traducirError(e)); }); }, 0);
+      setTimeout(function () { cargarSesion().catch(falloDeAcceso); }, 0);
     }
   }
 
@@ -94,6 +101,11 @@
     var e = $('errorAcceso');
     e.textContent = msg;
     e.hidden = false;
+  }
+
+  function falloDeAcceso(err) {
+    limpiarVistaSesion();
+    mostrarError(traducirError(err));
   }
 
   function traducirError(err) {
@@ -123,7 +135,7 @@
         if (r.error) throw r.error;
         return cargarSesion();
       })
-      .catch(function (err) { mostrarError(traducirError(err)); })
+      .catch(falloDeAcceso)
       .then(function () { btn.disabled = false; btn.textContent = 'Entrar'; });
   }
 
@@ -514,6 +526,13 @@
     engancharTema();
     engancharSelectorSistema();
     $('formAcceso').addEventListener('submit', entrar);
+    $('recargarAcceso').addEventListener('click', function () {
+      if (almacenamientoSesion) almacenamientoSesion.limpiar();
+      else { try { sessionStorage.removeItem('farmacia_sesion_pestana_v1'); } catch (e) { /* almacenamiento bloqueado */ } }
+      var destino = new URL(location.href);
+      destino.searchParams.set('recargar', Date.now().toString());
+      location.replace(destino.href);
+    });
     $('btnSalir').addEventListener('click', salir);
 
     if (!window.CONFIG || !window.CONFIG.listo()) {
@@ -533,13 +552,18 @@
     var s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
     s.onload = function () {
-      if (iniciarSupabase()) {
-        boton.disabled = false;
+      try {
+        if (iniciarSupabase()) {
+          boton.disabled = false;
+          boton.textContent = textoBoton;
+          cargarSesion().catch(falloDeAcceso);
+        } else {
+          boton.textContent = textoBoton;
+          mostrarError('No se pudo preparar la conexión. Pulsa Volver a cargar el acceso.');
+        }
+      } catch (e) {
         boton.textContent = textoBoton;
-        cargarSesion().catch(function (e) { limpiarVistaSesion(); mostrarError(traducirError(e)); });
-      } else {
-        boton.textContent = textoBoton;
-        mostrarError('No se pudo preparar la conexión. Recarga la página.');
+        falloDeAcceso(e);
       }
     };
     s.onerror = function () {
