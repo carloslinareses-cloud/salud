@@ -55,7 +55,7 @@ const PAGINA_PRUEBA = `<!doctype html><html lang="es"><head><meta charset="utf-8
 <link rel="stylesheet" href="/__estilos.css"></head>
 <body><div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/4.2.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="/comunes.js"></script>
 <script src="/logos-base64.js"></script>
