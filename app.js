@@ -277,6 +277,8 @@
     $('tituloPanel').textContent = info.titulo;
     $('subPanel').textContent = info.sub;
 
+    if (perfil.rol === 'despacho') { montarDespachoConCatalogo(usuario, zona); return; }
+
     /* Inventario es el unico de los dos perfiles sueltos que necesita
        poder saltar a otra area: los botones de «por receta» y «para una
        operación» de Mercancía > Centros llevan hasta Entregar. Despacho
@@ -286,6 +288,42 @@
     var suya = AREAS.filter(function (a) { return a.id === perfil.rol; })[0];
     if (suya && suya.hay()) { suya.abre(zona, usuario); return; }
     zona.innerHTML = EN_OBRA;
+  }
+
+  /* Despacho puede consultar el mismo catálogo sin abrir las acciones de
+     inventario. Se mantiene montada la entrega para no perder formularios. */
+  function montarDespachoConCatalogo(usuario, zona) {
+    zona.innerHTML =
+      '<nav class="areas" aria-label="Áreas de Farmacia">' +
+        '<button type="button" data-farmacia-vista="despacho">Entregar</button>' +
+        '<button type="button" data-farmacia-vista="catalogo">Catálogo</button>' +
+      '</nav>' +
+      '<div id="zonaDespachoPersonal"></div>' +
+      '<div id="zonaCatalogoPersonal" hidden></div>';
+    var montado = false;
+    var entrega = $('zonaDespachoPersonal'), catalogo = $('zonaCatalogoPersonal');
+    if (typeof window.PANTALLA_DESPACHO === 'function') window.PANTALLA_DESPACHO(sb, entrega, usuario);
+    else entrega.innerHTML = EN_OBRA;
+    function ir(vista) {
+      var esCatalogo = vista === 'catalogo';
+      entrega.hidden = esCatalogo; catalogo.hidden = !esCatalogo;
+      zona.querySelectorAll('[data-farmacia-vista]').forEach(function (b) {
+        var activo = b.dataset.farmaciaVista === vista;
+        b.classList.toggle('on', activo);
+        b.setAttribute('aria-pressed', activo ? 'true' : 'false');
+      });
+      $('tituloPanel').textContent = esCatalogo ? 'Catálogo de medicamentos' : AREAS[0].titulo;
+      $('subPanel').textContent = esCatalogo ? 'Consulta de medicamentos y existencias, sin modificarlas' : AREAS[0].sub;
+      if (esCatalogo && !montado) {
+        montado = true;
+        if (typeof window.PANTALLA_INVENTARIO === 'function') window.PANTALLA_INVENTARIO(sb, catalogo);
+        else catalogo.innerHTML = EN_OBRA;
+      }
+    }
+    zona.querySelectorAll('[data-farmacia-vista]').forEach(function (b) {
+      b.addEventListener('click', function () { ir(b.dataset.farmaciaVista); });
+    });
+    ir('despacho');
   }
 
   /* ELEGIR SISTEMA (solo el administrador)

@@ -77,6 +77,9 @@
     var rol = window.FARMACIA_PERFIL && window.FARMACIA_PERFIL.rol;
     return rol === 'admin' || rol === 'inventario';
   }
+  function catalogoSoloLectura() {
+    return (window.FARMACIA_PERFIL || {}).rol === 'despacho';
+  }
 
   /* Los errores de la base, dichos en cristiano. */
   function enCristiano(e, quePasaba) {
@@ -99,6 +102,8 @@
   /* ================================================================ */
   function opcionPermitida(id) {
     var perfil = window.FARMACIA_PERFIL || {};
+    if (perfil.rol === 'despacho') return id === 'catalogo';
+    if (id === 'catalogo' && perfil.rol === 'inventario') return true;
     return perfil.rol === 'admin' || perfil.opciones_inventario == null ||
       (Array.isArray(perfil.opciones_inventario) && perfil.opciones_inventario.indexOf(id) !== -1);
   }
@@ -567,7 +572,7 @@
       '<div class="herr-der">' +
         '<input id="catBusca" type="search" autocomplete="off" aria-label="Buscar en el catálogo" ' +
           'placeholder="Buscar medicamento o insumo…">' +
-        '<button type="button" class="secundario" id="catCrear">+ Registrar medicamento</button>' +
+        (catalogoSoloLectura() ? '' : '<button type="button" class="secundario" id="catCrear">+ Registrar medicamento</button>') +
         '<button type="button" class="secundario" id="catLotesPdf">Lotes unificados · PDF</button>' +
       '</div>' +
       '<div class="chips" id="catFiltros">' + FILTROS_CAT.map(function (f) {
@@ -582,9 +587,8 @@
       cat.busca = caja.value.trim(); cat.pagina = 0; cargarCatalogo();
     }, 300));
 
-    document.getElementById('catCrear').addEventListener('click', function () {
-      formProducto(cat.busca);
-    });
+    var crear = document.getElementById('catCrear');
+    if (crear) crear.addEventListener('click', function () { formProducto(cat.busca); });
     document.getElementById('catLotesPdf').addEventListener('click', function () { bajarLotesUnificados(this); });
 
     z.querySelectorAll('#catFiltros button').forEach(function (b) {
@@ -641,7 +645,7 @@
     if (!cat.filas.length) {
       z.innerHTML = '<div class="vacio"><b>No hay nada con ese filtro.</b>' +
         (cat.busca ? '<span>No encontré «' + esc(cat.busca) + '» en el catálogo.</span>' +
-          '<button type="button" class="principal" id="catNuevo">Crear «' + esc(cat.busca) + '» en el catálogo</button>'
+          (catalogoSoloLectura() ? '' : '<button type="button" class="principal" id="catNuevo">Crear «' + esc(cat.busca) + '» en el catálogo</button>')
           : '<span>Prueba con otro filtro.</span>') + '</div>';
       var bn = document.getElementById('catNuevo');
       if (bn) bn.addEventListener('click', function () { formProducto(cat.busca); });
@@ -907,7 +911,7 @@
             '</div>' +
             '<div class="prod-acciones">' +
               (window.LOTES_MEDICAMENTOS ? window.LOTES_MEDICAMENTOS.boton(p.producto_id,p.producto) : '') +
-              '<button type="button" class="suave" id="catEditar">Editar medicamento</button>' +
+              (catalogoSoloLectura() ? '' : '<button type="button" class="suave" id="catEditar">Editar medicamento</button>') +
               (puedeBorrarCatalogo()
                 ? '<button type="button" class="suave malo" id="catBorrar">Borrar del catálogo</button>' : '') +
             '</div>' +
@@ -917,10 +921,10 @@
             ? '<h2 class="sub-t">Lotes que ya tiene</h2>' +
               '<p class="sub">Consulta aquí los lotes registrados. ' +
               'El mismo número de lote aparece una sola vez con su cantidad total. ' +
-              'Los vencimientos y las acciones están en el detalle. Cada nueva entrada debe usar un lote distinto.</p>' +
+              (catalogoSoloLectura() ? 'Puedes consultar sus vencimientos y existencias.</p>' : 'Los vencimientos y las acciones están en el detalle. Cada nueva entrada debe usar un lote distinto.</p>') +
               '<div class="tabla-caja"><table class="tabla"><thead><tr>' +
                 '<th>Lote</th><th>Vence</th><th class="der">Existencia</th>' +
-                '<th>Situación</th><th class="der">Qué hacer</th>' +
+                '<th>Situación</th>' + (catalogoSoloLectura() ? '' : '<th class="der">Qué hacer</th>') +
               '</tr></thead><tbody>' +
               grupos.map(function (g) {
                 if (g.detalle.length > 1) {
@@ -931,15 +935,15 @@
                   return '<tr data-lote-unificado="' + esc(g.lote) + '"><td><b>' + esc(g.lote) + '</b></td>' +
                     '<td>' + (fechas.length === 1 ? fecha(fechas[0]) : fechas.length + ' fechas · ver detalle') + '</td>' +
                     '<td class="der num"><b>' + num(g.existencia) + '</b></td>' +
-                    '<td>' + (vencidas > 0 ? '<span class="sit rojo">' + num(vencidas) + ' vencidas</span>' : '<span class="sit gris">Vencimientos en detalle</span>') + '</td>' +
-                    '<td><details class="detalle-lote"><summary>Vencimientos y acciones</summary>' +
+                    '<td>' + (vencidas > 0 ? '<span class="sit rojo">' + num(vencidas) + ' vencidas</span>' : '<span class="sit gris">Vencimientos en detalle</span>') +
+                    (catalogoSoloLectura() ? '<details class="detalle-lote"><summary>Ver vencimientos</summary>' : '</td><td><details class="detalle-lote"><summary>Vencimientos y acciones</summary>') +
                     g.detalle.map(function (d) {
                       var l = d.lote, i = d.indice;
                       return '<div class="parte-lote"><b>Vence: ' + fecha(l.vence) + '</b>' +
                         '<span>' + num(l.existencia) + ' unidades · ' + sit(l.situacion) + '</span>' +
-                        '<div class="acciones-lote"><button type="button" class="suave" data-editalote="' + i + '">Corregir</button>' +
+                        (catalogoSoloLectura() ? '' : '<div class="acciones-lote"><button type="button" class="suave" data-editalote="' + i + '">Corregir</button>' +
                         '<button type="button" class="suave" data-ajusta="' + i + '">Ajustar</button>' +
-                        (puedeBorrarCatalogo() && !(Number(l.existencia) > 0) ? '<button type="button" class="suave malo" data-borralote="' + i + '">Borrar</button>' : '') + '</div></div>';
+                        (puedeBorrarCatalogo() && !(Number(l.existencia) > 0) ? '<button type="button" class="suave malo" data-borralote="' + i + '">Borrar</button>' : '') + '</div>') + '</div>';
                     }).join('') + '</details></td></tr>';
                 }
                 var l = g.detalle[0].lote, i = g.detalle[0].indice;
@@ -948,25 +952,25 @@
                   '<td class="der num">' + num(l.existencia) +
                     (l.en_cajas ? '<span class="sub chico">' + esc(l.en_cajas) + '</span>' : '') + '</td>' +
                   '<td>' + sit(l.situacion) + '</td>' +
-                  '<td class="der"><div class="acciones-lote">' +
+                  (catalogoSoloLectura() ? '' : '<td class="der"><div class="acciones-lote">' +
                     (l.situacion === 'vencido' ? '<span class="sub chico">vencido</span>' : '') +
                     '<button type="button" class="suave" data-editalote="' + i + '">Corregir</button>' +
                     '<button type="button" class="suave" data-ajusta="' + i + '">Ajustar</button>' +
                     (puedeBorrarCatalogo() && !(Number(l.existencia) > 0)
                       ? '<button type="button" class="suave malo" data-borralote="' + i + '">Borrar</button>' : '') +
-                  '</div></td></tr>';
+                  '</div></td>') + '</tr>';
               }).join('') +
               '</tbody><tfoot><tr>' +
                 '<td colspan="2"><b>Total</b></td>' +
                 '<td class="der num"><b>' + num(totalLotes) + '</b>' +
                   (p.en_cajas ? '<span class="sub chico">' + esc(p.en_cajas) + '</span>' : '') + '</td>' +
-                '<td colspan="2"></td>' +
+                '<td colspan="' + (catalogoSoloLectura() ? '1' : '2') + '"></td>' +
               '</tr></tfoot></table></div>'
             : '<div class="vacio"><b>Todavía no tiene ningún lote.</b>' +
-              '<span>Registra el primero abajo.</span></div>') +
+              (catalogoSoloLectura() ? '' : '<span>Registra el primero abajo.</span>') + '</div>') +
 
-          '<h2 class="sub-t">Registrar un lote nuevo</h2>' +
-          '<div id="catForm"></div>';
+          (catalogoSoloLectura() ? '' : '<h2 class="sub-t">Registrar un lote nuevo</h2>' +
+          '<div id="catForm"></div>');
 
         document.getElementById('catVolver').addEventListener('click', function () {
           document.getElementById('catDetalle').innerHTML = '';
@@ -986,7 +990,7 @@
         if (bEditar) bEditar.addEventListener('click', function () { formEditarProducto(p); });
         var bBorrar = document.getElementById('catBorrar');
         if (bBorrar) bBorrar.addEventListener('click', function () { borrarProducto(p, lotes); });
-        formLoteNuevo(p, lotes);
+        if (!catalogoSoloLectura()) formLoteNuevo(p, lotes);
 
         /* La vista sube a la ficha y el cursor se pone en el número de
            lote: si no, la persona guarda el medicamento y no ve que el
