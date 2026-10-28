@@ -1,6 +1,6 @@
 # Consulta de disponibilidad con Workers AI
 
-Servicio de Salud para Administración e Inventario. Un campo recibe el medicamento;
+Servicio de Salud para Administración, Inventario y Despacho. Un campo recibe el medicamento;
 el botón busca existencias utilizables y ordena opciones documentadas con Workers AI.
 No busca libremente en Internet ni prescribe. La bibliografía internacional del
 módulo sigue disponible aunque no haya stock o falle la IA.
@@ -21,7 +21,7 @@ pero no se presentan como sustituciones. Cada cambio necesita valoración profes
 ## Autenticación y existencias
 
 Se verifica el token Supabase del solicitante y su perfil activo de farmacia
-(`admin` o `inventario`). Las lecturas usan ese mismo token y respetan RLS; el
+(`admin`, `inventario` o `despacho`). Las lecturas usan ese mismo token y respetan RLS; el
 servicio no utiliza `service_role`. CORS se limita al dominio Salud.
 
 Cada consulta relee productos y lotes completos con paginación, límites y recuento

@@ -34,6 +34,11 @@ try{
  prueba('Prompt no recibe datos de pacientes ni inventario completo',()=>{const p=peticionModelo(r.opciones);assert.equal(p.max_tokens,256);assert.equal(p.response_format.type,'json_schema');assert.ok(!JSON.stringify(p).includes('AMOXICILINA'));});
  modo='invalido';r=await consultar('ibuprofeno',env,h,ctx);assert.equal(r.origen,'referencias');assert.match(r.aviso,/referencias/);n++;console.log('✓ IA no verificable produce respaldo documental honesto');
  const req=(body,token=true,origin=env.ORIGEN_PERMITIDO)=>new Request('https://ia.invalid/consultar',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+'x'.repeat(80)}:{})},body:JSON.stringify(body)});
+ for(const permitido of ['admin','inventario','despacho']){
+  rol=permitido;assert.equal((await worker.fetch(req({medicamento:'amoxicilina'}),env,ctx)).status,200);
+ }
+ n++;console.log('✓ Permite los tres perfiles activos de Farmacia');
+ rol='admin';
  assert.equal((await worker.fetch(req({medicamento:'diclofenac'},false),env,ctx)).status,403);n++;
  assert.equal((await worker.fetch(req({medicamento:'diclofenac'},true,'https://ajeno.invalid'),env,ctx)).status,403);n++;
  rol='lector';assert.equal((await worker.fetch(req({medicamento:'diclofenac'}),env,ctx)).status,403);rol='admin';n++;

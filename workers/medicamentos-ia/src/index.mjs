@@ -22,7 +22,7 @@ async function autorizar(request,env){
   const {datos:user}=await pedir(env.SUPABASE_URL+'/auth/v1/user',headers,20000);
   if(!/^[a-f0-9-]{36}$/i.test(user.id||''))throw Error('NO_AUTORIZADO');
   const {datos:perfiles}=await pedir(env.SUPABASE_URL+'/rest/v1/perfiles?select=rol,activo&id=eq.'+user.id,{...headers,'Accept-Profile':'farmacia'},10000);
-  if(!Array.isArray(perfiles)||perfiles.length!==1||perfiles[0].activo!==true||!['admin','inventario'].includes(perfiles[0].rol))throw Error('NO_AUTORIZADO');
+  if(!Array.isArray(perfiles)||perfiles.length!==1||perfiles[0].activo!==true||!['admin','inventario','despacho'].includes(perfiles[0].rol))throw Error('NO_AUTORIZADO');
   return {headers:{...headers,'Accept-Profile':'farmacia'},id:user.id};
 }
 async function tabla(env,headers,nombre,columnas,orden,maximo){

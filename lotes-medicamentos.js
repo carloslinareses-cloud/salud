@@ -3,7 +3,7 @@
   'use strict';
   var cliente = null, ventana = null, turno = 0, actual = null, suscripcion = null;
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-  function permitido() { return ['admin','inventario'].includes((window.FARMACIA_PERFIL || {}).rol); }
+  function permitido() { return ['admin','inventario','despacho'].includes((window.FARMACIA_PERFIL || {}).rol); }
   function uuid(v) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v || '')); }
   function boton(id, nombre) {
     if (!permitido() || !uuid(id)) return '';

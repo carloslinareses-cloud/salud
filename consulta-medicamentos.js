@@ -192,8 +192,8 @@
   var montajes = new WeakMap();
   function montar(sb, ancla, opciones) {
     if (montajes.has(ancla)) montajes.get(ancla)();
-    if (!['admin','inventario'].includes((window.FARMACIA_PERFIL || {}).rol)) {
-      ancla.innerHTML='<div class="aviso bad">Solo Administración e Inventario pueden consultar este módulo.</div>'; return;
+    if (!['admin','inventario','despacho'].includes((window.FARMACIA_PERFIL || {}).rol)) {
+      ancla.innerHTML='<div class="aviso bad">Se necesita una cuenta activa de Farmacia para consultar este módulo.</div>'; return;
     }
     var id=(opciones&&opciones.prefijo)||'consultaMed', lista=[], consulta='', listo=true, ocupado=false, vivo=true, disponibilidadEstado='cargando';
     ancla.innerHTML='<section class="consulta-med cm-simple" aria-label="Consulta de medicamentos">'+
@@ -216,7 +216,7 @@
         if(!token)throw Error('Vuelve a iniciar sesión para consultar.');
         if(turno!==numeroIA||!activo())return;
         var r=await fetch('https://salud-medicamentos-ia.correo-alcaldia.workers.dev/consultar',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({medicamento:texto}),signal:controlador.signal});
-        var d=await r.json();if(!r.ok)throw Error(d.error==='ESPERA_UN_MINUTO'?'Espera un minuto antes de volver a consultar.':d.error==='NO_AUTORIZADO'?'Se requiere una sesión activa de Administración o Inventario.':'No se pudo verificar la disponibilidad. Reintenta la consulta.');
+        var d=await r.json();if(!r.ok)throw Error(d.error==='ESPERA_UN_MINUTO'?'Espera un minuto antes de volver a consultar.':d.error==='NO_AUTORIZADO'?'Se requiere una cuenta activa de Farmacia.':'No se pudo verificar la disponibilidad. Reintenta la consulta.');
         if(!activo()||turno!==numeroIA)return;
         var titulo=d.origen==='cache'?'Respuesta reutilizada · Existencias verificadas de nuevo':d.origen==='ia'?'Opciones ordenadas con IA de Cloudflare':'Opciones de las referencias verificadas';
         var fecha=new Date(d.verificadoEn).toLocaleString('es-VE',{timeZone:'America/Caracas',dateStyle:'short',timeStyle:'short'});

@@ -102,8 +102,8 @@
   /* ================================================================ */
   function opcionPermitida(id) {
     var perfil = window.FARMACIA_PERFIL || {};
-    if (perfil.rol === 'despacho') return id === 'catalogo';
-    if (id === 'catalogo' && perfil.rol === 'inventario') return true;
+    if (perfil.rol === 'despacho') return id === 'catalogo' || id === 'consulta';
+    if ((id === 'catalogo' || id === 'consulta') && perfil.rol === 'inventario') return true;
     return perfil.rol === 'admin' || perfil.opciones_inventario == null ||
       (Array.isArray(perfil.opciones_inventario) && perfil.opciones_inventario.indexOf(id) !== -1);
   }
@@ -134,6 +134,7 @@
           '<div id="avisoInv"></div>' +
         '</div>' +
       '</div>';
+    if (catalogoSoloLectura()) ancla.querySelector('.conmuta').remove();
     ancla.querySelectorAll('.conmuta [data-p], .conmuta [data-registrar-recipe]').forEach(function (b) {
       if (!opcionPermitida(b.dataset.p || 'recipe')) b.remove();
     });
@@ -1910,8 +1911,14 @@
     pestana = 'conteo'; pintar();
   };
 
-  window.PANTALLA_INVENTARIO = function (cliente, contenedor) {
-    sb = cliente; ancla = contenedor; pestana = 'cargar';
+  window.INVENTARIO_SELECCIONAR = function (id) {
+    if (!sb || !ancla || !opcionPermitida(id)) return false;
+    if (pestana !== id) { pestana = id; pintar(); }
+    return true;
+  };
+
+  window.PANTALLA_INVENTARIO = function (cliente, contenedor, inicio) {
+    sb = cliente; ancla = contenedor; pestana = inicio && opcionPermitida(inicio) ? inicio : 'cargar';
     cat  = { filtro: 'todos', busca: '', pagina: 0, total: 0, filas: [],
              cargando: false, modo: 'lista' };
     hoja = { filtro: 'con',   busca: '', pagina: 0, total: 0, filas: [], cambios: {}, cargando: false };

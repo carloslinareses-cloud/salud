@@ -297,6 +297,7 @@
       '<nav class="areas" aria-label="Áreas de Farmacia">' +
         '<button type="button" data-farmacia-vista="despacho">Entregar</button>' +
         '<button type="button" data-farmacia-vista="catalogo">Catálogo</button>' +
+        '<button type="button" data-farmacia-vista="consulta">Buscar medicamentos</button>' +
       '</nav>' +
       '<div id="zonaDespachoPersonal"></div>' +
       '<div id="zonaCatalogoPersonal" hidden></div>';
@@ -305,20 +306,20 @@
     if (typeof window.PANTALLA_DESPACHO === 'function') window.PANTALLA_DESPACHO(sb, entrega, usuario);
     else entrega.innerHTML = EN_OBRA;
     function ir(vista) {
-      var esCatalogo = vista === 'catalogo';
-      entrega.hidden = esCatalogo; catalogo.hidden = !esCatalogo;
+      var esConsulta = vista === 'consulta', esMedicamentos = vista !== 'despacho';
+      entrega.hidden = esMedicamentos; catalogo.hidden = !esMedicamentos;
       zona.querySelectorAll('[data-farmacia-vista]').forEach(function (b) {
         var activo = b.dataset.farmaciaVista === vista;
         b.classList.toggle('on', activo);
         b.setAttribute('aria-pressed', activo ? 'true' : 'false');
       });
-      $('tituloPanel').textContent = esCatalogo ? 'Catálogo de medicamentos' : AREAS[0].titulo;
-      $('subPanel').textContent = esCatalogo ? 'Consulta de medicamentos y existencias, sin modificarlas' : AREAS[0].sub;
-      if (esCatalogo && !montado) {
+      $('tituloPanel').textContent = esConsulta ? 'Consulta de medicamentos' : esMedicamentos ? 'Catálogo de medicamentos' : AREAS[0].titulo;
+      $('subPanel').textContent = esConsulta ? 'Busca opciones documentadas y disponibilidad' : esMedicamentos ? 'Consulta de medicamentos y existencias, sin modificarlas' : AREAS[0].sub;
+      if (esMedicamentos && !montado) {
         montado = true;
-        if (typeof window.PANTALLA_INVENTARIO === 'function') window.PANTALLA_INVENTARIO(sb, catalogo);
+        if (typeof window.PANTALLA_INVENTARIO === 'function') window.PANTALLA_INVENTARIO(sb, catalogo, vista);
         else catalogo.innerHTML = EN_OBRA;
-      }
+      } else if (esMedicamentos && typeof window.INVENTARIO_SELECCIONAR === 'function') window.INVENTARIO_SELECCIONAR(vista);
     }
     zona.querySelectorAll('[data-farmacia-vista]').forEach(function (b) {
       b.addEventListener('click', function () { ir(b.dataset.farmaciaVista); });

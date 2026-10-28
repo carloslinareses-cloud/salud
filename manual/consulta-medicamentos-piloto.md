@@ -1,5 +1,11 @@
 # Consulta de medicamentos · piloto
 
+## Acceso para Farmacia · 28/10/2026
+
+El personal activo de Despacho puede abrir «Buscar medicamentos» desde su panel, además de los accesos existentes de Inventario y Administración. La búsqueda incluye el botón «Buscar disponibles con IA» del servicio ya existente: ordena opciones documentadas y relee las existencias antes de responder. Cuando no puede usar IA, informa que muestra referencias documentales. Se conservan las precauciones, la necesidad de valoración profesional y el límite de uso previamente configurado. El acceso es de consulta y no habilita correcciones de inventario.
+
+Las notas históricas siguientes sobre ausencia de IA describen versiones anteriores.
+
 ## Revisión internacional del 19 de octubre de 2026 · 19/10/2026
 
 Mantengo el campo único en Inventario y Administración y amplío la consulta con una instantánea de **668 identidades de referencia internacional**. No son 668 sustitutos: algunos medicamentos no tienen una alternativa explícita en las fuentes incorporadas. La adaptación conserva **147 fichas de indicación y 294 relaciones base-alternativa**, con enlaces a la ficha detallada de la OMS y sus condiciones. El catálogo funciona aunque un medicamento nunca se haya comprado o se haya agotado en Salud.
