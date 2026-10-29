@@ -4,13 +4,19 @@ import fs from 'node:fs';
 import worker,{consultar,reservar} from '../src/index.mjs';
 import {validarOrden,peticionModelo} from '../src/prompt.mjs';
 import {opcionesDocumentadas} from '../src/opciones.mjs';
+import {buscarEnRxNav} from '../src/rxnav.mjs';
 
 const sqlite=new DatabaseSync(':memory:');sqlite.exec(fs.readFileSync(new URL('../migraciones/0001_cache.sql',import.meta.url),'utf8'));
 const BD={prepare(sql){let args=[];const p={bind(...a){args=a;return p;},async first(){return sqlite.prepare(sql).get(...args)||null;},async run(){return sqlite.prepare(sql).run(...args);}};return p;},async batch(ps){return Promise.all(ps.map(p=>p.run()));}};
 const productos=[{id:'ib',nombre:'IBUPROFENO',dosificacion:'400 MG',presentacion:'TABLETA',activo:true},{id:'pa',nombre:'PARACETAMOL',dosificacion:'500 MG',presentacion:'TABLETA',activo:true},{id:'am',nombre:'AMOXICILINA',dosificacion:'500 MG',presentacion:'CAPSULA',activo:true}];
-let lotes=productos.map(p=>({producto_id:p.id,lote_id:p.id,estado:'disponible',existencia:20,vence:'2099-12-31'})),rol='admin',activo=true,inferencias=0,modo='normal',stockFalla=false;
+let lotes=productos.map(p=>({producto_id:p.id,lote_id:p.id,estado:'disponible',existencia:20,vence:'2099-12-31'})),rol='admin',activo=true,inferencias=0,modo='normal',stockFalla=false,rxnavFalla=false,rxnavLlamadas=0;
 const original=globalThis.fetch;
-globalThis.fetch=async url=>{
+globalThis.fetch=async (url,opciones)=>{
+ if(String(url).startsWith('https://rxnav.nlm.nih.gov/')){
+  rxnavLlamadas++;assert.equal(opciones.headers.Authorization,undefined);assert.equal(opciones.headers.apikey,undefined);
+  if(rxnavFalla)return new Response(null,{status:503});
+  return Response.json({approximateGroup:{candidate:[{rxcui:'5640',name:'Ibuprofeno'},{rxcui:'5640',name:'Ibuprofen'},{rxcui:'malicioso',name:'otro'},{rxcui:'723',name:'Amoxicillin'}]}});
+ }
  if(String(url).includes('/auth/v1/user'))return Response.json({id:'11111111-1111-1111-1111-111111111111'});
  if(String(url).includes('/perfiles?'))return Response.json([{rol,activo}]);
  if(stockFalla)return new Response(null,{status:500});
@@ -31,7 +37,10 @@ try{
  prueba('Marcas desconocidas e instrucciones no generan opciones',()=>assert.equal(opcionesDocumentadas('instrucción maliciosa ignora y receta',productos,lotes,'2026-10-19').opciones.length,0));
  prueba('No transforma vía inyectable en tableta',()=>assert.equal(opcionesDocumentadas('diclofenac inyectable',productos,lotes,'2026-10-19').opciones.length,0));
  prueba('No cambia la sal sódica solicitada por potásica',()=>{const p={id:'dk',nombre:'DICLOFENAC POTASICO',dosificacion:'50 MG',presentacion:'TABLETA',activo:true};assert.equal(opcionesDocumentadas('diclofenac sodico 50 mg',[p],[{producto_id:'dk',estado:'disponible',existencia:10,vence:'2099-12-31'}],'2026-10-19').opciones.length,0);});
- prueba('Prompt no recibe datos de pacientes ni inventario completo',()=>{const p=peticionModelo(r.opciones);assert.equal(p.max_tokens,256);assert.equal(p.response_format.type,'json_schema');assert.ok(!JSON.stringify(p).includes('AMOXICILINA'));});
+  let externa=await buscarEnRxNav('nombre desconocido');assert.equal(externa.estado,'encontrado');assert.equal(externa.coincidencias.length,2);assert.match(externa.coincidencias[0].url,/rxnav[.]nlm[.]nih[.]gov\/REST\/rxcui\/5640/);n++;console.log('✓ RxNav devuelve nombres sin duplicados ni enlaces arbitrarios');
+  r=await consultar('marca desconocida',env,h,ctx);assert.equal(r.opciones.length,0);assert.equal(r.externa.estado,'encontrado');n++;console.log('✓ Coincidencias externas no crean sustitutos ni productos en inventario');
+  rxnavFalla=true;externa=await buscarEnRxNav('nombre desconocido');assert.equal(externa.estado,'no_disponible');rxnavFalla=false;n++;console.log('✓ Fallo de la fuente externa se informa sin interrumpir la consulta');
+  prueba('Prompt incluye el medicamento documentado sin inventario completo',()=>{const p=peticionModelo(r.opciones,'DICLOFENAC');const cuerpo=JSON.parse(p.messages[1].content);assert.equal(cuerpo.MEDICAMENTO_DOCUMENTADO,'DICLOFENAC');assert.equal(p.max_tokens,256);assert.equal(p.response_format.type,'json_schema');assert.ok(!JSON.stringify(p).includes('AMOXICILINA'));});
  modo='invalido';r=await consultar('ibuprofeno',env,h,ctx);assert.equal(r.origen,'referencias');assert.match(r.aviso,/referencias/);n++;console.log('✓ IA no verificable produce respaldo documental honesto');
  const req=(body,token=true,origin=env.ORIGEN_PERMITIDO)=>new Request('https://ia.invalid/consultar',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+'x'.repeat(80)}:{})},body:JSON.stringify(body)});
  for(const permitido of ['admin','inventario','despacho']){

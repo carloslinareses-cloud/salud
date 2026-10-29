@@ -2,8 +2,9 @@
 
 Servicio de Salud para Administración, Inventario y Despacho. Un campo recibe el medicamento;
 el botón busca existencias utilizables y ordena opciones documentadas con Workers AI.
-No busca libremente en Internet ni prescribe. La bibliografía internacional del
-módulo sigue disponible aunque no haya stock o falle la IA.
+Si el nombre no figura en la guía local, consulta nombres aproximados en RxNav, de
+la Biblioteca Nacional de Medicina de EE. UU. No prescribe ni convierte esas
+coincidencias en sustitutos. La bibliografía sigue disponible si falla la IA.
 
 ## Referencias y límites clínicos
 
@@ -11,7 +12,15 @@ El build reutiliza las reglas y referencias públicas de la misma web: guía pil
 con fuentes NHS/FDA/MedlinePlus y relaciones explícitas OMS. El modelo solo devuelve
 identificadores de opciones autorizadas. El servidor rechaza medicamentos inventados,
 duplicados y propiedades adicionales; la interfaz muestra los hechos de las fuentes,
-nunca texto clínico generado sin verificar. No recibe datos de pacientes.
+nunca texto clínico generado sin verificar. La IA recibe la identidad documentada
+de la guía, no el texto libre. El usuario debe escribir solo el medicamento, sin
+datos del paciente: si no se reconoce, ese término se envía a RxNav por internet.
+
+RxNav aporta posibles nombres y enlaces a sus fichas; una coincidencia aproximada
+puede referirse a otra composición o presentación y no demuestra existencia local,
+registro en Venezuela ni equivalencia terapéutica. No se incorpora automáticamente
+al inventario ni se utiliza para generar relaciones de sustitución. Si el servicio
+externo no responde, la consulta local continúa y se informa del fallo.
 
 Las alternativas automáticas del piloto se limitan a perfiles confirmados y formas
 orales sólidas compatibles con la vía explícita de la referencia. Otras vías,

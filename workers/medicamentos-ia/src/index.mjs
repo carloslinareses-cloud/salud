@@ -1,6 +1,7 @@
 import {opcionesDocumentadas} from './opciones.mjs';
 import {VERSION_FUENTES,consulta} from '../generado/referencias.mjs';
 import {MODELO,VERSION_PROMPT,peticionModelo,validarOrden} from './prompt.mjs';
+import {buscarEnRxNav} from './rxnav.mjs';
 
 const SEGUNDOS_CACHE=7*86400;
 export async function hash(texto){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(texto)))].map(n=>n.toString(16).padStart(2,'0')).join('');}
@@ -45,7 +46,9 @@ export async function reservar(bd,clave,maximo,vence){
 export async function consultar(texto,env,headers,ctx){
   const ahora=Math.floor(Date.now()/1000),fecha=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const [productos,lotes]=await Promise.all([tabla(env,headers,'productos','id,nombre,dosificacion,presentacion,categoria,unidad,activo','id',10000),tabla(env,headers,'v_existencia_lote','lote_id,producto_id,lote,vence,estado,existencia','lote_id',50000)]);
-  const {reconocido,opciones}=opcionesDocumentadas(texto,productos,lotes,fecha);
+  const {reconocido,consultaDocumentada,opciones}=opcionesDocumentadas(texto,productos,lotes,fecha);
+  // Solo se envía el término del medicamento cuando las fuentes locales no lo reconocen.
+  const externa=reconocido?null:await buscarEnRxNav(texto);
   let origen='referencias',aviso='',orden=[];
   // La clave no incluye cantidades; cada respuesta utiliza la lectura recién hecha.
   const identidad=opciones.map(o=>({id:o.id,tipo:o.tipo,perfil:o.producto.perfil,ambitos:o.ambitos}));
@@ -57,7 +60,7 @@ export async function consultar(texto,env,headers,ctx){
       const maximo=Math.min(10,Math.max(0,Number(env.MAX_INFERENCIAS_DIARIAS)||0));
       if(maximo&&await reservar(env.BD,'ia:'+new Date().toISOString().slice(0,10),maximo,ahora+172800)){
         try{
-          const peticion=peticionModelo(opciones);
+          const peticion=peticionModelo(opciones,consultaDocumentada);
           let reloj;const respuesta=await Promise.race([env.AI.run(MODELO,peticion),new Promise((_,rechazar)=>{reloj=setTimeout(()=>rechazar(Error('IA_TIEMPO_AGOTADO')),35000);})]).finally(()=>clearTimeout(reloj));
           orden=validarOrden(respuesta.response,opciones.slice(0,12)).orden;
           await env.BD.prepare('INSERT INTO cache_clinica(clave,respuesta,creado_en,vence_en) VALUES (?,?,?,?) ON CONFLICT(clave) DO UPDATE SET respuesta=excluded.respuesta,creado_en=excluded.creado_en,vence_en=excluded.vence_en').bind(clave,JSON.stringify({orden}),ahora,ahora+SEGUNDOS_CACHE).run();
@@ -70,7 +73,7 @@ export async function consultar(texto,env,headers,ctx){
   const prioridad=o=>o.tipo==='misma'?0:o.tipo==='mismo_principio'?1:2;
   opciones.sort((a,b)=>prioridad(a)-prioridad(b)||(indices.get(a.id)??100)-(indices.get(b.id)??100));
   ctx.waitUntil(env.BD.batch([env.BD.prepare('DELETE FROM cache_clinica WHERE vence_en<?').bind(ahora),env.BD.prepare('DELETE FROM cuotas WHERE vence_en<?').bind(ahora)]).catch(()=>console.warn('LIMPIEZA_CACHE_PENDIENTE')));
-  return {origen,aviso,reconocido,opciones,verificadoEn:new Date().toISOString(),cacheDias:7,limiteDiario:10};
+  return {origen,aviso,reconocido,opciones,externa,verificadoEn:new Date().toISOString(),cacheDias:7,limiteDiario:10};
 }
 export default {
   async fetch(request,env,ctx){

@@ -33,5 +33,5 @@ export function opcionesDocumentadas(texto,productos,lotes,fecha) {
   // Una presentación exacta puede confirmar coincidencias más estrechas.
   const exactos=lista.filter(p=>consulta.normalizar(p.nombre)===q&&p.perfil.completo);
   for(const p of exactos)for(const o of consulta.alternativas(p,lista,false,false))agregar(o.producto,'misma',[{indicacion:'Coinciden principio, concentración y forma; confirmar envase y prescripción.',fuente:'https://www.fda.gov/drugs/generic-drugs/generic-drugs-questions-answers',restricciones:['No certifica bioequivalencia ni registro sanitario del producto.']}]);
-  return {reconocido:!!(ref||med||exactos.length),opciones:[...resultado.values()].sort((a,b)=>(a.tipo==='misma'?0:a.tipo==='mismo_principio'?1:2)-(b.tipo==='misma'?0:b.tipo==='mismo_principio'?1:2)||a.producto.nombre.localeCompare(b.producto.nombre,'es'))};
+  return {reconocido:!!(ref||med||exactos.length),consultaDocumentada:med?.nombre||ref?.nombre||null,opciones:[...resultado.values()].sort((a,b)=>(a.tipo==='misma'?0:a.tipo==='mismo_principio'?1:2)-(b.tipo==='misma'?0:b.tipo==='mismo_principio'?1:2)||a.producto.nombre.localeCompare(b.producto.nombre,'es'))};
 }

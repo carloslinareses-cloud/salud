@@ -5,6 +5,10 @@
   var guia = window.GUIA_CONSULTA_MEDICAMENTOS;
   function normalizar(t) { return String(t || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase().replace(/\s+/g, ' ').trim(); }
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function enlaceFuente(url,etiqueta) {
+    try { var u=new URL(url); if(u.protocol!=='https:'||u.username||u.password)return ''; return '<a href="'+esc(u.href)+'" target="_blank" rel="noopener noreferrer">'+esc(etiqueta)+'</a>'; }
+    catch(e){return '';}
+  }
   function identidad(texto) {
     var t=normalizar(texto);
     if (/\+|\b(?:PLUS|FORTE|COMPUEST|CAFEINA|VITAMINA|CON|Y)\b/.test(t)) return null;
@@ -202,7 +206,7 @@
       '<button type="button" data-cm="buscar-ia">Buscar disponibles con IA</button>'+
       '<div data-cm="ia" role="status" aria-live="polite"></div>'+
       '<div data-cm="disponibilidad" role="status"></div><div data-cm="lista" role="status" aria-live="polite"><p>Preparando la consulta…</p></div>'+
-      '<p class="cm-ayuda">Opciones para valoración del médico o farmacéutico. No son sustituciones automáticas ni equivalencias de dosis.</p>'+
+      '<p class="cm-ayuda">Opciones para valoración del médico o farmacéutico. No son sustituciones automáticas ni equivalencias de dosis. Si el nombre no está en la guía, se consulta RxNav en internet; escribe solo el medicamento, sin datos del paciente.</p>'+
       '<details class="cm-fuentes"><summary>Información de la consulta</summary><p>Se muestran opciones con y sin existencia en Salud. Disponible exige un lote vigente. Sin existencia utilizable indica que no hay saldo vigente verificado; Existencia por confirmar indica datos insuficientes. Las opciones externas pueden no estar registradas en inventario.</p><p>Las opciones dependen de la indicación, edad, vía y condiciones del paciente. No son sustituciones automáticas ni equivalencias de dosis; requieren valoración médica o farmacéutica. La cobertura de esta guía es limitada.</p></details></section>';
     var entrada=ancla.querySelector('#'+id+'-busca'), salida=ancla.querySelector('[data-cm="lista"]');
     var salidaIA=ancla.querySelector('[data-cm="ia"]'),botonIA=ancla.querySelector('[data-cm="buscar-ia"]'),controlIA=null,numeroIA=0;
@@ -220,8 +224,12 @@
         if(!activo()||turno!==numeroIA)return;
         var titulo=d.origen==='cache'?'Respuesta reutilizada · Existencias verificadas de nuevo':d.origen==='ia'?'Opciones ordenadas con IA de Cloudflare':'Opciones de las referencias verificadas';
         var fecha=new Date(d.verificadoEn).toLocaleString('es-VE',{timeZone:'America/Caracas',dateStyle:'short',timeStyle:'short'});
+        var externa=d.externa,externaHtml='';
+        if(externa&&externa.estado==='encontrado')externaHtml='<section class="cm-resultado"><h4>Posibles nombres en RxNav</h4><p>Son coincidencias de búsqueda, no sustitutos ni prueba de existencia o registro en Venezuela. Confirma el nombre y la presentación.</p><ul class="cm-opciones">'+externa.coincidencias.map(function(c){return '<li><button type="button" data-cm-nombre="'+esc(c.nombre)+'">'+esc(c.nombre)+'</button> '+enlaceFuente(c.url,'Ver ficha de RxNav')+'</li>';}).join('')+'</ul></section>';
+        else if(externa&&externa.estado==='no_disponible')externaHtml='<p>No se pudo consultar RxNav en internet. Puedes volver a intentarlo o revisar el envase.</p>';
+        else if(externa&&externa.estado==='sin_resultados')externaHtml='<p>RxNav no encontró coincidencias para ese nombre. Confirma la escritura o el principio activo.</p>';
         salidaIA.innerHTML='<section class="cm-resultado cm-ia"><h3>'+esc(titulo)+'</h3><p class="cm-criterio">Existencias consultadas: '+esc(fecha)+'. Opciones para valoración profesional según la indicación indicada.</p>'+(d.aviso?'<p>'+esc(d.aviso)+'</p>':'')+
-          (d.opciones.length?'<ul class="cm-opciones">'+d.opciones.map(function(o){var p=o.producto;return '<li><strong>'+esc(p.nombre)+'</strong><span>'+esc([/\d/.test(p.dosificacion||'')&&!normalizar(p.nombre).includes(normalizar(p.dosificacion))?p.dosificacion:'',p.presentacion].filter(Boolean).join(' · '))+'</span><span class="cm-disponibilidad cm-disponible">Disponible: '+esc(numero(p.vigente))+' '+esc(p.unidad||'unidades')+'</span>'+verLotes(p)+'<p>'+(o.tipo==='misma'?'Coinciden principio, concentración y forma; confirmar envase y prescripción.':o.tipo==='mismo_principio'?'Mismo principio activo; confirmar dosis y presentación.':'Otro principio activo; requiere valoración profesional.')+'</p>'+o.ambitos.map(function(a){return '<div class="cm-ambito"><b>'+esc(a.indicacion)+'</b><details><summary>Precauciones</summary><p>'+esc(a.restricciones.join(' '))+'</p></details></div>';}).join('')+'</li>';}).join('')+'</ul>':'<p>'+(d.reconocido?'No hay una opción documentada con existencia utilizable verificada para esta consulta.':'Nombre o presentación sin confirmar. Usa el nombre exacto o confirma el principio activo del envase.')+' Puedes revisar las referencias generales de abajo.</p>')+'</section>';
+          (d.opciones.length?'<ul class="cm-opciones">'+d.opciones.map(function(o){var p=o.producto;return '<li><strong>'+esc(p.nombre)+'</strong><span>'+esc([/\d/.test(p.dosificacion||'')&&!normalizar(p.nombre).includes(normalizar(p.dosificacion))?p.dosificacion:'',p.presentacion].filter(Boolean).join(' · '))+'</span><span class="cm-disponibilidad cm-disponible">Disponible: '+esc(numero(p.vigente))+' '+esc(p.unidad||'unidades')+'</span>'+verLotes(p)+'<p>'+(o.tipo==='misma'?'Coinciden principio, concentración y forma; confirmar envase y prescripción.':o.tipo==='mismo_principio'?'Mismo principio activo; confirmar dosis y presentación.':'Otro principio activo; requiere valoración profesional.')+'</p>'+o.ambitos.map(function(a){return '<div class="cm-ambito"><b>'+esc(a.indicacion)+'</b><details><summary>Precauciones y fuente</summary><p>'+esc(a.restricciones.join(' '))+'</p>'+enlaceFuente(a.fuente,'Consultar fuente')+'</details></div>';}).join('')+'</li>';}).join('')+'</ul>':'<p>'+(d.reconocido?'No hay una opción documentada con existencia utilizable verificada para esta consulta.':'Nombre o presentación sin confirmar. Usa el nombre exacto o confirma el principio activo del envase.')+' Puedes revisar las referencias generales de abajo.</p>')+externaHtml+'</section>';
       }catch(e){if(activo()&&turno===numeroIA)salidaIA.textContent=e.name==='AbortError'?'La consulta tardó demasiado. Puedes reintentar.':e.message;}
       finally{clearTimeout(temporizador);if(turno===numeroIA){botonIA.disabled=false;controlIA=null;}}
     }
