@@ -303,7 +303,7 @@
       '<div id="zonaDespachoPersonal"></div>' +
       '<div id="zonaCatalogoPersonal" hidden></div>' +
       '<div id="zonaLotesPersonal" hidden></div>';
-    var montado = false, lotesMontados = false;
+    var montado = false, lotesMontados = false, controladorLotes = null;
     var entrega = $('zonaDespachoPersonal'), catalogo = $('zonaCatalogoPersonal'), lotes = $('zonaLotesPersonal');
     if (typeof window.PANTALLA_DESPACHO === 'function') window.PANTALLA_DESPACHO(sb, entrega, usuario);
     else entrega.innerHTML = EN_OBRA;
@@ -319,9 +319,9 @@
       $('subPanel').textContent = esLotes ? 'Consulta el medicamento, la existencia y el vencimiento de un lote' : esConsulta ? 'Busca opciones documentadas y disponibilidad' : esMedicamentos ? 'Consulta de medicamentos y existencias, sin modificarlas' : AREAS[0].sub;
       if (esLotes && !lotesMontados) {
         lotesMontados = true;
-        if (window.LOTES_MEDICAMENTOS && typeof window.LOTES_MEDICAMENTOS.montarBuscador === 'function') window.LOTES_MEDICAMENTOS.montarBuscador(sb, lotes);
+        if (window.LOTES_MEDICAMENTOS && typeof window.LOTES_MEDICAMENTOS.montarBuscador === 'function') controladorLotes = window.LOTES_MEDICAMENTOS.montarBuscador(sb, lotes);
         else lotes.innerHTML = EN_OBRA;
-      }
+      } else if (esLotes && controladorLotes) controladorLotes.actualizar();
       if (esMedicamentos && !montado) {
         montado = true;
         if (typeof window.PANTALLA_INVENTARIO === 'function') window.PANTALLA_INVENTARIO(sb, catalogo, vista);

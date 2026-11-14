@@ -23,10 +23,13 @@ const sesion=await auth('/verify',{token_hash:link.hashed_token,type:'email'},an
 const origen='https://salud.alcaldiadecharallave.com',informe={fecha:new Date().toISOString(),local,rol:'despacho',casos:[],variantes:[],escriturasBloqueadas:0};
 let browser;
 try{
-  const sampleUrl=new URL(base+'/rest/v1/v_existencia_lote');sampleUrl.search=new URLSearchParams({select:'lote',lote:'not.is.null',existencia:'gt.0',limit:'30'});
+  const recientes=await gestion('/database/query',{query:"select l.id as lote_id,l.codigo as lote,v.producto,v.existencia from farmacia.lotes l join farmacia.v_existencia_lote v on v.lote_id=l.id order by l.creado_en desc,l.id limit 5"});
+  assert.equal(recientes.length,5,'Se comprueban los cinco registros más recientes de Inventario');
+  const sampleUrl=new URL(base+'/rest/v1/v_existencia_lote');sampleUrl.search=new URLSearchParams({select:'lote_id,lote,producto,existencia',lote_id:'in.('+recientes.map(l=>l.lote_id).join(',')+')',limit:'30'});
   const sample=await fetch(sampleUrl,{headers:{apikey:anon,Authorization:'Bearer '+sesion.access_token,'Accept-Profile':'farmacia'}});
   assert(sample.ok,'Despacho debe poder leer los lotes con sus propios permisos');
-  const lote=(await sample.json()).find(x=>x.lote?.trim())?.lote;assert(lote,'Debe haber un lote real para comprobar la busqueda');
+  const visibles=await sample.json();for(const l of recientes){const v=visibles.find(x=>x.lote_id===l.lote_id);assert(v,'Despacho debe ver cada lote reciente');assert.equal(Number(v.existencia),Number(l.existencia));}
+  const lote=recientes[0].lote;assert(lote,'Debe haber un lote real para comprobar la busqueda');
   browser=await chromium.launch({channel:'chrome',headless:true});
   const ctx=await browser.newContext({viewport:{width:1280,height:900},serviceWorkers:'block'}),page=await ctx.newPage(),errores=[];
   page.on('pageerror',e=>errores.push(e.message));let fallo=false;
@@ -41,9 +44,11 @@ try{
   const entrega=page.locator('#zonaDespachoPersonal');await entrega.waitFor({state:'visible'});
   const form=entrega.locator('#buscaDestino');await form.evaluate(e=>{e.value='PRUEBA LOCAL SIN ENVIAR';});
   const nav=page.getByRole('button',{name:'Buscar por lote',exact:true});await nav.focus();await page.keyboard.press('Enter');
-  const zona=page.locator('#zonaLotesPersonal'),input=zona.getByRole('searchbox',{name:'Número de lote'});
-  await input.waitFor({state:'visible'});assert.match(await zona.innerText(),/Escribe un número de lote/);
+  const zona=page.locator('#zonaLotesPersonal'),input=zona.getByRole('searchbox',{name:/Número de lote/});
+  await input.waitFor({state:'visible'});await zona.locator('tbody tr').first().waitFor({timeout:10000});informe.casos.push('lotes de Inventario visibles al abrir sin escribir');
   async function buscar(valor){const respuesta=page.waitForResponse(r=>r.url().startsWith(base+'/rest/v1/v_existencia_lote')&&r.request().method()==='GET');await input.fill(valor);await input.press('Enter');const r=await respuesta;await page.waitForFunction(()=>{const s=document.querySelector('[data-lm-resumen]');return s&&!s.textContent.includes('Buscando lotes');});return r;}
+  for(const l of recientes){assert((await buscar(l.lote)).ok());const fila=zona.locator('tbody tr').filter({hasText:l.lote});assert(await fila.count(),'Debe aparecer el código reciente '+l.lote);assert((await fila.innerText()).includes(l.producto));assert((await buscar(l.producto)).ok());assert((await zona.locator('tbody').innerText()).includes(l.lote),'Buscar por medicamento debe mostrar su lote reciente');}informe.casos.push('cinco altas recientes de Inventario por codigo y por medicamento');
+  await buscar('');assert(await zona.locator('tbody tr').count());informe.casos.push('limpiar busqueda vuelve a mostrar Inventario');
   assert((await buscar(lote)).ok());await zona.locator('tbody tr').first().waitFor();
   assert((await zona.locator('tbody tr td:nth-child(3)').allTextContents()).every(x=>x.toLocaleLowerCase().includes(lote.toLocaleLowerCase())));informe.casos.push('lote real y permisos de Despacho');
   assert.equal(await zona.locator('input[type=number], [data-campo], [data-lm-guardar]').count(),0);
@@ -57,7 +62,8 @@ try{
   await buscar('"),producto.ilike.*');assert.match(await zona.locator('[data-lm-resumen]').innerText(),/No hay lotes/);informe.casos.push('caracteres especiales tratados como texto');
   if(local){fallo=true;await buscar(lote);assert.match(await zona.locator('[data-lm-resumen]').innerText(),/No se pudieron consultar/);fallo=false;await buscar(lote);assert(await zona.locator('tbody tr').count());informe.casos.push('error de red y recuperacion');}
   await buscar(lote);
-  await page.getByRole('button',{name:'Entregar',exact:true}).click();assert.equal(await form.inputValue(),'PRUEBA LOCAL SIN ENVIAR');await nav.click();assert(await zona.locator('tbody tr').count());informe.casos.push('entrega y consulta conservadas al cambiar de vista');
+  await page.getByRole('button',{name:'Entregar',exact:true}).click();assert.equal(await form.inputValue(),'PRUEBA LOCAL SIN ENVIAR');const retorno=page.waitForResponse(r=>r.url().startsWith(base+'/rest/v1/v_existencia_lote'));await nav.click();assert((await retorno).ok());await zona.locator('tbody tr').first().waitFor();assert.equal(await input.inputValue(),lote);informe.casos.push('consulta actualizada al volver y entrega conservada');
+  const refresco=page.waitForResponse(r=>r.url().startsWith(base+'/rest/v1/v_existencia_lote'));await zona.getByRole('button',{name:'Actualizar',exact:true}).click();assert((await refresco).ok());await zona.locator('tbody tr').first().waitFor();assert.equal(await input.inputValue(),lote);informe.casos.push('actualizacion explicita con filtro conservado');
   if(!await zona.locator('tbody tr').count())await buscar(lote);
   for(const ancho of [1280,375])for(const tema of ['claro','oscuro']){
     await page.setViewportSize({width:ancho,height:900});await page.evaluate(t=>window.FARMTEMA.poner(t),tema);

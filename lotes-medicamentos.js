@@ -75,22 +75,26 @@
   function montarBuscador(sb, zona) {
     if (!permitido()) { zona.textContent='No tienes acceso a esta consulta.'; return; }
     var pagina=0, termino='', consulta=0, demora, tamano=25;
-    zona.innerHTML='<form class="busca-fila" data-lm-buscar><div class="busca-campo"><label for="desLoteBusca">Número de lote</label><input id="desLoteBusca" type="search" autocomplete="off" placeholder="Escribe el código completo o una parte…"></div><button type="submit" class="secundario">Buscar</button></form>'+
-      '<p class="sub">Puedes volver a Entregar sin perder lo que estabas completando.</p><p data-lm-resumen role="status" aria-live="polite">Escribe un número de lote para consultar sus existencias.</p><div data-lm-resultados></div><div data-lm-paginas class="herr-der"></div>';
+    zona.innerHTML='<form class="busca-fila" data-lm-buscar><div class="busca-campo"><label for="desLoteBusca">Número de lote o medicamento</label><input id="desLoteBusca" type="search" autocomplete="off" placeholder="Código de lote o nombre del medicamento…"></div><div class="herr-der"><button type="submit" class="secundario">Buscar</button><button type="button" class="secundario" data-lm-actualizar>Actualizar</button></div></form>'+
+      '<p class="sub">Lotes registrados en Inventario. Usa Actualizar para consultar las entradas nuevas. Puedes volver a Entregar sin perder lo que estabas completando.</p><p data-lm-resumen role="status" aria-live="polite"></p><div data-lm-resultados></div><div data-lm-paginas class="herr-der"></div>';
     var campo=zona.querySelector('input'), resultado=zona.querySelector('[data-lm-resultados]'), resumen=zona.querySelector('[data-lm-resumen]'), paginas=zona.querySelector('[data-lm-paginas]');
     function vigente(id) { return consulta===id && document.documentElement.contains(zona) && permitido(); }
     function buscar() {
       var id=++consulta; paginas.innerHTML=''; resultado.innerHTML='';
-      if (!termino) { resumen.textContent='Escribe un número de lote para consultar sus existencias.'; return; }
       resumen.textContent='Buscando lotes…';
-      var patron='%'+termino.replace(/[\\%_]/g,'\\$&')+'%';
-      sb.from('v_existencia_lote').select('lote_id,producto_id,producto,dosificacion,presentacion,lote,vence,estado,existencia',{count:'exact'})
-        .ilike('lote',patron).order('lote').order('producto').order('lote_id').range(pagina*tamano,(pagina+1)*tamano-1)
+      var peticion=sb.from('v_existencia_lote').select('lote_id,producto_id,producto,dosificacion,presentacion,lote,vence,estado,existencia',{count:'exact'});
+      if (termino) {
+        var patron='%'+termino.replace(/[\\%_]/g,'\\$&')+'%';
+        var literal='"'+patron.replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"';
+        peticion=peticion.or('lote.ilike.'+literal+',producto.ilike.'+literal);
+      }
+      peticion.order('producto').order('lote').order('lote_id').range(pagina*tamano,(pagina+1)*tamano-1)
         .then(function (r) {
           if (!vigente(id)) return;
           if (r.error || !Array.isArray(r.data) || !Number.isInteger(r.count)) throw Error('Lectura incompleta');
-          if (!r.count) { resumen.textContent='No hay lotes que coincidan con «'+termino+'».'; return; }
-          resumen.textContent=r.count+(r.count===1?' lote encontrado':' lotes encontrados')+' · Página '+(pagina+1)+' de '+Math.ceil(r.count/tamano);
+          if (!r.count) { resumen.textContent=termino?'No hay lotes que coincidan con «'+termino+'».':'No hay lotes registrados en Inventario.'; return; }
+          if (pagina*tamano>=r.count) { pagina=Math.floor((r.count-1)/tamano); buscar(); return; }
+          resumen.textContent=r.count+(termino?(r.count===1?' lote encontrado':' lotes encontrados'):(r.count===1?' lote en Inventario':' lotes en Inventario'))+' · Página '+(pagina+1)+' de '+Math.ceil(r.count/tamano);
           var hoy=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
           resultado.innerHTML='<p class="sub chico">Desliza la tabla hacia los lados para ver todas las columnas.</p><div class="tabla-caja" tabindex="0" role="region" aria-label="Lotes encontrados"><table class="tabla"><thead><tr><th scope="col">Medicamento</th><th scope="col">Presentación</th><th scope="col">Lote</th><th scope="col">Vencimiento</th><th scope="col" class="der">Existencia</th><th scope="col">Estado</th></tr></thead><tbody>'+r.data.map(function (l) {
             var vence=fechaValida(l.vence)?new Intl.DateTimeFormat('es-VE',{timeZone:'UTC',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(l.vence+'T12:00:00Z')):'Sin fecha confirmada';
@@ -104,6 +108,14 @@
     }
     zona.querySelector('form').onsubmit=function (e) { e.preventDefault(); clearTimeout(demora); termino=campo.value.trim(); pagina=0; buscar(); };
     campo.oninput=function () { clearTimeout(demora); consulta++; demora=setTimeout(function () { termino=campo.value.trim(); pagina=0; buscar(); },300); };
+    function actualizar() {
+      clearTimeout(demora);
+      var nuevo=campo.value.trim(); if (nuevo!==termino) pagina=0; termino=nuevo;
+      buscar();
+    }
+    zona.querySelector('[data-lm-actualizar]').onclick=actualizar;
+    buscar();
+    return {actualizar:actualizar};
   }
   function iniciar(sb) {
     cerrar(); cliente=sb;
