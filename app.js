@@ -297,24 +297,31 @@
       '<nav class="areas" aria-label="Áreas de Farmacia">' +
         '<button type="button" data-farmacia-vista="despacho">Entregar</button>' +
         '<button type="button" data-farmacia-vista="catalogo">Catálogo</button>' +
+        '<button type="button" data-farmacia-vista="lotes">Buscar por lote</button>' +
         '<button type="button" data-farmacia-vista="consulta">Buscar medicamentos</button>' +
       '</nav>' +
       '<div id="zonaDespachoPersonal"></div>' +
-      '<div id="zonaCatalogoPersonal" hidden></div>';
-    var montado = false;
-    var entrega = $('zonaDespachoPersonal'), catalogo = $('zonaCatalogoPersonal');
+      '<div id="zonaCatalogoPersonal" hidden></div>' +
+      '<div id="zonaLotesPersonal" hidden></div>';
+    var montado = false, lotesMontados = false;
+    var entrega = $('zonaDespachoPersonal'), catalogo = $('zonaCatalogoPersonal'), lotes = $('zonaLotesPersonal');
     if (typeof window.PANTALLA_DESPACHO === 'function') window.PANTALLA_DESPACHO(sb, entrega, usuario);
     else entrega.innerHTML = EN_OBRA;
     function ir(vista) {
-      var esConsulta = vista === 'consulta', esMedicamentos = vista !== 'despacho';
-      entrega.hidden = esMedicamentos; catalogo.hidden = !esMedicamentos;
+      var esConsulta = vista === 'consulta', esLotes = vista === 'lotes', esMedicamentos = vista === 'catalogo' || esConsulta;
+      entrega.hidden = vista !== 'despacho'; catalogo.hidden = !esMedicamentos; lotes.hidden = !esLotes;
       zona.querySelectorAll('[data-farmacia-vista]').forEach(function (b) {
         var activo = b.dataset.farmaciaVista === vista;
         b.classList.toggle('on', activo);
         b.setAttribute('aria-pressed', activo ? 'true' : 'false');
       });
-      $('tituloPanel').textContent = esConsulta ? 'Consulta de medicamentos' : esMedicamentos ? 'Catálogo de medicamentos' : AREAS[0].titulo;
-      $('subPanel').textContent = esConsulta ? 'Busca opciones documentadas y disponibilidad' : esMedicamentos ? 'Consulta de medicamentos y existencias, sin modificarlas' : AREAS[0].sub;
+      $('tituloPanel').textContent = esLotes ? 'Búsqueda por lote' : esConsulta ? 'Consulta de medicamentos' : esMedicamentos ? 'Catálogo de medicamentos' : AREAS[0].titulo;
+      $('subPanel').textContent = esLotes ? 'Consulta el medicamento, la existencia y el vencimiento de un lote' : esConsulta ? 'Busca opciones documentadas y disponibilidad' : esMedicamentos ? 'Consulta de medicamentos y existencias, sin modificarlas' : AREAS[0].sub;
+      if (esLotes && !lotesMontados) {
+        lotesMontados = true;
+        if (window.LOTES_MEDICAMENTOS && typeof window.LOTES_MEDICAMENTOS.montarBuscador === 'function') window.LOTES_MEDICAMENTOS.montarBuscador(sb, lotes);
+        else lotes.innerHTML = EN_OBRA;
+      }
       if (esMedicamentos && !montado) {
         montado = true;
         if (typeof window.PANTALLA_INVENTARIO === 'function') window.PANTALLA_INVENTARIO(sb, catalogo, vista);
