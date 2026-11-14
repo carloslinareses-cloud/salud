@@ -1,6 +1,6 @@
 # Búsqueda por lote para Despacho
 
-Los usuarios con rol Despacho tienen la opción **Buscar por lote**, junto a Entregar, Catálogo y Buscar medicamentos.
+Los usuarios con rol Despacho tienen un botón destacado **Buscar por lote** al principio de la pantalla Entregar. También se mantiene la opción junto a Entregar, Catálogo y Buscar medicamentos. El botón abre la consulta y coloca el foco en el buscador.
 
 1. Abrir Buscar por lote. Se cargan directamente los lotes registrados en Inventario.
 2. Escribir el número completo del lote, una parte o el nombre del medicamento y pulsar Buscar. También se consulta al terminar de escribir. Borrar el texto muestra otra vez todos los lotes.
@@ -16,7 +16,7 @@ Se mantienen montadas las pantallas al cambiar de opción: volver a Entregar con
 - Se consulta `farmacia.v_existencia_lote` con la sesión y los permisos existentes de Despacho. No se cambian perfiles, políticas ni funciones SQL.
 - El filtro consulta código o nombre mediante `ilike`. Se escapan los comodines SQL y se entrecomillan los valores del filtro OR según la gramática de PostgREST, escapando también comillas y barras. Los datos mostrados se codifican como texto.
 - La pantalla solo ofrece consultas: no contiene controles para ajustar, guardar o borrar inventario.
-- Las revisiones de `app.js` y `lotes-medicamentos.js` en el HTML se actualizan a `20261114-lotes-inventario`.
+- El HTML carga `app.js?v=20261114-boton-lote` y `lotes-medicamentos.js?v=20261114-lotes-inventario`.
 
 ## Comprobación
 

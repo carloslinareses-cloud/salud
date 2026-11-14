@@ -300,6 +300,7 @@
         '<button type="button" data-farmacia-vista="lotes">Buscar por lote</button>' +
         '<button type="button" data-farmacia-vista="consulta">Buscar medicamentos</button>' +
       '</nav>' +
+      '<div id="accesoLotesDespacho" class="botonera"><button type="button" id="btnBuscarLoteDespacho" class="principal" aria-controls="zonaLotesPersonal">Buscar por lote</button></div>' +
       '<div id="zonaDespachoPersonal"></div>' +
       '<div id="zonaCatalogoPersonal" hidden></div>' +
       '<div id="zonaLotesPersonal" hidden></div>';
@@ -309,7 +310,7 @@
     else entrega.innerHTML = EN_OBRA;
     function ir(vista) {
       var esConsulta = vista === 'consulta', esLotes = vista === 'lotes', esMedicamentos = vista === 'catalogo' || esConsulta;
-      entrega.hidden = vista !== 'despacho'; catalogo.hidden = !esMedicamentos; lotes.hidden = !esLotes;
+      entrega.hidden = vista !== 'despacho'; $('accesoLotesDespacho').hidden = entrega.hidden; catalogo.hidden = !esMedicamentos; lotes.hidden = !esLotes;
       zona.querySelectorAll('[data-farmacia-vista]').forEach(function (b) {
         var activo = b.dataset.farmaciaVista === vista;
         b.classList.toggle('on', activo);
@@ -330,6 +331,10 @@
     }
     zona.querySelectorAll('[data-farmacia-vista]').forEach(function (b) {
       b.addEventListener('click', function () { ir(b.dataset.farmaciaVista); });
+    });
+    $('btnBuscarLoteDespacho').addEventListener('click', function () {
+      ir('lotes');
+      var campo = lotes.querySelector('input[type="search"]'); if (campo) campo.focus();
     });
     ir('despacho');
   }

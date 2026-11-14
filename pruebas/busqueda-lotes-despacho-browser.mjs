@@ -43,9 +43,15 @@ try{
   await page.goto(origen+'/?revision=despacho-lotes');await page.waitForFunction(()=>window.FARMACIA_PERFIL?.rol==='despacho',{timeout:45000});
   const entrega=page.locator('#zonaDespachoPersonal');await entrega.waitFor({state:'visible'});
   const form=entrega.locator('#buscaDestino');await form.evaluate(e=>{e.value='PRUEBA LOCAL SIN ENVIAR';});
-  const nav=page.getByRole('button',{name:'Buscar por lote',exact:true});await nav.focus();await page.keyboard.press('Enter');
+  const nav=page.locator('[data-farmacia-vista="lotes"]'),directo=page.locator('#btnBuscarLoteDespacho');
+  for(const ancho of [1280,375])for(const tema of ['claro','oscuro']){
+    await page.setViewportSize({width:ancho,height:900});await page.evaluate(t=>window.FARMTEMA.poner(t),tema);
+    assert(await directo.isVisible(),'El botón directo debe estar visible en Entregar');const caja=await directo.boundingBox();assert(caja.y>=0&&caja.y+caja.height<=900,'El botón debe verse sin bajar la pantalla');
+    await page.locator('#accesoLotesDespacho').screenshot({path:path.join(raiz,'output','boton-lote-despacho-'+(local?'local':'produccion')+'-'+ancho+'-'+tema+'.png')});
+  }
+  await page.setViewportSize({width:1280,height:900});await page.evaluate(()=>window.FARMTEMA.poner('claro'));await directo.focus();await page.keyboard.press('Enter');informe.casos.push('boton Buscar por lote visible en Entregar y accesible con teclado');
   const zona=page.locator('#zonaLotesPersonal'),input=zona.getByRole('searchbox',{name:/Número de lote/});
-  await input.waitFor({state:'visible'});await zona.locator('tbody tr').first().waitFor({timeout:10000});informe.casos.push('lotes de Inventario visibles al abrir sin escribir');
+  await input.waitFor({state:'visible'});assert(await input.evaluate(e=>e===document.activeElement),'El acceso directo debe enfocar la búsqueda');assert(!await directo.isVisible());await zona.locator('tbody tr').first().waitFor({timeout:10000});informe.casos.push('lotes de Inventario visibles al abrir sin escribir');
   async function buscar(valor){const respuesta=page.waitForResponse(r=>r.url().startsWith(base+'/rest/v1/v_existencia_lote')&&r.request().method()==='GET');await input.fill(valor);await input.press('Enter');const r=await respuesta;await page.waitForFunction(()=>{const s=document.querySelector('[data-lm-resumen]');return s&&!s.textContent.includes('Buscando lotes');});return r;}
   for(const l of recientes){assert((await buscar(l.lote)).ok());const fila=zona.locator('tbody tr').filter({hasText:l.lote});assert(await fila.count(),'Debe aparecer el código reciente '+l.lote);assert((await fila.innerText()).includes(l.producto));assert((await buscar(l.producto)).ok());assert((await zona.locator('tbody').innerText()).includes(l.lote),'Buscar por medicamento debe mostrar su lote reciente');}informe.casos.push('cinco altas recientes de Inventario por codigo y por medicamento');
   await buscar('');assert(await zona.locator('tbody tr').count());informe.casos.push('limpiar busqueda vuelve a mostrar Inventario');
