@@ -56,6 +56,7 @@ try{
   await buscar('LOTE-INEXISTENTE-VERIFICACION-20261114');assert.match(await zona.locator('[data-lm-resumen]').innerText(),/No hay lotes/);assert.equal(await zona.locator('tbody tr').count(),0);informe.casos.push('sin coincidencias');
   await buscar('"),producto.ilike.*');assert.match(await zona.locator('[data-lm-resumen]').innerText(),/No hay lotes/);informe.casos.push('caracteres especiales tratados como texto');
   if(local){fallo=true;await buscar(lote);assert.match(await zona.locator('[data-lm-resumen]').innerText(),/No se pudieron consultar/);fallo=false;await buscar(lote);assert(await zona.locator('tbody tr').count());informe.casos.push('error de red y recuperacion');}
+  await buscar(lote);
   await page.getByRole('button',{name:'Entregar',exact:true}).click();assert.equal(await form.inputValue(),'PRUEBA LOCAL SIN ENVIAR');await nav.click();assert(await zona.locator('tbody tr').count());informe.casos.push('entrega y consulta conservadas al cambiar de vista');
   if(!await zona.locator('tbody tr').count())await buscar(lote);
   for(const ancho of [1280,375])for(const tema of ['claro','oscuro']){
