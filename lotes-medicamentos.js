@@ -96,7 +96,16 @@
           if (pagina*tamano>=r.count) { pagina=Math.floor((r.count-1)/tamano); buscar(); return; }
           resumen.textContent=r.count+(termino?(r.count===1?' lote encontrado':' lotes encontrados'):(r.count===1?' lote en Inventario':' lotes en Inventario'))+' · Página '+(pagina+1)+' de '+Math.ceil(r.count/tamano);
           var hoy=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Caracas',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-          resultado.innerHTML='<p class="sub chico">Desliza la tabla hacia los lados para ver todas las columnas.</p><div class="tabla-caja" tabindex="0" role="region" aria-label="Lotes encontrados"><table class="tabla"><thead><tr><th scope="col">Medicamento</th><th scope="col">Presentación</th><th scope="col">Lote</th><th scope="col">Vencimiento</th><th scope="col" class="der">Existencia</th><th scope="col">Estado</th></tr></thead><tbody>'+r.data.map(function (l) {
+          var filas=r.data, exactos=filas.filter(function (l) { return String(l.lote || '').trim().toLocaleUpperCase()===termino.toLocaleUpperCase(); });
+          var compartido=new Set(exactos.map(function (l) { return l.producto_id; })).size>1;
+          /* Los códigos antiguos pueden repetirse entre medicamentos. Si la
+             consulta completa es ese código, mostrar primero los que tienen
+             saldo; conservar visibles los agotados y sus propios estados. */
+          if (compartido && filas.length===r.count && exactos.length===filas.length) {
+            filas=filas.slice().sort(function (a,b) { return Number(Number(b.existencia)>0)-Number(Number(a.existencia)>0) || String(a.producto).localeCompare(String(b.producto),'es') || String(a.lote_id).localeCompare(String(b.lote_id)); });
+          }
+          resultado.innerHTML=(compartido?'<p class="aviso warn"><b>El lote '+esc(termino)+' está registrado en varios medicamentos.</b> Revisa el medicamento de cada fila: sus existencias se cuentan por separado.</p>':'')+
+            '<p class="sub chico">Desliza la tabla hacia los lados para ver todas las columnas.</p><div class="tabla-caja" tabindex="0" role="region" aria-label="Lotes encontrados"><table class="tabla"><thead><tr><th scope="col">Medicamento</th><th scope="col">Presentación</th><th scope="col">Lote</th><th scope="col">Vencimiento</th><th scope="col" class="der">Existencia</th><th scope="col">Estado</th></tr></thead><tbody>'+filas.map(function (l) {
             var vence=fechaValida(l.vence)?new Intl.DateTimeFormat('es-VE',{timeZone:'UTC',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(l.vence+'T12:00:00Z')):'Sin fecha confirmada';
             var cantidad=l.existencia==null || !Number.isFinite(Number(l.existencia))?'Por confirmar':Number(l.existencia).toLocaleString('es-VE',{maximumFractionDigits:2});
             return '<tr><td>'+esc(l.producto)+' '+esc(l.dosificacion || '')+' '+boton(l.producto_id,l.producto)+'</td><td>'+esc(l.presentacion || '—')+'</td><td>'+esc(l.lote || 'Sin número')+'</td><td>'+esc(vence)+'</td><td class="der">'+esc(cantidad)+'</td><td>'+esc(estado(l,hoy))+'</td></tr>';

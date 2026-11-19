@@ -8,7 +8,7 @@ const raiz=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const publicado=process.argv.includes('--publicado'),origen='https://salud.alcaldiadecharallave.com';
 const remotos=new Map();
 if(publicado)for(const n of ['index.html','app.js','despacho.js','inventario.js','lotes-medicamentos.js']){
-  const r=await fetch(origen+'/'+(n==='index.html'?'':n)+'?verificacion=20261119-entregar-por-lote');
+  const r=await fetch(origen+'/'+(n==='index.html'?'':n)+'?verificacion=20261119-lote-compartido');
   assert(r.ok);remotos.set(n,await r.text());
 }
 const leer=n=>remotos.get(n)??fs.readFileSync(path.join(raiz,n),'utf8');
@@ -24,7 +24,9 @@ function sdk(rol){
     {...base,lote_id:id(103),lote:'VENCIDO',vence:'2020-01-01',existencia:4,situacion:'vencido'},
     {...base,lote_id:id(104),lote:'500',vence:'2029-01-01',existencia:0},
     {...base,lote_id:id(105),lote:'BAJA',vence:'2029-01-01',existencia:3,estado:'dado_de_baja',situacion:'dado_de_baja'},
-    {...base,lote_id:id(106),lote:'QA.(A)*_"%',vence:null,existencia:2,situacion:'sin_fecha'}
+    {...base,lote_id:id(106),lote:'QA.(A)*_"%',vence:null,existencia:2,situacion:'sin_fecha'},
+    {...base,lote_id:id(107),producto_id:id(202),producto:'TRIMETOPRIM / SULFAMETOXAZOL 160 MG',lote:'231003',vence:'2030-05-09',existencia:1120},
+    {...base,lote_id:id(108),producto_id:id(203),producto:'AZITROMICINA 500 MG',lote:'231003',vence:'2030-02-10',existencia:0}
   ];
   window.QA_ENTREGA={lotes,consultas:[],rpc:[],fallarConsulta:false,fallarEntrega:false,lenta:false};
   const qa=window.QA_ENTREGA;
@@ -93,6 +95,26 @@ for(const canal of ['chrome','msedge']){
       await pagina.locator('#recibeNombre').fill('Receptor de prueba');
       const busca=pagina.getByRole('searchbox',{name:'Buscar medicamento o lote'});
       async function buscar(q){await busca.fill(q);await busca.press('Enter');await pagina.waitForFunction(()=>!document.querySelector('#resMed .cargando'));}
+      await buscar('231003');
+      assert.match(await pagina.locator('#resMed').innerText(),/registrado en varios medicamentos/);
+      const trim=pagina.locator('#resMed .ficha').filter({hasText:'TRIMETOPRIM'}),azi=pagina.locator('#resMed .ficha').filter({hasText:'AZITROMICINA'});
+      assert(await trim.isEnabled());assert.match(await trim.innerText(),/1120/);assert(await azi.isDisabled());assert.match(await azi.innerText(),/SIN EXISTENCIA/);
+      assert(!/Este lote no está disponible/.test(await pagina.locator('#resMed').innerText()));
+      await trim.click();assert.equal(await pagina.locator('#renglones .cant').getAttribute('max'),'1120');
+      assert.match(await pagina.locator('#renglones').innerText(),/TRIMETOPRIM.*231003/s);
+      await pagina.locator('#renglones .ci-quitar').click();
+      await pagina.screenshot({path:path.join(salida,nombre+'-compartido-entrega.png'),fullPage:true});
+      await pagina.locator('#btnBuscarLoteFarmacia').click();
+      const global=pagina.locator('#zonaLotesFarmacia'),filtro=global.getByRole('searchbox',{name:'Número de lote o medicamento'});
+      await filtro.fill('231003');await filtro.press('Enter');
+      await pagina.waitForFunction(()=>document.querySelector('#zonaLotesFarmacia [data-lm-resumen]')?.textContent.includes('2 lotes encontrados'));
+      assert.match(await global.locator('[data-lm-resultados]').innerText(),/registrado en varios medicamentos/);
+      const filas=global.locator('tbody tr');assert.equal(await filas.count(),2);
+      assert.match(await filas.nth(0).innerText(),/TRIMETOPRIM/);assert.match(await filas.nth(0).locator('td').nth(4).innerText(),/1[.,]?120/);
+      assert.match(await filas.nth(1).innerText(),/AZITROMICINA/);assert.equal(await filas.nth(1).locator('td').nth(4).innerText(),'0');
+      assert(await pagina.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Aviso de lote compartido sin desbordamiento');
+      await pagina.screenshot({path:path.join(salida,nombre+'-compartido-consulta.png'),fullPage:true});
+      await pagina.locator('#btnVolverLotesFarmacia').click();
       await buscar('dl-454');assert.equal(await pagina.locator('#resMed .ficha').count(),1);assert.match(await pagina.locator('#resMed').innerText(),/Coincidencia exacta.*dl-454/s);
       await busca.focus();assert(await busca.evaluate(e=>e===document.activeElement));
       await pagina.keyboard.press('Tab');await pagina.keyboard.press('Enter');
@@ -123,7 +145,7 @@ for(const canal of ['chrome','msedge']){
       const prueba=await pagina.evaluate(()=>window.QA_ENTREGA);
       assert.deepEqual(prueba.rpc.at(-1).datos.p_datos.items,[{lote_id:'00000000-0000-4000-8000-000000000102',cantidad:3}]);
       assert.equal(prueba.lotes[0].existencia,10);assert.equal(prueba.lotes[1].existencia,5);assert.equal(await pagina.locator('#renglones .cant').count(),0);
-      assert.deepEqual(errores,[]);informe.escenarios.push({canal,rol,ancho,tema,loteExacto:true,descuentoDirigidoSimulado:true,bloqueados:true,errores:0});console.log('Correcto '+nombre);
+      assert.deepEqual(errores,[]);informe.escenarios.push({canal,rol,ancho,tema,loteExacto:true,loteCompartido:true,saldosPorMedicamento:true,descuentoDirigidoSimulado:true,bloqueados:true,errores:0});console.log('Correcto '+nombre);
     }catch(e){await pagina.screenshot({path:path.join(salida,nombre+'-fallo.png'),fullPage:true});throw e;}finally{await ctx.close();}
   }}finally{await browser.close();}
 }

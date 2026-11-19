@@ -8,7 +8,7 @@ const raiz=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const publicado=process.argv.includes('--publicado'),origen='https://salud.alcaldiadecharallave.com';
 const remotos=new Map();
 if(publicado)for(const n of ['index.html','app.js','despacho.js','lotes-medicamentos.js','inventario.js']){
-  const r=await fetch(origen+'/'+(n==='index.html'?'':n)+'?verificacion=20261119-lotes-farmacia');assert(r.ok);remotos.set(n,await r.text());
+  const r=await fetch(origen+'/'+(n==='index.html'?'':n)+'?verificacion=20261119-lote-compartido');assert(r.ok);remotos.set(n,await r.text());
 }
 const leer=n=>remotos.get(n)??fs.readFileSync(path.join(raiz,n),'utf8');
 assert(leer('app.js').includes('prepararBuscadorLotesFarmacia'));

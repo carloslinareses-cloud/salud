@@ -2089,6 +2089,9 @@
 
       var partes = [];
       if (porLote) partes.push('<p class="conteo">Coincidencia exacta de lote: <b>' + esc(q) + '</b></p>');
+      if (porLote && new Set(f.concat(v, bloqueados).map(function (l) { return l.producto_id; })).size > 1) {
+        partes.push('<p class="aviso warn"><b>El lote ' + esc(q) + ' está registrado en varios medicamentos.</b> Elige el medicamento que vas a entregar: cada uno tiene su propia existencia.</p>');
+      }
 
       if (f.length) {
         partes.push('<p class="conteo">' + (total > f.length
@@ -2124,7 +2127,7 @@
       }
 
       if (bloqueados.length) {
-        partes.push('<div class="venc-caja"><p class="venc-lbl">Este lote no está disponible para entregar.</p><div class="fichas">' +
+        partes.push('<div class="venc-caja"><p class="venc-lbl">Estos registros no están disponibles para entregar.</p><div class="fichas">' +
           bloqueados.map(function (x) {
             var motivo = x.estado === 'dado_de_baja' ? 'DADO DE BAJA' : !(Number(x.existencia) > 0) ? 'SIN EXISTENCIA' : 'NO DISPONIBLE';
             return '<button type="button" class="ficha ficha-venc" disabled>' + fichaLote(x, x.situacion === 'vencido') +
