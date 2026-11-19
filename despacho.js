@@ -1953,11 +1953,26 @@
       '<div id="renglones"></div>' +
       '<h2 class="sub-t">Agregar un medicamento</h2>' +
       '<input id="buscaMed" type="search" autocomplete="off" ' +
-        'aria-label="Buscar el medicamento" placeholder="Escribe para acotar la lista…">' +
+        'aria-label="Buscar medicamento o lote" placeholder="Nombre del medicamento o número de lote…">' +
+      '<p class="sub chico">Al registrar la entrega, se descontará del lote que elijas.</p>' +
       '<div id="resMed"></div>';
 
     var caja = document.getElementById('buscaMed');
-    caja.addEventListener('input', retardo(function () { buscarMed(caja.value.trim()); }, 280));
+    var esperaMed;
+    caja.addEventListener('input', function () {
+      clearTimeout(esperaMed);
+      buscaNum++;
+      var lista = document.getElementById('resMed');
+      if (lista) lista.innerHTML = '<div class="cargando">Buscando…</div>';
+      esperaMed = setTimeout(function () {
+        if (document.getElementById('buscaMed') === caja) buscarMed(caja.value.trim());
+      }, 280);
+    });
+    caja.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault(); clearTimeout(esperaMed);
+      buscarMed(caja.value.trim());
+    });
     pintarRenglones();
     /* Se muestra de entrada lo que hay, sin obligar a escribir: así se ve
        qué se puede entregar hoy en vez de adivinar nombres. */
@@ -1975,6 +1990,8 @@
      sigue escribiendo: sin esto, una respuesta lenta de hace dos letras
      puede pintarse encima de la buena. */
   var buscaNum = 0;
+  var CAMPOS_LOTE_ENTREGA = 'lote_id,producto_id,producto,dosificacion,lote,vence,estado,existencia,' +
+    'en_cajas,empaque,unidades_por_empaque,situacion';
 
   /* El cuerpo de la ficha de un lote. Lo comparten la lista de lo que se
      puede entregar y la de lo vencido; lo unico que cambia es que en la
@@ -2007,13 +2024,16 @@
     if (!lista) return;
     lista.innerHTML = '<div class="cargando">Buscando…</div>';
     var mio = ++buscaNum;
+    var porLote = false, bloqueados = [];
+    var patron = q.replace(/[\\%_]/g, '\\$&');
+    var literal = '"' + ('%' + patron + '%').replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+    var exacto = '^' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$';
 
     function consulta(vencidos) {
       var p = sb.from('v_lotes_para_ver')
-        .select('lote_id,producto_id,producto,dosificacion,lote,vence,existencia,' +
-                'en_cajas,empaque,unidades_por_empaque,situacion', { count: 'exact' })
+        .select(CAMPOS_LOTE_ENTREGA, { count: 'exact' })
         .eq('es_vencido', vencidos ? 1 : 0);
-      if (q.length >= 2) p = p.ilike('producto', '*' + q.replace(/[%,()]/g, '') + '*');
+      if (q) p = p.or('producto.ilike.' + literal + ',lote.ilike.' + literal);
       /* FEFO: el que vence primero es el que hay que sacar. Entre los
          vencidos, primero el que lleva mas tiempo vencido. Los que no
          tienen fecha van al final, que es lo que hacia la vista vieja. */
@@ -2025,13 +2045,33 @@
               .limit(vencidos ? 15 : 30);
     }
 
-    Promise.all([consulta(false), consulta(true)]).then(function (rr) {
+    function disponibles() { return Promise.all([consulta(false), consulta(true)]); }
+    /* Un código exacto manda sobre las coincidencias por nombre y FEFO.
+       La vista completa también permite explicar si ese lote se agotó o
+       se dio de baja, en lugar de ofrecer silenciosamente otro lote. */
+    var busqueda = q ? sb.from('v_existencia_lote').select(CAMPOS_LOTE_ENTREGA)
+      .filter('lote', 'imatch', exacto).order('vence', { nullsFirst: false }).order('lote_id').limit(100)
+      .then(function (r) {
+        if (r.error) throw r.error;
+        if (!Array.isArray(r.data)) throw Error('Consulta incompleta');
+        var exactos = (r.data || []).filter(function (l) {
+          return String(l.lote || '').trim().toLocaleUpperCase() === q.toLocaleUpperCase();
+        });
+        if (!exactos.length) return disponibles();
+        porLote = true;
+        var vigentes = [], vencidos = [];
+        exactos.forEach(function (l) {
+          if (l.estado !== 'disponible' || !(Number(l.existencia) > 0)) bloqueados.push(l);
+          else if (l.situacion === 'vencido') vencidos.push(l);
+          else vigentes.push(l);
+        });
+        return [{ data: vigentes, count: vigentes.length }, { data: vencidos, count: vencidos.length }];
+      }) : disponibles();
+
+    busqueda.then(function (rr) {
       var zz = document.getElementById('resMed');
-      if (!zz || mio !== buscaNum) return;      // llego una busqueda mas nueva
-      if (rr[0].error) {
-        zz.innerHTML = '<div class="cargando">' + esc(rr[0].error.message) + '</div>';
-        return;
-      }
+      if (zz !== lista || mio !== buscaNum) return; // llegó otra búsqueda o cambió la pantalla
+      if (rr[0].error) throw rr[0].error;
       var f = rr[0].data || [];
       /* Si falla la consulta de vencidos no se cae la pantalla: se entrega
          igual y sencillamente no se muestra ese bloque. */
@@ -2039,7 +2079,7 @@
       var total  = rr[0].count == null ? f.length : rr[0].count;
       var totalV = rr[1].count == null ? v.length : rr[1].count;
 
-      if (!f.length && !v.length) {
+      if (!f.length && !v.length && !bloqueados.length) {
         zz.innerHTML = '<div class="vacio"><b>' +
           (q ? 'No hay nada de «' + esc(q) + '», ni siquiera vencido.'
              : 'No hay nada cargado para entregar.') +
@@ -2048,6 +2088,7 @@
       }
 
       var partes = [];
+      if (porLote) partes.push('<p class="conteo">Coincidencia exacta de lote: <b>' + esc(q) + '</b></p>');
 
       if (f.length) {
         partes.push('<p class="conteo">' + (total > f.length
@@ -2062,7 +2103,7 @@
                       : '<span class="sit ' + m.c + '">' + m.t + '</span>') +
             '</button>';
           }).join('') + '</div>');
-      } else {
+      } else if (v.length) {
         partes.push('<div class="vacio"><b>' +
           (q ? 'De «' + esc(q) + '» no hay nada que se pueda entregar.'
              : 'No hay nada vigente para entregar.') +
@@ -2082,16 +2123,35 @@
           }).join('') + '</div></div>');
       }
 
+      if (bloqueados.length) {
+        partes.push('<div class="venc-caja"><p class="venc-lbl">Este lote no está disponible para entregar.</p><div class="fichas">' +
+          bloqueados.map(function (x) {
+            var motivo = x.estado === 'dado_de_baja' ? 'DADO DE BAJA' : !(Number(x.existencia) > 0) ? 'SIN EXISTENCIA' : 'NO DISPONIBLE';
+            return '<button type="button" class="ficha ficha-venc" disabled>' + fichaLote(x, x.situacion === 'vencido') +
+              '<span class="sit mal">' + motivo + '</span></button>';
+          }).join('') + '</div></div>');
+      }
+
       zz.innerHTML = partes.join('');
       /* Solo los de arriba se pueden tocar; los vencidos van disabled y
          sin escuchador, para que no haya forma de meterlos por error. */
       zz.querySelectorAll('.ficha[data-i]').forEach(function (b) {
         b.addEventListener('click', function () { agregar(f[+b.dataset.i]); });
       });
+    }).catch(function () {
+      var zz = document.getElementById('resMed');
+      if (zz !== lista || mio !== buscaNum) return;
+      zz.innerHTML = '<div class="aviso bad">No se pudieron consultar los medicamentos y lotes.</div>' +
+        '<button type="button" class="secundario" data-reintentar-med>Volver a buscar</button>';
+      zz.querySelector('[data-reintentar-med]').addEventListener('click', function () { buscarMed(q); });
     });
   }
 
   function agregar(l) {
+    if (!l || !(Number(l.existencia) > 0) || l.situacion === 'vencido' || (l.estado && l.estado !== 'disponible')) {
+      aviso('warn', 'Ese lote no está disponible para entregar. Vuelve a buscar para consultar su existencia actual.');
+      return;
+    }
     if (cesta.some(function (c) { return c.lote_id === l.lote_id; })) return;
     cesta.push({ lote_id: l.lote_id, producto: l.producto, lote: l.lote,
                  vence: l.vence, disponible: l.existencia, cantidad: 1,
