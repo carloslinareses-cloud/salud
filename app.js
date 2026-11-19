@@ -14,6 +14,8 @@
   var identidadSesion = null;
   var identidadMostrada = null;
   var almacenamientoSesion = null;
+  var controladorLotesFarmacia = null;
+  var regresoLotesFarmacia = null;
 
   function prepararAlmacenamientoSesion() {
     var memoria = {};
@@ -60,6 +62,10 @@
     asistenciaMontada = false;
     usuarioSistema = null;
     if (window.LOTES_MEDICAMENTOS) window.LOTES_MEDICAMENTOS.cerrar();
+    controladorLotesFarmacia = null;
+    regresoLotesFarmacia = null;
+    if ($('buscadorLotesFarmacia')) $('buscadorLotesFarmacia').remove();
+    if ($('contenidoPanel')) $('contenidoPanel').hidden = false;
     ['vistaPanel', 'vistaAsistencia', 'vistaClave', 'selectorSistema', 'chipUsuario', 'btnSalir'].forEach(function (id) { if ($(id)) $(id).hidden = true; });
     ['contenidoPanel', 'contenidoAsistencia'].forEach(function (id) { if ($(id)) $(id).replaceChildren(); });
     $('chipUsuario').textContent = '';
@@ -261,6 +267,7 @@
     window.FARMACIA_PERFIL = { rol: perfil.rol, nombre: perfil.nombre || usuario.email,
       opciones_inventario: perfil.opciones_inventario };
     if (window.LOTES_MEDICAMENTOS) window.LOTES_MEDICAMENTOS.iniciar(sb);
+    prepararBuscadorLotesFarmacia();
     $('chipUsuario').textContent = (perfil.nombre || usuario.email) + ' · ' + perfil.rol;
     $('chipUsuario').hidden = false;
     $('btnSalir').hidden = false;
@@ -290,6 +297,59 @@
     zona.innerHTML = EN_OBRA;
   }
 
+  /* Una sola consulta para todos los perfiles de Farmacia. Se monta fuera
+     del área de trabajo para que Inventario, Administración
+     y Despacho tengan el mismo acceso sin perder sus formularios. */
+  function prepararBuscadorLotesFarmacia() {
+    var perfil = window.FARMACIA_PERFIL || {}, contenido = $('contenidoPanel');
+    if (['admin','inventario','despacho'].indexOf(perfil.rol) === -1 || !contenido ||
+        typeof contenido.insertAdjacentHTML !== 'function' || $('buscadorLotesFarmacia')) return;
+    contenido.insertAdjacentHTML('beforebegin',
+      '<div id="buscadorLotesFarmacia">' +
+        '<div id="accesoLotesFarmacia" class="botonera"><button type="button" id="btnBuscarLoteFarmacia" class="principal" aria-controls="consultaLotesFarmacia" aria-expanded="false">Buscar por lote</button></div>' +
+        '<section id="consultaLotesFarmacia" aria-label="Búsqueda por lote" hidden>' +
+          '<div class="botonera"><button type="button" id="btnVolverLotesFarmacia" class="secundario">Volver a la pantalla anterior</button></div>' +
+          '<div id="zonaLotesFarmacia"></div>' +
+        '</section>' +
+      '</div>');
+    $('btnBuscarLoteFarmacia').addEventListener('click', abrirBuscadorLotesFarmacia);
+    $('btnVolverLotesFarmacia').addEventListener('click', function () {
+      $('consultaLotesFarmacia').hidden = true;
+      $('contenidoPanel').hidden = false;
+      $('accesoLotesFarmacia').hidden = false;
+      $('btnBuscarLoteFarmacia').setAttribute('aria-expanded', 'false');
+      if (regresoLotesFarmacia) {
+        $('tituloPanel').textContent = regresoLotesFarmacia.titulo;
+        $('subPanel').textContent = regresoLotesFarmacia.sub;
+        if (regresoLotesFarmacia.foco && regresoLotesFarmacia.foco.isConnected) regresoLotesFarmacia.foco.focus({ preventScroll: true });
+        window.scrollTo({ top: regresoLotesFarmacia.scroll, behavior: 'auto' });
+      }
+    });
+  }
+
+  function abrirBuscadorLotesFarmacia() {
+    var perfil = window.FARMACIA_PERFIL || {}, consulta = $('consultaLotesFarmacia');
+    if (['admin','inventario','despacho'].indexOf(perfil.rol) === -1 || !consulta) return;
+    if (consulta.hidden) regresoLotesFarmacia = {
+      titulo: $('tituloPanel').textContent, sub: $('subPanel').textContent,
+      foco: document.activeElement, scroll: window.scrollY
+    };
+    $('contenidoPanel').hidden = true;
+    consulta.hidden = false;
+    $('accesoLotesFarmacia').hidden = true;
+    $('btnBuscarLoteFarmacia').setAttribute('aria-expanded', 'true');
+    $('tituloPanel').textContent = 'Búsqueda por lote';
+    $('subPanel').textContent = 'Consulta el medicamento, la existencia y el vencimiento de un lote';
+    var zona = $('zonaLotesFarmacia');
+    if (!controladorLotesFarmacia) {
+      if (window.LOTES_MEDICAMENTOS && typeof window.LOTES_MEDICAMENTOS.montarBuscador === 'function') controladorLotesFarmacia = window.LOTES_MEDICAMENTOS.montarBuscador(sb, zona);
+      else zona.innerHTML = '<div class="aviso bad">No se pudo cargar la búsqueda por lote. Actualiza la página e intenta de nuevo.</div>';
+    } else controladorLotesFarmacia.actualizar();
+    var campo = zona.querySelector('input[type="search"]');
+    if (campo) campo.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
   /* Despacho puede consultar el mismo catálogo sin abrir las acciones de
      inventario. Se mantiene montada la entrega para no perder formularios. */
   function montarDespachoConCatalogo(usuario, zona) {
@@ -300,29 +360,23 @@
         '<button type="button" data-farmacia-vista="lotes">Buscar por lote</button>' +
         '<button type="button" data-farmacia-vista="consulta">Buscar medicamentos</button>' +
       '</nav>' +
-      '<div id="accesoLotesDespacho" class="botonera"><button type="button" id="btnBuscarLoteDespacho" class="principal" aria-controls="zonaLotesPersonal">Buscar por lote</button></div>' +
       '<div id="zonaDespachoPersonal"></div>' +
-      '<div id="zonaCatalogoPersonal" hidden></div>' +
-      '<div id="zonaLotesPersonal" hidden></div>';
-    var montado = false, lotesMontados = false, controladorLotes = null;
-    var entrega = $('zonaDespachoPersonal'), catalogo = $('zonaCatalogoPersonal'), lotes = $('zonaLotesPersonal');
+      '<div id="zonaCatalogoPersonal" hidden></div>';
+    var montado = false;
+    var entrega = $('zonaDespachoPersonal'), catalogo = $('zonaCatalogoPersonal');
     if (typeof window.PANTALLA_DESPACHO === 'function') window.PANTALLA_DESPACHO(sb, entrega, usuario);
     else entrega.innerHTML = EN_OBRA;
     function ir(vista) {
-      var esConsulta = vista === 'consulta', esLotes = vista === 'lotes', esMedicamentos = vista === 'catalogo' || esConsulta;
-      entrega.hidden = vista !== 'despacho'; $('accesoLotesDespacho').hidden = entrega.hidden; catalogo.hidden = !esMedicamentos; lotes.hidden = !esLotes;
+      if (vista === 'lotes') { abrirBuscadorLotesFarmacia(); return; }
+      var esConsulta = vista === 'consulta', esMedicamentos = vista === 'catalogo' || esConsulta;
+      entrega.hidden = vista !== 'despacho'; catalogo.hidden = !esMedicamentos;
       zona.querySelectorAll('[data-farmacia-vista]').forEach(function (b) {
         var activo = b.dataset.farmaciaVista === vista;
         b.classList.toggle('on', activo);
         b.setAttribute('aria-pressed', activo ? 'true' : 'false');
       });
-      $('tituloPanel').textContent = esLotes ? 'Búsqueda por lote' : esConsulta ? 'Consulta de medicamentos' : esMedicamentos ? 'Catálogo de medicamentos' : AREAS[0].titulo;
-      $('subPanel').textContent = esLotes ? 'Consulta el medicamento, la existencia y el vencimiento de un lote' : esConsulta ? 'Busca opciones documentadas y disponibilidad' : esMedicamentos ? 'Consulta de medicamentos y existencias, sin modificarlas' : AREAS[0].sub;
-      if (esLotes && !lotesMontados) {
-        lotesMontados = true;
-        if (window.LOTES_MEDICAMENTOS && typeof window.LOTES_MEDICAMENTOS.montarBuscador === 'function') controladorLotes = window.LOTES_MEDICAMENTOS.montarBuscador(sb, lotes);
-        else lotes.innerHTML = EN_OBRA;
-      } else if (esLotes && controladorLotes) controladorLotes.actualizar();
+      $('tituloPanel').textContent = esConsulta ? 'Consulta de medicamentos' : esMedicamentos ? 'Catálogo de medicamentos' : AREAS[0].titulo;
+      $('subPanel').textContent = esConsulta ? 'Busca opciones documentadas y disponibilidad' : esMedicamentos ? 'Consulta de medicamentos y existencias, sin modificarlas' : AREAS[0].sub;
       if (esMedicamentos && !montado) {
         montado = true;
         if (typeof window.PANTALLA_INVENTARIO === 'function') window.PANTALLA_INVENTARIO(sb, catalogo, vista);
@@ -331,10 +385,6 @@
     }
     zona.querySelectorAll('[data-farmacia-vista]').forEach(function (b) {
       b.addEventListener('click', function () { ir(b.dataset.farmaciaVista); });
-    });
-    $('btnBuscarLoteDespacho').addEventListener('click', function () {
-      ir('lotes');
-      var campo = lotes.querySelector('input[type="search"]'); if (campo) campo.focus();
     });
     ir('despacho');
   }

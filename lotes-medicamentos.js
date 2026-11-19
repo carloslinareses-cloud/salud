@@ -76,7 +76,7 @@
     if (!permitido()) { zona.textContent='No tienes acceso a esta consulta.'; return; }
     var pagina=0, termino='', consulta=0, demora, tamano=25;
     zona.innerHTML='<form class="busca-fila" data-lm-buscar><div class="busca-campo"><label for="desLoteBusca">Número de lote o medicamento</label><input id="desLoteBusca" type="search" autocomplete="off" placeholder="Código de lote o nombre del medicamento…"></div><div class="herr-der"><button type="submit" class="secundario">Buscar</button><button type="button" class="secundario" data-lm-actualizar>Actualizar</button></div></form>'+
-      '<p class="sub">Lotes registrados en Inventario. Usa Actualizar para consultar las entradas nuevas. Puedes volver a Entregar sin perder lo que estabas completando.</p><p data-lm-resumen role="status" aria-live="polite"></p><div data-lm-resultados></div><div data-lm-paginas class="herr-der"></div>';
+      '<p class="sub">Lotes registrados en Inventario. Usa Actualizar para consultar las entradas nuevas. Puedes volver a tu pantalla sin perder lo que estabas completando.</p><p data-lm-resumen role="status" aria-live="polite"></p><div data-lm-resultados></div><div data-lm-paginas class="herr-der"></div>';
     var campo=zona.querySelector('input'), resultado=zona.querySelector('[data-lm-resultados]'), resumen=zona.querySelector('[data-lm-resumen]'), paginas=zona.querySelector('[data-lm-paginas]');
     function vigente(id) { return consulta===id && document.documentElement.contains(zona) && permitido(); }
     function buscar() {
